@@ -1,0 +1,48 @@
+# ============================================================
+# .gitignore — Sistema DPPPS
+# Archivos y carpetas que NO se deben subir al repositorio.
+# ============================================================
+
+# --- Python: archivos compilados ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# --- Entornos virtuales ---
+venv/
+env/
+.env/
+.venv/
+
+# --- Variables de entorno (pueden tener contraseñas) ---
+.env
+*.env
+
+# --- Uploads: evidencias subidas por usuarios ---
+# Estos archivos son datos del sistema, no código
+uploads/*
+!uploads/.gitkeep
+
+# --- Exports: reportes generados ---
+exports/*
+!exports/.gitkeep
+
+# --- IDEs y editores ---
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# --- Sistema operativo Windows ---
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# --- Logs ---
+*.log
+
+# --- Base de datos local (si alguien exporta un dump) ---
+*.sql.bak
+*.dump
