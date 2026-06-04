@@ -492,12 +492,12 @@ Una vez aprobada esta planificación, comenzaremos con:
 | `requirements.txt` + dependencias | ✅ FINALIZADO |
 | `models/asic.py` (ASICDAO) | ✅ FINALIZADO |
 | `models/tipo_actividad.py` | ✅ FINALIZADO |
-| `models/actividad.py` (ActividadDAO) | ⏳ Pendiente |
+| `models/actividad.py` (ActividadDAO) | ✅ FINALIZADO |
 | `controllers/catalogo_controller.py` | ✅ FINALIZADO |
-| `controllers/actividad_controller.py` | ⏳ Pendiente |
+| `controllers/actividad_controller.py` | ✅ FINALIZADO |
 | `views/catalogo_view.py` | ✅ FINALIZADO |
-| `views/actividad_form_view.py` | ⏳ Pendiente |
-| `views/actividad_list_view.py` | ⏳ Pendiente |
+| `views/actividad_view.py` (Formulario y Listado) | ✅ FINALIZADO |
+| (Consolidado en actividad_view.py) | ✅ FINALIZADO |
 | `models/evidencia.py` + FileUpload | ⏳ Pendiente |
 | `services/excel_service.py` (importar) | ⏳ Pendiente |
 | `views/importacion_view.py` | ⏳ Pendiente |

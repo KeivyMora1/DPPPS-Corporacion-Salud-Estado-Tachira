@@ -9,6 +9,7 @@ import tkinter as tk
 from tkinter import messagebox
 from controllers.auth_controller import AuthController
 from views.catalogo_view import CatalogoView
+from views.actividad_view import ActividadView
 
 
 class MainView:
@@ -152,7 +153,7 @@ class MainView:
             # Ambas secciones abren la misma vista de catálogos (con pestañas)
             CatalogoView(self.area_contenido)
         elif seccion == "actividades":
-            self._mostrar_placeholder("Actividades", "Aqui ira el listado y formulario de actividades.")
+            ActividadView(self.area_contenido)
         elif seccion == "importar":
             self._mostrar_placeholder("Importar Excel", "Aqui ira la importacion masiva desde Excel.")
         elif seccion == "reportes":
