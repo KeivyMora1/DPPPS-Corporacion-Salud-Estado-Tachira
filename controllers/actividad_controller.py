@@ -5,10 +5,16 @@
 # ============================================================
 
 from datetime import datetime, date
+import os
+import shutil
+import time
+import mimetypes
 from models.actividad import ActividadDAO
 from models.asic import AsicDAO
 from models.tipo_actividad import TipoActividadDAO
+from models.evidencia import EvidenciaDAO
 from controllers.auth_controller import AuthController
+from config.settings import UPLOADS_DIR, ALLOWED_EXTENSIONS, MAX_FILE_SIZE_MB
 
 
 class ActividadController:
@@ -21,6 +27,7 @@ class ActividadController:
         self.actividad_dao = ActividadDAO()
         self.asic_dao = AsicDAO()
         self.tipo_dao = TipoActividadDAO()
+        self.evidencia_dao = EvidenciaDAO()
         self.auth = AuthController()
 
     def listar_actividades(self, filtros=None):
@@ -35,7 +42,7 @@ class ActividadController:
         """Retorna la lista de todos los tipos de actividad activos."""
         return self.tipo_dao.obtener_todos()
 
-    def guardar_actividad(self, id_asic, id_tipo, fecha_inicio, fecha_fin, lugar, descripcion, participantes, id_actividad=None):
+    def guardar_actividad(self, id_asic, id_tipo, fecha_inicio, fecha_fin, lugar, descripcion, participantes, id_actividad=None, evidencias_temporales=None):
         """
         Registra una nueva actividad o actualiza una existente.
         Valida que los datos cumplan con las reglas de negocio.
@@ -126,7 +133,7 @@ class ActividadController:
         # 8. Guardar en base de datos
         if id_actividad is None:
             # Crear nueva actividad
-            self.actividad_dao.crear(
+            nuevo_id = self.actividad_dao.crear(
                 id_asic=id_asic,
                 id_tipo=id_tipo,
                 id_usuario_registro=id_usuario,
@@ -136,6 +143,19 @@ class ActividadController:
                 descripcion=descripcion,
                 participantes=cant_participantes
             )
+            
+            # Guardar evidencias temporales si existen
+            errores_adjuntos = []
+            if evidencias_temporales:
+                for ruta in evidencias_temporales:
+                    ok_ev, msg_ev = self.procesar_y_guardar_evidencia(nuevo_id, ruta)
+                    if not ok_ev:
+                        errores_adjuntos.append(f"{os.path.basename(ruta)} ({msg_ev})")
+            
+            if errores_adjuntos:
+                errores_str = ", ".join(errores_adjuntos)
+                return True, f"Actividad registrada, pero no se pudieron subir algunos archivos: {errores_str}"
+            
             return True, "Actividad registrada exitosamente."
         else:
             # Actualizar actividad existente
@@ -155,3 +175,89 @@ class ActividadController:
         """Elimina de forma lógica una actividad."""
         self.actividad_dao.eliminar(id_actividad)
         return True, "Actividad eliminada correctamente."
+
+    # ==================== GESTIÓN DE EVIDENCIAS ====================
+
+    def listar_evidencias_de_actividad(self, id_actividad):
+        """Retorna la lista de archivos adjuntos de una actividad."""
+        return self.evidencia_dao.obtener_por_actividad(id_actividad)
+
+    def procesar_y_guardar_evidencia(self, id_actividad, ruta_origen):
+        """
+        Valida y copia físicamente una evidencia a la carpeta 'uploads'
+        e inserta la referencia en la base de datos.
+        """
+        # Validar existencia del archivo de origen
+        if not os.path.exists(ruta_origen):
+            return False, "El archivo de origen no existe."
+
+        # Validar extensión
+        _, ext = os.path.splitext(ruta_origen)
+        ext = ext.lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            return False, f"Extension no permitida ({ext}). Permitidas: {', '.join(ALLOWED_EXTENSIONS)}"
+
+        # Validar tamaño
+        tamano_bytes = os.path.getsize(ruta_origen)
+        max_bytes = MAX_FILE_SIZE_MB * 1024 * 1024
+        if tamano_bytes > max_bytes:
+            return False, f"El archivo supera el tamano maximo de {MAX_FILE_SIZE_MB} MB."
+
+        # Asegurar que el directorio de destino existe
+        if not os.path.exists(UPLOADS_DIR):
+            os.makedirs(UPLOADS_DIR)
+
+        # Generar nombre de destino seguro sin colisiones
+        nombre_original = os.path.basename(ruta_origen)
+        # Limpiar caracteres raros del nombre
+        nombre_limpio = "".join(c for c in nombre_original if c.isalnum() or c in (".", "-", "_")).strip()
+        timestamp = int(time.time())
+        # Nombre único
+        nombre_destino = f"actividad_{id_actividad}_{timestamp}_{nombre_limpio}"
+        ruta_destino = os.path.join(UPLOADS_DIR, nombre_destino).replace("\\", "/")
+
+        try:
+            # Copiar el archivo físicamente
+            shutil.copy2(ruta_origen, ruta_destino)
+            
+            # Adivinar tipo mime
+            tipo_archivo, _ = mimetypes.guess_type(ruta_origen)
+            if not tipo_archivo:
+                tipo_archivo = "application/octet-stream"
+
+            # Insertar en BD
+            self.evidencia_dao.crear(
+                id_actividad=id_actividad,
+                nombre_archivo=nombre_original,
+                ruta_archivo=ruta_destino,
+                tipo_archivo=tipo_archivo,
+                tamano_bytes=tamano_bytes
+            )
+            return True, "Archivo adjuntado correctamente."
+        except Exception as e:
+            # En caso de error, intentar limpiar si se copió el archivo
+            if os.path.exists(ruta_destino):
+                try:
+                    os.remove(ruta_destino)
+                except:
+                    pass
+            return False, f"Error al guardar el archivo: {str(e)}"
+
+    def eliminar_evidencia(self, id_evidencia):
+        """Elimina el registro de evidencia de la BD y borra el archivo físico."""
+        evidencia = self.evidencia_dao.obtener_por_id(id_evidencia)
+        if not evidencia:
+            return False, "Evidencia no encontrada."
+
+        try:
+            # 1. Eliminar de base de datos
+            self.evidencia_dao.eliminar(id_evidencia)
+
+            # 2. Intentar eliminar físicamente el archivo del disco
+            ruta_archivo = evidencia["ruta_archivo"]
+            if os.path.exists(ruta_archivo):
+                os.remove(ruta_archivo)
+
+            return True, "Evidencia eliminada correctamente."
+        except Exception as e:
+            return False, f"Error al eliminar la evidencia: {str(e)}"

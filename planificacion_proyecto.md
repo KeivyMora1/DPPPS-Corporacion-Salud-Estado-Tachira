@@ -498,7 +498,7 @@ Una vez aprobada esta planificación, comenzaremos con:
 | `views/catalogo_view.py` | ✅ FINALIZADO |
 | `views/actividad_view.py` (Formulario y Listado) | ✅ FINALIZADO |
 | (Consolidado en actividad_view.py) | ✅ FINALIZADO |
-| `models/evidencia.py` + FileUpload | ⏳ Pendiente |
+| `models/evidencia.py` + FileUpload | ✅ FINALIZADO |
 | `services/excel_service.py` (importar) | ⏳ Pendiente |
 | `views/importacion_view.py` | ⏳ Pendiente |
 | `services/consolidacion_service.py` | ⏳ Pendiente |

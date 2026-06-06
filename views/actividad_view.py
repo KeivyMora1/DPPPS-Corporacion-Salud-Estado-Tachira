@@ -6,7 +6,7 @@
 # ============================================================
 
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 from datetime import datetime, date
 from controllers.actividad_controller import ActividadController
 
@@ -351,15 +351,15 @@ class ActividadView:
         """
         ventana = tk.Toplevel(self.parent)
         ventana.title("Registrar Actividad" if datos_edicion is None else "Editar Actividad")
-        ventana.geometry("500x550")
+        ventana.geometry("520x680")
         ventana.resizable(False, False)
         ventana.configure(bg="#16213e")
         ventana.grab_set()  # Modal: bloquea interacción con la ventana de atrás
 
         # Centrar la ventana
         ventana.update_idletasks()
-        x = (ventana.winfo_screenwidth() // 2) - 250
-        y = (ventana.winfo_screenheight() // 2) - 275
+        x = (ventana.winfo_screenwidth() // 2) - 260
+        y = (ventana.winfo_screenheight() // 2) - 340
         ventana.geometry(f"+{x}+{y}")
 
         # Título
@@ -369,22 +369,21 @@ class ActividadView:
             font=("Arial", 14, "bold"),
             bg="#16213e", fg="#ffffff"
         )
-        lbl_titulo.pack(pady=(15, 10))
+        lbl_titulo.pack(pady=(15, 5))
 
         # --- ELEMENTOS DEL FORMULARIO ---
-        # Panel interno con scroll si fuera necesario, pero cabe justo en 550px
         marco_form = tk.Frame(ventana, bg="#16213e")
         marco_form.pack(fill="both", expand=True, padx=25, pady=5)
 
         # 1. ASIC (Dropdown)
-        tk.Label(marco_form, text="ASIC *", font=("Arial", 9, "bold"), bg="#16213e", fg="#ccd6f6").pack(anchor="w", pady=(5, 2))
+        tk.Label(marco_form, text="ASIC *", font=("Arial", 9, "bold"), bg="#16213e", fg="#ccd6f6").pack(anchor="w", pady=(2, 2))
         combo_asic = ttk.Combobox(marco_form, state="readonly", font=("Arial", 10))
         combo_asic.pack(fill="x")
         nombres_asics = sorted(list(self.asic_map.keys()))
         combo_asic["values"] = nombres_asics
 
         # 2. Tipo de Actividad (Dropdown)
-        tk.Label(marco_form, text="Tipo de Actividad *", font=("Arial", 9, "bold"), bg="#16213e", fg="#ccd6f6").pack(anchor="w", pady=(10, 2))
+        tk.Label(marco_form, text="Tipo de Actividad *", font=("Arial", 9, "bold"), bg="#16213e", fg="#ccd6f6").pack(anchor="w", pady=(8, 2))
         combo_tipo = ttk.Combobox(marco_form, state="readonly", font=("Arial", 10))
         combo_tipo.pack(fill="x")
         nombres_tipos = sorted(list(self.tipo_map.keys()))
@@ -392,7 +391,7 @@ class ActividadView:
 
         # Marco para Fechas
         marco_fechas = tk.Frame(marco_form, bg="#16213e")
-        marco_fechas.pack(fill="x", pady=10)
+        marco_fechas.pack(fill="x", pady=8)
 
         # 3. Fecha Inicio
         col_izq = tk.Frame(marco_fechas, bg="#16213e")
@@ -423,7 +422,7 @@ class ActividadView:
 
         # Marco para Lugar y Participantes
         marco_lugar_part = tk.Frame(marco_form, bg="#16213e")
-        marco_lugar_part.pack(fill="x", pady=5)
+        marco_lugar_part.pack(fill="x", pady=4)
 
         # 5. Lugar
         col_lug = tk.Frame(marco_lugar_part, bg="#16213e")
@@ -441,27 +440,180 @@ class ActividadView:
         ent_participantes.insert(0, "0")
 
         # 7. Descripción (Caja de Texto)
-        tk.Label(marco_form, text="Descripcion de la Actividad *", font=("Arial", 9, "bold"), bg="#16213e", fg="#ccd6f6").pack(anchor="w", pady=(10, 2))
+        tk.Label(marco_form, text="Descripcion de la Actividad *", font=("Arial", 9, "bold"), bg="#16213e", fg="#ccd6f6").pack(anchor="w", pady=(8, 2))
         
         marco_txt = tk.Frame(marco_form, bg="#0f3460")
-        marco_txt.pack(fill="both", expand=True)
+        marco_txt.pack(fill="x")
         
-        txt_desc = tk.Text(marco_txt, font=("Arial", 10), bg="#0f3460", fg="#ffffff", relief="flat", height=4, insertbackground="#ffffff", wrap="word")
+        txt_desc = tk.Text(marco_txt, font=("Arial", 10), bg="#0f3460", fg="#ffffff", relief="flat", height=3, insertbackground="#ffffff", wrap="word")
         txt_desc.pack(side="left", fill="both", expand=True, padx=5, pady=5)
         
         scroll_txt = ttk.Scrollbar(marco_txt, orient="vertical", command=txt_desc.yview)
         txt_desc.configure(yscrollcommand=scroll_txt.set)
         scroll_txt.pack(side="right", fill="y")
 
+        # --- SECCIÓN DE EVIDENCIAS / ADJUNTOS ---
+        marco_evidencias = tk.LabelFrame(
+            marco_form,
+            text=" Evidencias / Adjuntos ",
+            font=("Arial", 9, "bold"),
+            bg="#16213e",
+            fg="#ccd6f6",
+            padx=10,
+            pady=5,
+            relief="groove",
+            bd=1
+        )
+        marco_evidencias.pack(fill="x", pady=(10, 2))
+
+        marco_lista_ev = tk.Frame(marco_evidencias, bg="#0f3460")
+        marco_lista_ev.pack(side="left", fill="both", expand=True)
+
+        listbox_evidencias = tk.Listbox(
+            marco_lista_ev,
+            font=("Arial", 9),
+            bg="#0f3460",
+            fg="#ffffff",
+            selectbackground="#e94560",
+            relief="flat",
+            height=3
+        )
+        listbox_evidencias.pack(side="left", fill="both", expand=True, padx=2, pady=2)
+
+        scroll_ev = ttk.Scrollbar(marco_lista_ev, orient="vertical", command=listbox_evidencias.yview)
+        listbox_evidencias.configure(yscrollcommand=scroll_ev.set)
+        scroll_ev.pack(side="right", fill="y")
+
+        marco_btns_ev = tk.Frame(marco_evidencias, bg="#16213e")
+        marco_btns_ev.pack(side="right", padx=(10, 0), fill="y")
+
+        # Variables locales de evidencias
+        evidencias_locales_nuevas = [] # Rutas de archivos en disco del usuario (Nueva Actividad)
+        evidencias_existentes = []     # Lista de dicts de BD (Editar Actividad)
+        id_actividad_edicion = None
+
+        if datos_edicion:
+            id_actividad_edicion = datos_edicion["id_actividad"]
+
+        # Funciones locales para evidencias
+        def refrescar_lista_evidencias():
+            listbox_evidencias.delete(0, tk.END)
+            if id_actividad_edicion:
+                evidencias_existentes.clear()
+                try:
+                    lista_ev = self.controller.listar_evidencias_de_actividad(id_actividad_edicion)
+                    for ev in lista_ev:
+                        evidencias_existentes.append(ev)
+                        listbox_evidencias.insert(tk.END, ev["nombre_archivo"])
+                except Exception as e:
+                    messagebox.showerror("Error", f"No se pudieron cargar los adjuntos: {str(e)}", parent=ventana)
+            else:
+                for ruta in evidencias_locales_nuevas:
+                    import os
+                    listbox_evidencias.insert(tk.END, os.path.basename(ruta))
+
+        def adjuntar_archivo():
+            ruta = filedialog.askopenfilename(
+                title="Seleccionar evidencia",
+                filetypes=[
+                    ("Archivos permitidos", "*.jpg;*.jpeg;*.png;*.pdf;*.docx"),
+                    ("Imagenes", "*.jpg;*.jpeg;*.png"),
+                    ("Documentos", "*.pdf;*.docx"),
+                    ("Todos los archivos", "*.*")
+                ],
+                parent=ventana
+            )
+            if not ruta:
+                return
+
+            import os
+            # Validaciones rápidas en UI
+            ext = os.path.splitext(ruta)[1].lower()
+            from config.settings import ALLOWED_EXTENSIONS, MAX_FILE_SIZE_MB
+            if ext not in ALLOWED_EXTENSIONS:
+                messagebox.showerror("Error", f"Extension no permitida ({ext}). Permitidas: {', '.join(ALLOWED_EXTENSIONS)}", parent=ventana)
+                return
+
+            tam = os.path.getsize(ruta)
+            if tam > MAX_FILE_SIZE_MB * 1024 * 1024:
+                messagebox.showerror("Error", f"El archivo supera el tamano maximo de {MAX_FILE_SIZE_MB} MB.", parent=ventana)
+                return
+
+            if id_actividad_edicion:
+                # Edición: subir directamente a disco y BD
+                ok_ev, msg_ev = self.controller.procesar_y_guardar_evidencia(id_actividad_edicion, ruta)
+                if ok_ev:
+                    messagebox.showinfo("Exito", msg_ev, parent=ventana)
+                    refrescar_lista_evidencias()
+                else:
+                    messagebox.showerror("Error", msg_ev, parent=ventana)
+            else:
+                # Creación: guardar en memoria temporalmente
+                if ruta in evidencias_locales_nuevas:
+                    messagebox.showwarning("Atencion", "Este archivo ya ha sido seleccionado.", parent=ventana)
+                    return
+                evidencias_locales_nuevas.append(ruta)
+                refrescar_lista_evidencias()
+
+        def quitar_archivo():
+            seleccion = listbox_evidencias.curselection()
+            if not seleccion:
+                messagebox.showwarning("Atencion", "Selecciona un archivo de la lista para quitar.", parent=ventana)
+                return
+            
+            idx = seleccion[0]
+
+            if id_actividad_edicion:
+                # Edición: eliminar de disco y BD directamente
+                ev = evidencias_existentes[idx]
+                confirmar = messagebox.askyesno(
+                    "Confirmar eliminacion",
+                    f"¿Deseas eliminar permanentemente el archivo '{ev['nombre_archivo']}' del servidor?",
+                    parent=ventana
+                )
+                if confirmar:
+                    ok_del, msg_del = self.controller.eliminar_evidencia(ev["id_evidencia"])
+                    if ok_del:
+                        messagebox.showinfo("Exito", msg_del, parent=ventana)
+                        refrescar_lista_evidencias()
+                    else:
+                        messagebox.showerror("Error", msg_del, parent=ventana)
+            else:
+                # Creación: quitar de la memoria temporal
+                evidencias_locales_nuevas.pop(idx)
+                refrescar_lista_evidencias()
+
+        btn_add_ev = tk.Button(
+            marco_btns_ev,
+            text="+ Adjuntar",
+            font=("Arial", 9, "bold"),
+            bg="#0f3460", fg="#ffffff",
+            relief="flat", cursor="hand2",
+            padx=8, pady=3,
+            command=adjuntar_archivo
+        )
+        btn_add_ev.pack(fill="x", pady=2)
+
+        btn_del_ev = tk.Button(
+            marco_btns_ev,
+            text="- Quitar",
+            font=("Arial", 9),
+            bg="#333333", fg="#ff6b6b",
+            relief="flat", cursor="hand2",
+            padx=8, pady=3,
+            command=quitar_archivo
+        )
+        btn_del_ev.pack(fill="x", pady=2)
+
+        # Cargar los adjuntos de edición
+        refrescar_lista_evidencias()
+
         # Mensaje de Error
         lbl_error = tk.Label(ventana, text="", font=("Arial", 9), bg="#16213e", fg="#e94560")
         lbl_error.pack(pady=3)
 
         # Si es edición, cargamos los datos
-        id_actividad_edicion = None
         if datos_edicion:
-            id_actividad_edicion = datos_edicion["id_actividad"]
-            
             # Seleccionar en combo ASIC
             if datos_edicion["asic_nombre"] in nombres_asics:
                 combo_asic.set(datos_edicion["asic_nombre"])
@@ -517,7 +669,8 @@ class ActividadView:
                 lugar=lugar_val,
                 descripcion=desc_val,
                 participantes=part_val,
-                id_actividad=id_actividad_edicion
+                id_actividad=id_actividad_edicion,
+                evidencias_temporales=evidencias_locales_nuevas if id_actividad_edicion is None else None
             )
 
             if ok:
