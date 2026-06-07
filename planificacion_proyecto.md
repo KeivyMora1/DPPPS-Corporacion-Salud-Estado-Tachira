@@ -499,9 +499,11 @@ Una vez aprobada esta planificación, comenzaremos con:
 | `views/actividad_view.py` (Formulario y Listado) | ✅ FINALIZADO |
 | (Consolidado en actividad_view.py) | ✅ FINALIZADO |
 | `models/evidencia.py` + FileUpload | ✅ FINALIZADO |
-| `services/excel_service.py` (importar) | ⏳ Pendiente |
-| `views/importacion_view.py` | ⏳ Pendiente |
-| `services/consolidacion_service.py` | ⏳ Pendiente |
-| `services/pdf_service.py` | ⏳ Pendiente |
-| `views/reporte_view.py` | ⏳ Pendiente |
-| `views/dashboard_view.py` (completo) | ⏳ Pendiente |
+| `services/excel_service.py` (importar) | ✅ FINALIZADO |
+| `assets/templates/plantilla_importacion.xlsx` | ✅ FINALIZADO |
+| `views/importacion_view.py` | ✅ FINALIZADO |
+| `services/consolidacion_service.py` | ✅ FINALIZADO |
+| `services/pdf_service.py` | ✅ FINALIZADO |
+| `models/informe.py` (InformeDAO + PeriodoDAO) | ✅ FINALIZADO |
+| `views/reporte_view.py` | ✅ FINALIZADO |
+| `views/dashboard_view.py` (completo) | ✅ FINALIZADO |

@@ -11,6 +11,8 @@ from controllers.auth_controller import AuthController
 from views.catalogo_view import CatalogoView
 from views.actividad_view import ActividadView
 from views.importacion_view import ImportacionView
+from views.reporte_view import ReporteView
+from views.dashboard_view import DashboardView
 
 
 class MainView:
@@ -149,7 +151,7 @@ class MainView:
 
         # Cargamos la vista correspondiente
         if seccion == "dashboard":
-            self._mostrar_dashboard()
+            DashboardView(self.area_contenido)
         elif seccion in ("asic", "tipos"):
             # Ambas secciones abren la misma vista de catálogos (con pestañas)
             CatalogoView(self.area_contenido)
@@ -158,7 +160,7 @@ class MainView:
         elif seccion == "importar":
             ImportacionView(self.area_contenido)
         elif seccion == "reportes":
-            self._mostrar_placeholder("Reportes", "Aqui iran los reportes y exportaciones.")
+            ReporteView(self.area_contenido)
         elif seccion == "config":
             self._mostrar_placeholder("Configuracion", "Aqui ira la configuracion del sistema.")
 
