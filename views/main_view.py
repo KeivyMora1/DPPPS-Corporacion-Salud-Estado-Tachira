@@ -10,6 +10,7 @@ from tkinter import messagebox
 from controllers.auth_controller import AuthController
 from views.catalogo_view import CatalogoView
 from views.actividad_view import ActividadView
+from views.importacion_view import ImportacionView
 
 
 class MainView:
@@ -155,7 +156,7 @@ class MainView:
         elif seccion == "actividades":
             ActividadView(self.area_contenido)
         elif seccion == "importar":
-            self._mostrar_placeholder("Importar Excel", "Aqui ira la importacion masiva desde Excel.")
+            ImportacionView(self.area_contenido)
         elif seccion == "reportes":
             self._mostrar_placeholder("Reportes", "Aqui iran los reportes y exportaciones.")
         elif seccion == "config":
