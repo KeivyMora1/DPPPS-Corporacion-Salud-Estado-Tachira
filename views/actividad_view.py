@@ -24,9 +24,10 @@ class ActividadView:
     Se carga en el panel de contenido de la ventana principal.
     """
 
-    def __init__(self, parent):
+    def __init__(self, parent, theme="dark"):
         self.parent = parent
         self.controller = ActividadController()
+        self.theme = theme
         
         # Mapeos de nombres de combo a IDs
         self.asic_map = {}

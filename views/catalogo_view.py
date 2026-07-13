@@ -20,60 +20,71 @@ class CatalogoView:
     Se carga dentro del área de contenido de la ventana principal.
     """
 
-    def __init__(self, parent):
+    def __init__(self, parent, modo="catalogos", theme="dark"):
         """
         parent → El frame del área de contenido donde se dibuja esta vista.
         """
         self.parent = parent
         self.controller = CatalogoController()
+        self.modo = modo
+        self.theme = theme
 
         self._construir_ui()
 
     def _construir_ui(self):
-        """Construye el encabezado y las dos pestañas."""
+        """Construye el encabezado y la vista correspondiente según el modo."""
+        bg_main = "#f5f7fb" if self.theme == "light" else "#1a1a2e"
+        fg_main = "#111827" if self.theme == "light" else "#ffffff"
+        fg_sub = "#4b5563" if self.theme == "light" else "#8892b0"
 
         # --- Título de la sección ---
+        titulo = "Catálogos de ASIC" if self.modo == "asic" else "Catálogos de Tipos de Actividad" if self.modo == "tipos" else "Catálogos"
+        descripcion = "Gestiona los ASIC del sistema." if self.modo == "asic" else "Gestiona los tipos de actividad del sistema." if self.modo == "tipos" else "Gestiona las Áreas de Salud (ASIC) y los tipos de actividad del sistema."
+
         tk.Label(
             self.parent,
-            text="Catálogos",
+            text=titulo,
             font=("Arial", 18, "bold"),
-            bg="#1a1a2e",
-            fg="#ffffff"
+            bg=bg_main,
+            fg=fg_main
         ).pack(anchor="w", padx=30, pady=(25, 2))
 
         tk.Label(
             self.parent,
-            text="Gestiona las Áreas de Salud (ASIC) y los tipos de actividad del sistema.",
+            text=descripcion,
             font=("Arial", 10),
-            bg="#1a1a2e",
-            fg="#8892b0"
+            bg=bg_main,
+            fg=fg_sub
         ).pack(anchor="w", padx=30, pady=(0, 15))
 
-        # --- Pestañas (Notebook) ---
-        style = ttk.Style()
-        style.theme_use("default")
-        style.configure("TNotebook", background="#1a1a2e", borderwidth=0)
-        style.configure("TNotebook.Tab",
-                        background="#16213e",
-                        foreground="#8892b0",
-                        padding=[16, 8],
-                        font=("Arial", 10))
-        style.map("TNotebook.Tab",
-                  background=[("selected", "#0f3460")],
-                  foreground=[("selected", "#ffffff")])
+        if self.modo == "asic":
+            self._construir_tab_asic(self.parent)
+        elif self.modo == "tipos":
+            self._construir_tab_tipos(self.parent)
+        else:
+            # --- Pestañas (Notebook) ---
+            style = ttk.Style()
+            style.theme_use("default")
+            style.configure("TNotebook", background=bg_main, borderwidth=0)
+            style.configure("TNotebook.Tab",
+                            background="#16213e" if self.theme == "dark" else "#e5e7eb",
+                            foreground=fg_sub,
+                            padding=[16, 8],
+                            font=("Arial", 10))
+            style.map("TNotebook.Tab",
+                      background=[("selected", "#0f3460" if self.theme == "dark" else "#c7d2fe")],
+                      foreground=[("selected", fg_main)])
 
-        self.notebook = ttk.Notebook(self.parent)
-        self.notebook.pack(fill="both", expand=True, padx=30, pady=(0, 20))
+            self.notebook = ttk.Notebook(self.parent)
+            self.notebook.pack(fill="both", expand=True, padx=30, pady=(0, 20))
 
-        # Pestaña 1: ASIC
-        tab_asic = tk.Frame(self.notebook, bg="#1a1a2e")
-        self.notebook.add(tab_asic, text="  🏥  ASIC  ")
-        self._construir_tab_asic(tab_asic)
+            tab_asic = tk.Frame(self.notebook, bg=bg_main)
+            self.notebook.add(tab_asic, text="  🏥  ASIC  ")
+            self._construir_tab_asic(tab_asic)
 
-        # Pestaña 2: Tipos de Actividad
-        tab_tipos = tk.Frame(self.notebook, bg="#1a1a2e")
-        self.notebook.add(tab_tipos, text="  📂  Tipos de Actividad  ")
-        self._construir_tab_tipos(tab_tipos)
+            tab_tipos = tk.Frame(self.notebook, bg=bg_main)
+            self.notebook.add(tab_tipos, text="  📂  Tipos de Actividad  ")
+            self._construir_tab_tipos(tab_tipos)
 
     # ==========================================================
     # PESTAÑA: ASIC
@@ -81,9 +92,12 @@ class CatalogoView:
 
     def _construir_tab_asic(self, parent):
         """Construye el contenido de la pestaña ASIC."""
+        bg_main = "#f5f7fb" if self.theme == "light" else "#1a1a2e"
+        bg_panel = "#ffffff" if self.theme == "light" else "#16213e"
+        fg_main = "#111827" if self.theme == "light" else "#ffffff"
 
         # --- Barra de botones ---
-        barra = tk.Frame(parent, bg="#1a1a2e")
+        barra = tk.Frame(parent, bg=bg_main)
         barra.pack(fill="x", pady=(15, 10), padx=10)
 
         tk.Button(
@@ -111,7 +125,7 @@ class CatalogoView:
         ).pack(side="left", padx=(8, 0))
 
         # --- Tabla de ASIC ---
-        marco_tabla = tk.Frame(parent, bg="#1a1a2e")
+        marco_tabla = tk.Frame(parent, bg=bg_main)
         marco_tabla.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
         # Columnas de la tabla
@@ -126,14 +140,14 @@ class CatalogoView:
         # Configuramos el estilo de la tabla
         style = ttk.Style()
         style.configure("Treeview",
-                        background="#16213e",
-                        foreground="#ffffff",
-                        fieldbackground="#16213e",
+                        background=bg_panel,
+                        foreground=fg_main,
+                        fieldbackground=bg_panel,
                         rowheight=30,
                         font=("Arial", 10))
         style.configure("Treeview.Heading",
-                        background="#0f3460",
-                        foreground="#ffffff",
+                        background="#0f3460" if self.theme == "dark" else "#c7d2fe",
+                        foreground=fg_main,
                         font=("Arial", 10, "bold"))
         style.map("Treeview", background=[("selected", "#e94560")])
 
@@ -158,7 +172,7 @@ class CatalogoView:
         scroll.pack(side="right", fill="y")
 
         # --- Botones Editar / Eliminar (debajo de la tabla) ---
-        barra_acciones = tk.Frame(parent, bg="#1a1a2e")
+        barra_acciones = tk.Frame(parent, bg=bg_main)
         barra_acciones.pack(fill="x", padx=10, pady=(5, 10))
 
         tk.Button(
@@ -323,8 +337,11 @@ class CatalogoView:
 
     def _construir_tab_tipos(self, parent):
         """Construye el contenido de la pestaña Tipos de Actividad."""
+        bg_main = "#f5f7fb" if self.theme == "light" else "#1a1a2e"
+        bg_panel = "#ffffff" if self.theme == "light" else "#16213e"
+        fg_main = "#111827" if self.theme == "light" else "#ffffff"
 
-        barra = tk.Frame(parent, bg="#1a1a2e")
+        barra = tk.Frame(parent, bg=bg_main)
         barra.pack(fill="x", pady=(15, 10), padx=10)
 
         tk.Button(
@@ -347,11 +364,22 @@ class CatalogoView:
             command=self._cargar_tipos
         ).pack(side="left", padx=(8, 0))
 
-        marco_tabla = tk.Frame(parent, bg="#1a1a2e")
+        marco_tabla = tk.Frame(parent, bg=bg_main)
         marco_tabla.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
         columnas = ("id", "codigo", "nombre", "descripcion")
         self.tabla_tipos = ttk.Treeview(marco_tabla, columns=columnas, show="headings", height=15)
+        style = ttk.Style()
+        style.configure("Treeview",
+                        background=bg_panel,
+                        foreground=fg_main,
+                        fieldbackground=bg_panel,
+                        rowheight=30,
+                        font=("Arial", 10))
+        style.configure("Treeview.Heading",
+                        background="#0f3460" if self.theme == "dark" else "#c7d2fe",
+                        foreground=fg_main,
+                        font=("Arial", 10, "bold"))
 
         self.tabla_tipos.heading("id",          text="ID")
         self.tabla_tipos.heading("codigo",      text="Código")
@@ -368,7 +396,7 @@ class CatalogoView:
         self.tabla_tipos.pack(side="left", fill="both", expand=True)
         scroll.pack(side="right", fill="y")
 
-        barra_acciones = tk.Frame(parent, bg="#1a1a2e")
+        barra_acciones = tk.Frame(parent, bg=bg_main)
         barra_acciones.pack(fill="x", padx=10, pady=(5, 10))
 
         tk.Button(

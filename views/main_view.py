@@ -30,7 +30,6 @@ class MainView:
         ("📂", "Tipos",        "tipos"),
         ("📥", "Importar",     "importar"),
         ("📊", "Reportes",     "reportes"),
-        ("⚙️", "Configuracion","config"),
     ]
 
     def __init__(self, root):
@@ -40,6 +39,8 @@ class MainView:
 
         # Guardamos referencia a los botones del menú para cambiar su estilo
         self.botones_menu = {}
+        self.tema_actual = "dark"
+        self.seccion_actual = "dashboard"
 
         # Configuramos la ventana principal
         self.root.title("DPPPS — Sistema de Consolidacion de Informes")
@@ -132,12 +133,28 @@ class MainView:
             btn.bind("<Leave>", lambda e, b=btn: b.config(bg="#16213e", fg="#8892b0") if b.cget("bg") != "#e94560" else None)
             self.botones_menu[clave] = btn
 
+        self.btn_tema = tk.Button(
+            self.panel_menu,
+            text="🌙 Tema oscuro",
+            font=("Arial", 10),
+            bg="#0f3460",
+            fg="#ffffff",
+            relief="flat",
+            cursor="hand2",
+            padx=10,
+            pady=12,
+            command=self._alternar_tema
+        )
+        self.btn_tema.pack(side="bottom", fill="x", padx=10, pady=(20, 14))
+
         # ===== ÁREA DE CONTENIDO =====
         self.area_contenido = tk.Frame(contenedor, bg="#1a1a2e")
         self.area_contenido.pack(fill="both", expand=True)
 
     def _navegar(self, seccion):
         """Cambia la sección visible y resalta el botón activo en el menú."""
+        self.seccion_actual = seccion
+
         # Limpiamos el contenido actual
         for widget in self.area_contenido.winfo_children():
             widget.destroy()
@@ -151,18 +168,26 @@ class MainView:
 
         # Cargamos la vista correspondiente
         if seccion == "dashboard":
-            DashboardView(self.area_contenido)
-        elif seccion in ("asic", "tipos"):
-            # Ambas secciones abren la misma vista de catálogos (con pestañas)
-            CatalogoView(self.area_contenido)
+            DashboardView(self.area_contenido, theme=self.tema_actual)
+        elif seccion == "asic":
+            CatalogoView(self.area_contenido, modo="asic", theme=self.tema_actual)
+        elif seccion == "tipos":
+            CatalogoView(self.area_contenido, modo="tipos", theme=self.tema_actual)
         elif seccion == "actividades":
-            ActividadView(self.area_contenido)
+            ActividadView(self.area_contenido, theme=self.tema_actual)
         elif seccion == "importar":
             ImportacionView(self.area_contenido)
         elif seccion == "reportes":
             ReporteView(self.area_contenido)
-        elif seccion == "config":
-            self._mostrar_placeholder("Configuracion", "Aqui ira la configuracion del sistema.")
+
+    def _alternar_tema(self):
+        """Cambia entre tema claro y oscuro y recrea la vista actual."""
+        self.tema_actual = "light" if self.tema_actual == "dark" else "dark"
+        self.btn_tema.config(text="☀️ Tema claro" if self.tema_actual == "dark" else "🌙 Tema oscuro")
+        self.root.configure(bg="#f5f7fb" if self.tema_actual == "light" else "#1a1a2e")
+        self.panel_menu.configure(bg="#e8edf5" if self.tema_actual == "light" else "#16213e")
+        self.area_contenido.configure(bg="#f5f7fb" if self.tema_actual == "light" else "#1a1a2e")
+        self._navegar(self.seccion_actual)
 
     def _mostrar_dashboard(self):
         """Pantalla de inicio con tarjetas de resumen."""

@@ -14,7 +14,7 @@ DATABASE = {
         "host": "localhost",
         "port": 3306,
         "user": "root",
-        "password": "admin",          # Cambia esto si tu MariaDB/MySQL tiene contraseña
+        "password": "",          # Cambia esto si tu MariaDB/MySQL tiene contraseña
         "database": "dppps_informes"
     },
     "lan": {

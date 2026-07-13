@@ -57,10 +57,11 @@ class DashboardView:
     Se monta como hijo del área de contenido de MainView.
     """
 
-    def __init__(self, parent: tk.Frame):
+    def __init__(self, parent: tk.Frame, theme: str = "dark"):
         self.parent  = parent
         self.auth    = AuthController()
         self.usuario = self.auth.obtener_usuario_actual()
+        self.theme = theme
 
         # Contenedor principal con scroll
         self._canvas = tk.Canvas(parent, bg=BG_DARK, highlightthickness=0)
@@ -119,7 +120,7 @@ class DashboardView:
                  font=("Arial", 10), bg=BG_DARK, fg=TEXT_DIM
                  ).pack(anchor="w", padx=30, pady=(0, 16))
 
-        # ── Fila de KPI (4 tarjetas) ─────────────────────────────────
+        # ── Fila de KPI (2 tarjetas) ─────────────────────────────────
         self._frame_kpi = tk.Frame(self._inner, bg=BG_DARK)
         self._frame_kpi.pack(fill="x", padx=30, pady=(0, 18))
 
@@ -127,41 +128,22 @@ class DashboardView:
         kpis = [
             ("act_mes",    "📋",  "Actividades\ndel mes",   ACCENT),
             ("part_mes",   "👥",  "Participantes\ndel mes", BG_CARD),
-            ("asic_total", "🏥",  "ASIC\nregistradas",      PURPLE),
-            ("informes",   "📊",  "Informes\ngenerados",    GREEN),
         ]
         for clave, icono, label, color in kpis:
             var = tk.StringVar(value="…")
             self._kpi_vars[clave] = var
             self._tarjeta_kpi(self._frame_kpi, icono, label, var, color)
 
-        # ── Fila inferior: últimas actividades + gráfico ─────────────
+        # ── Fila inferior: últimas actividades ─────────────────────
         fila_inf = tk.Frame(self._inner, bg=BG_DARK)
         fila_inf.pack(fill="both", expand=True, padx=30, pady=(0, 18))
 
-        # Tabla últimas actividades (izquierda, 60 %)
         self._frame_tabla = tk.Frame(fila_inf, bg=BG_PANEL, padx=14, pady=12)
-        self._frame_tabla.pack(side="left", fill="both", expand=True, padx=(0, 10))
+        self._frame_tabla.pack(fill="both", expand=True)
         tk.Label(self._frame_tabla, text="Últimas actividades registradas",
                  font=("Arial", 10, "bold"), bg=BG_PANEL, fg=TEXT_LT
                  ).pack(anchor="w", pady=(0, 6))
         self._tabla_actividades = self._crear_tabla_actividades(self._frame_tabla)
-
-        # Gráfico por ASIC (derecha, 40 %)
-        self._frame_grafico = tk.Frame(fila_inf, bg=BG_PANEL, padx=14, pady=12,
-                                       width=320)
-        self._frame_grafico.pack(side="left", fill="y")
-        self._frame_grafico.pack_propagate(False)
-        tk.Label(self._frame_grafico,
-                 text="Actividades por ASIC (mes actual)",
-                 font=("Arial", 10, "bold"), bg=BG_PANEL, fg=TEXT_LT
-                 ).pack(anchor="w", pady=(0, 6))
-        self._canvas_graf = tk.Canvas(self._frame_grafico, bg=BG_DARK,
-                                      highlightthickness=0, width=290, height=220)
-        self._canvas_graf.pack(fill="both", expand=True)
-
-        # ── Accesos rápidos ──────────────────────────────────────────
-        self._construir_accesos()
 
     def _tarjeta_kpi(self, parent: tk.Frame, icono: str, label: str,
                       var: tk.StringVar, color: str):
@@ -203,29 +185,6 @@ class DashboardView:
         tree.pack(fill="both", expand=True)
         return tree
 
-    def _construir_accesos(self):
-        marco = tk.Frame(self._inner, bg=BG_DARK)
-        marco.pack(fill="x", padx=30, pady=(0, 24))
-
-        tk.Label(marco, text="Accesos rápidos",
-                 font=("Arial", 11, "bold"), bg=BG_DARK, fg=TEXT_LT
-                 ).pack(anchor="w", pady=(0, 8))
-
-        fila = tk.Frame(marco, bg=BG_DARK)
-        fila.pack(anchor="w")
-
-        accesos = [
-            ("📋  Nueva Actividad",  BG_CARD,  "actividades"),
-            ("📥  Importar Excel",   PURPLE,   "importar"),
-            ("📊  Generar Reporte",  ACCENT,   "reportes"),
-            ("🏥  Catálogos",        "#2a4a3a", "asic"),
-        ]
-        for texto, color, _ in accesos:
-            tk.Button(fila, text=texto, font=("Arial", 10),
-                      bg=color, fg=TEXT_LT, relief="flat",
-                      cursor="hand2", padx=14, pady=8
-                      ).pack(side="left", padx=(0, 10))
-
     # ------------------------------------------------------------------
     # Carga de métricas desde BD (se ejecuta en hilo secundario)
     # ------------------------------------------------------------------
@@ -256,13 +215,6 @@ class DashboardView:
                 "WHERE eliminado=FALSE AND fecha_inicio >= %s AND fecha_inicio <= %s",
                 (f_ini, f_fin)
             )
-            asic_total = _scalar(
-                "SELECT COUNT(*) FROM asic WHERE activo=TRUE"
-            )
-            informes = _scalar(
-                "SELECT COUNT(*) FROM informe_consolidado"
-            )
-
             # Últimas 8 actividades
             ultimas = _query("""
                 SELECT a.fecha_inicio, a.lugar, a.participantes,
@@ -290,19 +242,16 @@ class DashboardView:
 
             # Actualizar UI en el hilo principal
             self.parent.after(0, lambda: self._actualizar_ui(
-                act_mes, part_mes, asic_total, informes, ultimas, por_asic
+                act_mes, part_mes, ultimas, por_asic
             ))
 
         except Exception as exc:
             self.parent.after(0, lambda e=exc: self._mostrar_error_metricas(e))
 
-    def _actualizar_ui(self, act_mes, part_mes, asic_total, informes,
-                        ultimas, por_asic):
+    def _actualizar_ui(self, act_mes, part_mes, ultimas, por_asic):
         # KPIs
         self._kpi_vars["act_mes"].set(str(act_mes))
         self._kpi_vars["part_mes"].set(str(part_mes))
-        self._kpi_vars["asic_total"].set(str(asic_total))
-        self._kpi_vars["informes"].set(str(informes))
 
         # Tabla últimas actividades
         for row in self._tabla_actividades.get_children():
@@ -316,18 +265,9 @@ class DashboardView:
                 act.get("participantes", 0),
             ))
 
-        # Gráfico de barras
-        self._dibujar_grafico(por_asic)
-
     def _mostrar_error_metricas(self, exc: Exception):
         for var in self._kpi_vars.values():
             var.set("—")
-        # Mostramos el error en el canvas del gráfico
-        self._canvas_graf.create_text(
-            145, 110,
-            text=f"Sin conexión a BD\n{str(exc)[:60]}",
-            fill=ACCENT, font=("Arial", 9), justify="center",
-        )
 
     # ------------------------------------------------------------------
     # Gráfico de barras (Canvas nativo)
