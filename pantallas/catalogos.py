@@ -1,17 +1,16 @@
 # ============================================================
-# views/catalogo_view.py
+# pantallas/catalogos.py
 # Vista para gestionar los catálogos del sistema:
 #   - ASIC (Áreas de Salud Integral Comunitaria)
 #   - Tipos de Actividad
 #
-# Tiene dos pestañas (tabs), una para cada catálogo.
-# Cada pestaña muestra una tabla con los registros
-# y botones para crear, editar y eliminar.
+# Tiene dos modos: puede mostrar solo ASIC, solo Tipos,
+# o ambos en pestañas (modo "catalogos").
 # ============================================================
 
 import tkinter as tk
 from tkinter import ttk, messagebox
-from controllers.catalogo_controller import CatalogoController
+from db import CatalogoController
 
 
 class CatalogoView:
@@ -23,11 +22,12 @@ class CatalogoView:
     def __init__(self, parent, modo="catalogos", theme="dark"):
         """
         parent → El frame del área de contenido donde se dibuja esta vista.
+        modo   → "asic", "tipos" o "catalogos" (ambos en tabs).
         """
-        self.parent = parent
+        self.parent     = parent
         self.controller = CatalogoController()
-        self.modo = modo
-        self.theme = theme
+        self.modo       = modo
+        self.theme      = theme
 
         self._construir_ui()
 
@@ -35,42 +35,35 @@ class CatalogoView:
         """Construye el encabezado y la vista correspondiente según el modo."""
         bg_main = "#f5f7fb" if self.theme == "light" else "#1a1a2e"
         fg_main = "#111827" if self.theme == "light" else "#ffffff"
-        fg_sub = "#4b5563" if self.theme == "light" else "#8892b0"
+        fg_sub  = "#4b5563" if self.theme == "light" else "#8892b0"
 
-        # --- Título de la sección ---
-        titulo = "Catálogos de ASIC" if self.modo == "asic" else "Catálogos de Tipos de Actividad" if self.modo == "tipos" else "Catálogos"
-        descripcion = "Gestiona los ASIC del sistema." if self.modo == "asic" else "Gestiona los tipos de actividad del sistema." if self.modo == "tipos" else "Gestiona las Áreas de Salud (ASIC) y los tipos de actividad del sistema."
+        titulo      = "Catálogos de ASIC"              if self.modo == "asic"   else \
+                      "Catálogos de Tipos de Actividad" if self.modo == "tipos"  else \
+                      "Catálogos"
+        descripcion = "Gestiona los ASIC del sistema."  if self.modo == "asic"   else \
+                      "Gestiona los tipos de actividad del sistema." if self.modo == "tipos" else \
+                      "Gestiona las Áreas de Salud (ASIC) y los tipos de actividad del sistema."
 
-        tk.Label(
-            self.parent,
-            text=titulo,
-            font=("Arial", 18, "bold"),
-            bg=bg_main,
-            fg=fg_main
-        ).pack(anchor="w", padx=30, pady=(25, 2))
+        tk.Label(self.parent, text=titulo,
+                 font=("Arial", 18, "bold"), bg=bg_main, fg=fg_main
+                 ).pack(anchor="w", padx=30, pady=(25, 2))
 
-        tk.Label(
-            self.parent,
-            text=descripcion,
-            font=("Arial", 10),
-            bg=bg_main,
-            fg=fg_sub
-        ).pack(anchor="w", padx=30, pady=(0, 15))
+        tk.Label(self.parent, text=descripcion,
+                 font=("Arial", 10), bg=bg_main, fg=fg_sub
+                 ).pack(anchor="w", padx=30, pady=(0, 15))
 
         if self.modo == "asic":
             self._construir_tab_asic(self.parent)
         elif self.modo == "tipos":
             self._construir_tab_tipos(self.parent)
         else:
-            # --- Pestañas (Notebook) ---
+            # Pestañas (Notebook) con ambos catálogos
             style = ttk.Style()
             style.theme_use("default")
             style.configure("TNotebook", background=bg_main, borderwidth=0)
             style.configure("TNotebook.Tab",
                             background="#16213e" if self.theme == "dark" else "#e5e7eb",
-                            foreground=fg_sub,
-                            padding=[16, 8],
-                            font=("Arial", 10))
+                            foreground=fg_sub, padding=[16, 8], font=("Arial", 10))
             style.map("TNotebook.Tab",
                       background=[("selected", "#0f3460" if self.theme == "dark" else "#c7d2fe")],
                       foreground=[("selected", fg_main)])
@@ -92,66 +85,42 @@ class CatalogoView:
 
     def _construir_tab_asic(self, parent):
         """Construye el contenido de la pestaña ASIC."""
-        bg_main = "#f5f7fb" if self.theme == "light" else "#1a1a2e"
+        bg_main  = "#f5f7fb" if self.theme == "light" else "#1a1a2e"
         bg_panel = "#ffffff" if self.theme == "light" else "#16213e"
-        fg_main = "#111827" if self.theme == "light" else "#ffffff"
+        fg_main  = "#111827" if self.theme == "light" else "#ffffff"
 
-        # --- Barra de botones ---
+        # Barra de botones
         barra = tk.Frame(parent, bg=bg_main)
         barra.pack(fill="x", pady=(15, 10), padx=10)
 
-        tk.Button(
-            barra,
-            text="+ Nuevo ASIC",
-            font=("Arial", 10, "bold"),
-            bg="#e94560",
-            fg="#ffffff",
-            relief="flat",
-            cursor="hand2",
-            padx=12, pady=6,
-            command=self._abrir_form_asic
-        ).pack(side="left")
+        tk.Button(barra, text="+ Nuevo ASIC",
+                  font=("Arial", 10, "bold"), bg="#e94560", fg="#ffffff",
+                  relief="flat", cursor="hand2", padx=12, pady=6,
+                  command=self._abrir_form_asic
+                  ).pack(side="left")
 
-        tk.Button(
-            barra,
-            text="Actualizar",
-            font=("Arial", 10),
-            bg="#0f3460",
-            fg="#ffffff",
-            relief="flat",
-            cursor="hand2",
-            padx=12, pady=6,
-            command=self._cargar_asic
-        ).pack(side="left", padx=(8, 0))
+        tk.Button(barra, text="Actualizar",
+                  font=("Arial", 10), bg="#0f3460", fg="#ffffff",
+                  relief="flat", cursor="hand2", padx=12, pady=6,
+                  command=self._cargar_asic
+                  ).pack(side="left", padx=(8, 0))
 
-        # --- Tabla de ASIC ---
+        # Tabla de ASIC
         marco_tabla = tk.Frame(parent, bg=bg_main)
         marco_tabla.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
-        # Columnas de la tabla
         columnas = ("id", "codigo", "nombre", "municipio", "parroquia")
-        self.tabla_asic = ttk.Treeview(
-            marco_tabla,
-            columns=columnas,
-            show="headings",
-            height=15
-        )
+        self.tabla_asic = ttk.Treeview(marco_tabla, columns=columnas, show="headings", height=15)
 
-        # Configuramos el estilo de la tabla
         style = ttk.Style()
         style.configure("Treeview",
-                        background=bg_panel,
-                        foreground=fg_main,
-                        fieldbackground=bg_panel,
-                        rowheight=30,
-                        font=("Arial", 10))
+                        background=bg_panel, foreground=fg_main,
+                        fieldbackground=bg_panel, rowheight=30, font=("Arial", 10))
         style.configure("Treeview.Heading",
                         background="#0f3460" if self.theme == "dark" else "#c7d2fe",
-                        foreground=fg_main,
-                        font=("Arial", 10, "bold"))
+                        foreground=fg_main, font=("Arial", 10, "bold"))
         style.map("Treeview", background=[("selected", "#e94560")])
 
-        # Definimos encabezados y anchos de columna
         self.tabla_asic.heading("id",        text="ID")
         self.tabla_asic.heading("codigo",    text="Código")
         self.tabla_asic.heading("nombre",    text="Nombre")
@@ -164,53 +133,34 @@ class CatalogoView:
         self.tabla_asic.column("municipio", width=150)
         self.tabla_asic.column("parroquia", width=150)
 
-        # Scrollbar vertical
         scroll = ttk.Scrollbar(marco_tabla, orient="vertical", command=self.tabla_asic.yview)
         self.tabla_asic.configure(yscrollcommand=scroll.set)
-
         self.tabla_asic.pack(side="left", fill="both", expand=True)
         scroll.pack(side="right", fill="y")
 
-        # --- Botones Editar / Eliminar (debajo de la tabla) ---
+        # Botones editar / eliminar
         barra_acciones = tk.Frame(parent, bg=bg_main)
         barra_acciones.pack(fill="x", padx=10, pady=(5, 10))
 
-        tk.Button(
-            barra_acciones,
-            text="Editar seleccionado",
-            font=("Arial", 10),
-            bg="#533483",
-            fg="#ffffff",
-            relief="flat",
-            cursor="hand2",
-            padx=12, pady=6,
-            command=self._editar_asic
-        ).pack(side="left")
+        tk.Button(barra_acciones, text="Editar seleccionado",
+                  font=("Arial", 10), bg="#533483", fg="#ffffff",
+                  relief="flat", cursor="hand2", padx=12, pady=6,
+                  command=self._editar_asic
+                  ).pack(side="left")
 
-        tk.Button(
-            barra_acciones,
-            text="Eliminar seleccionado",
-            font=("Arial", 10),
-            bg="#333333",
-            fg="#ff6b6b",
-            relief="flat",
-            cursor="hand2",
-            padx=12, pady=6,
-            command=self._eliminar_asic
-        ).pack(side="left", padx=(8, 0))
+        tk.Button(barra_acciones, text="Eliminar seleccionado",
+                  font=("Arial", 10), bg="#333333", fg="#ff6b6b",
+                  relief="flat", cursor="hand2", padx=12, pady=6,
+                  command=self._eliminar_asic
+                  ).pack(side="left", padx=(8, 0))
 
-        # Cargamos los datos al iniciar
         self._cargar_asic()
 
     def _cargar_asic(self):
         """Recarga la tabla de ASIC desde la base de datos."""
-        # Limpiamos la tabla
         for item in self.tabla_asic.get_children():
             self.tabla_asic.delete(item)
-
-        # Cargamos los datos del controlador
-        lista = self.controller.listar_asic()
-        for asic in lista:
+        for asic in self.controller.listar_asic():
             self.tabla_asic.insert("", "end", values=(
                 asic["id_asic"],
                 asic["codigo"],
@@ -220,32 +170,24 @@ class CatalogoView:
             ))
 
     def _abrir_form_asic(self, datos=None):
-        """
-        Abre una ventana emergente para crear o editar un ASIC.
-        Si 'datos' viene con valores, es edición. Si no, es creación.
-        """
+        """Popup para crear o editar un ASIC."""
         ventana = tk.Toplevel(self.parent)
         ventana.title("Nuevo ASIC" if datos is None else "Editar ASIC")
         ventana.geometry("420x340")
         ventana.resizable(False, False)
         ventana.configure(bg="#16213e")
-        ventana.grab_set()  # Bloquea la ventana principal mientras este popup está abierto
+        ventana.grab_set()
 
-        # Centramos el popup
         ventana.update_idletasks()
-        x = (ventana.winfo_screenwidth() // 2) - 210
+        x = (ventana.winfo_screenwidth()  // 2) - 210
         y = (ventana.winfo_screenheight() // 2) - 170
         ventana.geometry(f"+{x}+{y}")
 
-        # Título del popup
-        tk.Label(
-            ventana,
-            text="Nuevo ASIC" if datos is None else "Editar ASIC",
-            font=("Arial", 14, "bold"),
-            bg="#16213e", fg="#ffffff"
-        ).pack(pady=(20, 15))
+        tk.Label(ventana,
+                 text="Nuevo ASIC" if datos is None else "Editar ASIC",
+                 font=("Arial", 14, "bold"), bg="#16213e", fg="#ffffff"
+                 ).pack(pady=(20, 15))
 
-        # Función auxiliar para crear un campo de formulario
         def campo(label_texto, valor_inicial=""):
             marco = tk.Frame(ventana, bg="#16213e")
             marco.pack(fill="x", padx=25, pady=4)
@@ -258,13 +200,11 @@ class CatalogoView:
             entrada.pack(fill="x", pady=(2, 0))
             return entrada
 
-        # Campos del formulario
-        e_codigo    = campo("Código *", datos["codigo"]    if datos else "")
-        e_nombre    = campo("Nombre *", datos["nombre"]    if datos else "")
-        e_municipio = campo("Municipio", datos.get("municipio", "") if datos else "")
-        e_parroquia = campo("Parroquia", datos.get("parroquia", "") if datos else "")
+        e_codigo    = campo("Código *",   datos["codigo"]            if datos else "")
+        e_nombre    = campo("Nombre *",   datos["nombre"]            if datos else "")
+        e_municipio = campo("Municipio",  datos.get("municipio", "") if datos else "")
+        e_parroquia = campo("Parroquia",  datos.get("parroquia", "") if datos else "")
 
-        # Mensaje de error
         lbl_error = tk.Label(ventana, text="", font=("Arial", 9),
                              bg="#16213e", fg="#e94560")
         lbl_error.pack(pady=(4, 0))
@@ -273,24 +213,19 @@ class CatalogoView:
             id_asic = datos["id_asic"] if datos else None
             ok, msg = self.controller.guardar_asic(
                 e_codigo.get(), e_nombre.get(),
-                e_municipio.get(), e_parroquia.get(),
-                id_asic
+                e_municipio.get(), e_parroquia.get(), id_asic
             )
             if ok:
                 messagebox.showinfo("Exito", msg, parent=ventana)
                 ventana.destroy()
-                self._cargar_asic()  # Recargamos la tabla
+                self._cargar_asic()
             else:
                 lbl_error.config(text=msg)
 
-        tk.Button(
-            ventana,
-            text="Guardar",
-            font=("Arial", 11, "bold"),
-            bg="#e94560", fg="#ffffff",
-            relief="flat", cursor="hand2",
-            command=guardar
-        ).pack(fill="x", padx=25, pady=(10, 0), ipady=8)
+        tk.Button(ventana, text="Guardar",
+                  font=("Arial", 11, "bold"), bg="#e94560", fg="#ffffff",
+                  relief="flat", cursor="hand2", command=guardar
+                  ).pack(fill="x", padx=25, pady=(10, 0), ipady=8)
 
     def _editar_asic(self):
         """Abre el formulario de edición con los datos del ASIC seleccionado."""
@@ -299,17 +234,12 @@ class CatalogoView:
             messagebox.showwarning("Atencion", "Selecciona un ASIC de la tabla primero.")
             return
         valores = self.tabla_asic.item(seleccion[0])["values"]
-        datos = {
-            "id_asic":   valores[0],
-            "codigo":    valores[1],
-            "nombre":    valores[2],
-            "municipio": valores[3],
-            "parroquia": valores[4]
-        }
+        datos   = {"id_asic": valores[0], "codigo": valores[1],
+                   "nombre":  valores[2], "municipio": valores[3], "parroquia": valores[4]}
         self._abrir_form_asic(datos)
 
     def _eliminar_asic(self):
-        """Elimina (desactiva) el ASIC seleccionado en la tabla."""
+        """Desactiva el ASIC seleccionado en la tabla."""
         seleccion = self.tabla_asic.selection()
         if not seleccion:
             messagebox.showwarning("Atencion", "Selecciona un ASIC de la tabla primero.")
@@ -317,12 +247,8 @@ class CatalogoView:
         valores = self.tabla_asic.item(seleccion[0])["values"]
         id_asic = valores[0]
         nombre  = valores[2]
-
-        confirmar = messagebox.askyesno(
-            "Confirmar eliminacion",
-            f"¿Deseas eliminar el ASIC '{nombre}'?\nEsta accion no se puede deshacer."
-        )
-        if confirmar:
+        if messagebox.askyesno("Confirmar eliminacion",
+                               f"¿Deseas eliminar el ASIC '{nombre}'?\nEsta accion no se puede deshacer."):
             ok, msg = self.controller.eliminar_asic(id_asic)
             if ok:
                 messagebox.showinfo("Exito", msg)
@@ -332,54 +258,42 @@ class CatalogoView:
 
     # ==========================================================
     # PESTAÑA: TIPOS DE ACTIVIDAD
-    # (misma estructura que ASIC pero más simple)
     # ==========================================================
 
     def _construir_tab_tipos(self, parent):
         """Construye el contenido de la pestaña Tipos de Actividad."""
-        bg_main = "#f5f7fb" if self.theme == "light" else "#1a1a2e"
+        bg_main  = "#f5f7fb" if self.theme == "light" else "#1a1a2e"
         bg_panel = "#ffffff" if self.theme == "light" else "#16213e"
-        fg_main = "#111827" if self.theme == "light" else "#ffffff"
+        fg_main  = "#111827" if self.theme == "light" else "#ffffff"
 
         barra = tk.Frame(parent, bg=bg_main)
         barra.pack(fill="x", pady=(15, 10), padx=10)
 
-        tk.Button(
-            barra,
-            text="+ Nuevo Tipo",
-            font=("Arial", 10, "bold"),
-            bg="#e94560", fg="#ffffff",
-            relief="flat", cursor="hand2",
-            padx=12, pady=6,
-            command=self._abrir_form_tipo
-        ).pack(side="left")
+        tk.Button(barra, text="+ Nuevo Tipo",
+                  font=("Arial", 10, "bold"), bg="#e94560", fg="#ffffff",
+                  relief="flat", cursor="hand2", padx=12, pady=6,
+                  command=self._abrir_form_tipo
+                  ).pack(side="left")
 
-        tk.Button(
-            barra,
-            text="Actualizar",
-            font=("Arial", 10),
-            bg="#0f3460", fg="#ffffff",
-            relief="flat", cursor="hand2",
-            padx=12, pady=6,
-            command=self._cargar_tipos
-        ).pack(side="left", padx=(8, 0))
+        tk.Button(barra, text="Actualizar",
+                  font=("Arial", 10), bg="#0f3460", fg="#ffffff",
+                  relief="flat", cursor="hand2", padx=12, pady=6,
+                  command=self._cargar_tipos
+                  ).pack(side="left", padx=(8, 0))
 
         marco_tabla = tk.Frame(parent, bg=bg_main)
         marco_tabla.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
         columnas = ("id", "codigo", "nombre", "descripcion")
         self.tabla_tipos = ttk.Treeview(marco_tabla, columns=columnas, show="headings", height=15)
+
         style = ttk.Style()
         style.configure("Treeview",
-                        background=bg_panel,
-                        foreground=fg_main,
-                        fieldbackground=bg_panel,
-                        rowheight=30,
-                        font=("Arial", 10))
+                        background=bg_panel, foreground=fg_main,
+                        fieldbackground=bg_panel, rowheight=30, font=("Arial", 10))
         style.configure("Treeview.Heading",
                         background="#0f3460" if self.theme == "dark" else "#c7d2fe",
-                        foreground=fg_main,
-                        font=("Arial", 10, "bold"))
+                        foreground=fg_main, font=("Arial", 10, "bold"))
 
         self.tabla_tipos.heading("id",          text="ID")
         self.tabla_tipos.heading("codigo",      text="Código")
@@ -399,25 +313,17 @@ class CatalogoView:
         barra_acciones = tk.Frame(parent, bg=bg_main)
         barra_acciones.pack(fill="x", padx=10, pady=(5, 10))
 
-        tk.Button(
-            barra_acciones,
-            text="Editar seleccionado",
-            font=("Arial", 10),
-            bg="#533483", fg="#ffffff",
-            relief="flat", cursor="hand2",
-            padx=12, pady=6,
-            command=self._editar_tipo
-        ).pack(side="left")
+        tk.Button(barra_acciones, text="Editar seleccionado",
+                  font=("Arial", 10), bg="#533483", fg="#ffffff",
+                  relief="flat", cursor="hand2", padx=12, pady=6,
+                  command=self._editar_tipo
+                  ).pack(side="left")
 
-        tk.Button(
-            barra_acciones,
-            text="Eliminar seleccionado",
-            font=("Arial", 10),
-            bg="#333333", fg="#ff6b6b",
-            relief="flat", cursor="hand2",
-            padx=12, pady=6,
-            command=self._eliminar_tipo
-        ).pack(side="left", padx=(8, 0))
+        tk.Button(barra_acciones, text="Eliminar seleccionado",
+                  font=("Arial", 10), bg="#333333", fg="#ff6b6b",
+                  relief="flat", cursor="hand2", padx=12, pady=6,
+                  command=self._eliminar_tipo
+                  ).pack(side="left", padx=(8, 0))
 
         self._cargar_tipos()
 
@@ -425,9 +331,7 @@ class CatalogoView:
         """Recarga la tabla de tipos desde la base de datos."""
         for item in self.tabla_tipos.get_children():
             self.tabla_tipos.delete(item)
-
-        lista = self.controller.listar_tipos()
-        for tipo in lista:
+        for tipo in self.controller.listar_tipos():
             self.tabla_tipos.insert("", "end", values=(
                 tipo["id_tipo"],
                 tipo["codigo"],
@@ -445,16 +349,14 @@ class CatalogoView:
         ventana.grab_set()
 
         ventana.update_idletasks()
-        x = (ventana.winfo_screenwidth() // 2) - 210
+        x = (ventana.winfo_screenwidth()  // 2) - 210
         y = (ventana.winfo_screenheight() // 2) - 160
         ventana.geometry(f"+{x}+{y}")
 
-        tk.Label(
-            ventana,
-            text="Nuevo Tipo" if datos is None else "Editar Tipo",
-            font=("Arial", 14, "bold"),
-            bg="#16213e", fg="#ffffff"
-        ).pack(pady=(20, 15))
+        tk.Label(ventana,
+                 text="Nuevo Tipo" if datos is None else "Editar Tipo",
+                 font=("Arial", 14, "bold"), bg="#16213e", fg="#ffffff"
+                 ).pack(pady=(20, 15))
 
         def campo(label_texto, valor_inicial=""):
             marco = tk.Frame(ventana, bg="#16213e")
@@ -468,9 +370,9 @@ class CatalogoView:
             entrada.pack(fill="x", pady=(2, 0))
             return entrada
 
-        e_codigo      = campo("Código *",     datos["codigo"]      if datos else "")
-        e_nombre      = campo("Nombre *",     datos["nombre"]      if datos else "")
-        e_descripcion = campo("Descripción",  datos.get("descripcion", "") if datos else "")
+        e_codigo      = campo("Código *",    datos["codigo"]              if datos else "")
+        e_nombre      = campo("Nombre *",    datos["nombre"]              if datos else "")
+        e_descripcion = campo("Descripción", datos.get("descripcion", "") if datos else "")
 
         lbl_error = tk.Label(ventana, text="", font=("Arial", 9),
                              bg="#16213e", fg="#e94560")
@@ -488,14 +390,10 @@ class CatalogoView:
             else:
                 lbl_error.config(text=msg)
 
-        tk.Button(
-            ventana,
-            text="Guardar",
-            font=("Arial", 11, "bold"),
-            bg="#e94560", fg="#ffffff",
-            relief="flat", cursor="hand2",
-            command=guardar
-        ).pack(fill="x", padx=25, pady=(10, 0), ipady=8)
+        tk.Button(ventana, text="Guardar",
+                  font=("Arial", 11, "bold"), bg="#e94560", fg="#ffffff",
+                  relief="flat", cursor="hand2", command=guardar
+                  ).pack(fill="x", padx=25, pady=(10, 0), ipady=8)
 
     def _editar_tipo(self):
         """Abre el formulario de edición con los datos del tipo seleccionado."""
@@ -504,16 +402,12 @@ class CatalogoView:
             messagebox.showwarning("Atencion", "Selecciona un tipo de la tabla primero.")
             return
         valores = self.tabla_tipos.item(seleccion[0])["values"]
-        datos = {
-            "id_tipo":     valores[0],
-            "codigo":      valores[1],
-            "nombre":      valores[2],
-            "descripcion": valores[3]
-        }
+        datos   = {"id_tipo": valores[0], "codigo": valores[1],
+                   "nombre":  valores[2], "descripcion": valores[3]}
         self._abrir_form_tipo(datos)
 
     def _eliminar_tipo(self):
-        """Elimina (desactiva) el tipo seleccionado."""
+        """Desactiva el tipo seleccionado."""
         seleccion = self.tabla_tipos.selection()
         if not seleccion:
             messagebox.showwarning("Atencion", "Selecciona un tipo de la tabla primero.")
@@ -521,12 +415,8 @@ class CatalogoView:
         valores = self.tabla_tipos.item(seleccion[0])["values"]
         id_tipo = valores[0]
         nombre  = valores[2]
-
-        confirmar = messagebox.askyesno(
-            "Confirmar eliminacion",
-            f"¿Deseas eliminar el tipo '{nombre}'?"
-        )
-        if confirmar:
+        if messagebox.askyesno("Confirmar eliminacion",
+                               f"¿Deseas eliminar el tipo '{nombre}'?"):
             ok, msg = self.controller.eliminar_tipo(id_tipo)
             if ok:
                 messagebox.showinfo("Exito", msg)
