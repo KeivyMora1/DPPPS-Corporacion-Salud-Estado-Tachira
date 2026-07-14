@@ -6,6 +6,9 @@
 # ============================================================
 
 import tkinter as tk
+import customtkinter as ctk
+
+ctk.set_default_color_theme("blue")
 
 
 def iniciar_app():
@@ -14,24 +17,17 @@ def iniciar_app():
     Primero muestra la pantalla de login.
     Si el login es exitoso, muestra la ventana principal.
     """
-    # Creamos la ventana raíz de Tkinter
-    root = tk.Tk()
+    root = ctk.CTk()
 
-    # Importamos las pantallas aquí para evitar importaciones circulares
     from pantallas.login     import LoginView
     from pantallas.principal import MainView
 
     def al_hacer_login():
-        """
-        Esta función se llama cuando el login es exitoso.
-        Destruye la ventana de login y abre la ventana principal.
-        """
-        root.destroy()               # Cerramos la ventana de login
-        ventana_principal = tk.Tk()  # Creamos una nueva ventana
-        MainView(ventana_principal)  # Cargamos la vista principal
-        ventana_principal.mainloop() # Iniciamos el loop de la ventana principal
+        root.destroy()
+        ventana_principal = ctk.CTk()
+        MainView(ventana_principal)
+        ventana_principal.mainloop()
 
-    # Mostramos la pantalla de login
     LoginView(root, al_hacer_login)
     root.mainloop()
 

@@ -5,13 +5,15 @@
 # y la ventana emergente para crear/editar actividades.
 # ============================================================
 
+import customtkinter as ctk
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from datetime import datetime, date
 from db import ActividadController, ALLOWED_EXTENSIONS, MAX_FILE_SIZE_MB
 import os
 
-# Intentamos importar DateEntry de tkcalendar para mejorar la experiencia de usuario
+from themes import THEMES
+
 try:
     from tkcalendar import DateEntry
     HAS_TKCALENDAR = True
@@ -28,9 +30,8 @@ class ActividadView:
     def __init__(self, parent, theme="dark"):
         self.parent     = parent
         self.controller = ActividadController()
-        self.theme      = theme
+        self.t          = THEMES[theme]
 
-        # Mapeos de nombres de combo a IDs
         self.asic_map = {}
         self.tipo_map = {}
 
@@ -38,7 +39,6 @@ class ActividadView:
         self._construir_ui()
 
     def _cargar_catalogos(self):
-        """Obtiene las listas de ASIC y tipos de actividad para los Combobox."""
         try:
             asics = self.controller.listar_asics()
             self.asic_map = {a["nombre"]: a["id_asic"] for a in asics}
@@ -49,45 +49,46 @@ class ActividadView:
             messagebox.showerror("Error de base de datos", f"No se pudieron cargar los catalogos: {str(e)}")
 
     def _construir_ui(self):
-        """Dibuja todos los componentes de la vista en el panel padre."""
+        t = self.t
 
-        # Título de la sección
-        tk.Label(
+        ctk.CTkLabel(
             self.parent, text="Registro de Actividades",
-            font=("Arial", 18, "bold"), bg="#1a1a2e", fg="#ffffff"
+            font=("Arial", 18, "bold"), text_color=t["text_primary"]
         ).pack(anchor="w", padx=30, pady=(25, 2))
 
-        tk.Label(
+        ctk.CTkLabel(
             self.parent,
             text="Administra, busca y registra las jornadas y actividades medicas de las ASIC.",
-            font=("Arial", 10), bg="#1a1a2e", fg="#8892b0"
+            font=("Arial", 10), text_color=t["text_muted"]
         ).pack(anchor="w", padx=30, pady=(0, 15))
 
-        # Panel de filtros
-        marco_filtros = tk.LabelFrame(
-            self.parent, text=" Filtros de Busqueda ",
-            font=("Arial", 9, "bold"), bg="#16213e", fg="#ccd6f6",
-            padx=15, pady=10, relief="flat"
+        marco_filtros = ctk.CTkFrame(
+            self.parent, fg_color=t["bg_surface"], corner_radius=10,
+            border_width=1, border_color=t["border"]
         )
         marco_filtros.pack(fill="x", padx=30, pady=(0, 10))
 
-        tk.Label(marco_filtros, text="ASIC:", font=("Arial", 9, "bold"), bg="#16213e", fg="#8892b0").grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        ctk.CTkLabel(marco_filtros, text="ASIC:", font=("Arial", 9, "bold"), text_color=t["text_muted"]).grid(row=0, column=0, padx=5, pady=5, sticky="w")
         self.combo_filtro_asic = ttk.Combobox(marco_filtros, state="readonly", width=22, font=("Arial", 10))
         self.combo_filtro_asic.grid(row=0, column=1, padx=5, pady=5)
 
-        tk.Label(marco_filtros, text="Tipo:", font=("Arial", 9, "bold"), bg="#16213e", fg="#8892b0").grid(row=0, column=2, padx=5, pady=5, sticky="w")
+        ctk.CTkLabel(marco_filtros, text="Tipo:", font=("Arial", 9, "bold"), text_color=t["text_muted"]).grid(row=0, column=2, padx=5, pady=5, sticky="w")
         self.combo_filtro_tipo = ttk.Combobox(marco_filtros, state="readonly", width=22, font=("Arial", 10))
         self.combo_filtro_tipo.grid(row=0, column=3, padx=5, pady=5)
 
-        tk.Label(marco_filtros, text="Desde:", font=("Arial", 9, "bold"), bg="#16213e", fg="#8892b0").grid(row=0, column=4, padx=5, pady=5, sticky="w")
-        self.ent_filtro_desde = tk.Entry(marco_filtros, width=12, font=("Arial", 10), bg="#0f3460", fg="#ffffff", relief="flat", bd=3)
+        ctk.CTkLabel(marco_filtros, text="Desde:", font=("Arial", 9, "bold"), text_color=t["text_muted"]).grid(row=0, column=4, padx=5, pady=5, sticky="w")
+        self.ent_filtro_desde = ctk.CTkEntry(marco_filtros, width=130, font=("Arial", 10),
+                                              fg_color=t["bg_card"], text_color=t["text_primary"],
+                                              border_color=t["border"], corner_radius=6)
         self.ent_filtro_desde.grid(row=0, column=5, padx=5, pady=5)
         self.ent_filtro_desde.bind("<FocusIn>",  lambda e: self._limpiar_placeholder_fecha(self.ent_filtro_desde))
         self.ent_filtro_desde.bind("<FocusOut>", lambda e: self._poner_placeholder_fecha(self.ent_filtro_desde))
         self._poner_placeholder_fecha(self.ent_filtro_desde)
 
-        tk.Label(marco_filtros, text="Hasta:", font=("Arial", 9, "bold"), bg="#16213e", fg="#8892b0").grid(row=0, column=6, padx=5, pady=5, sticky="w")
-        self.ent_filtro_hasta = tk.Entry(marco_filtros, width=12, font=("Arial", 10), bg="#0f3460", fg="#ffffff", relief="flat", bd=3)
+        ctk.CTkLabel(marco_filtros, text="Hasta:", font=("Arial", 9, "bold"), text_color=t["text_muted"]).grid(row=0, column=6, padx=5, pady=5, sticky="w")
+        self.ent_filtro_hasta = ctk.CTkEntry(marco_filtros, width=130, font=("Arial", 10),
+                                              fg_color=t["bg_card"], text_color=t["text_primary"],
+                                              border_color=t["border"], corner_radius=6)
         self.ent_filtro_hasta.grid(row=0, column=7, padx=5, pady=5)
         self.ent_filtro_hasta.bind("<FocusIn>",  lambda e: self._limpiar_placeholder_fecha(self.ent_filtro_hasta))
         self.ent_filtro_hasta.bind("<FocusOut>", lambda e: self._poner_placeholder_fecha(self.ent_filtro_hasta))
@@ -100,34 +101,32 @@ class ActividadView:
         self.combo_filtro_tipo["values"] = nombres_tipo
         self.combo_filtro_tipo.current(0)
 
-        tk.Button(marco_filtros, text="Buscar", font=("Arial", 9, "bold"),
-                  bg="#e94560", fg="#ffffff", relief="flat", cursor="hand2", padx=12,
-                  command=self._aplicar_filtros
-                  ).grid(row=0, column=8, padx=10, pady=5)
+        ctk.CTkButton(marco_filtros, text="Buscar", font=("Arial", 9, "bold"),
+                      fg_color=t["accent"], hover_color=t["accent_dim"],
+                      corner_radius=8, command=self._aplicar_filtros
+                      ).grid(row=0, column=8, padx=10, pady=5)
 
-        tk.Button(marco_filtros, text="Limpiar", font=("Arial", 9),
-                  bg="#333333", fg="#ffffff", relief="flat", cursor="hand2", padx=10,
-                  command=self._limpiar_filtros
-                  ).grid(row=0, column=9, padx=2, pady=5)
+        ctk.CTkButton(marco_filtros, text="Limpiar", font=("Arial", 9),
+                      fg_color=t["bg_hover"], hover_color=t["border"],
+                      corner_radius=8, command=self._limpiar_filtros
+                      ).grid(row=0, column=9, padx=2, pady=5)
 
-        # Botón nueva actividad
-        marco_acciones_top = tk.Frame(self.parent, bg="#1a1a2e")
+        marco_acciones_top = ctk.CTkFrame(self.parent, fg_color="transparent")
         marco_acciones_top.pack(fill="x", padx=30, pady=(10, 5))
 
-        tk.Button(marco_acciones_top, text="+ Registrar Nueva Actividad",
-                  font=("Arial", 10, "bold"), bg="#e94560", fg="#ffffff",
-                  relief="flat", cursor="hand2", padx=15, pady=7,
-                  command=self._abrir_form_nueva
-                  ).pack(side="left")
+        ctk.CTkButton(marco_acciones_top, text="+ Registrar Nueva Actividad",
+                      font=("Arial", 10, "bold"), fg_color=t["accent"],
+                      hover_color=t["accent_dim"], corner_radius=8,
+                      command=self._abrir_form_nueva
+                      ).pack(side="left")
 
-        tk.Button(marco_acciones_top, text="Actualizar Tabla",
-                  font=("Arial", 9), bg="#0f3460", fg="#ffffff",
-                  relief="flat", cursor="hand2", padx=12, pady=7,
-                  command=self._cargar_datos_tabla
-                  ).pack(side="left", padx=10)
+        ctk.CTkButton(marco_acciones_top, text="Actualizar Tabla",
+                      font=("Arial", 9), fg_color=t["bg_card"],
+                      hover_color=t["bg_hover"], corner_radius=8,
+                      command=self._cargar_datos_tabla
+                      ).pack(side="left", padx=10)
 
-        # Tabla de actividades
-        marco_tabla = tk.Frame(self.parent, bg="#1a1a2e")
+        marco_tabla = ctk.CTkFrame(self.parent, fg_color="transparent", corner_radius=10)
         marco_tabla.pack(fill="both", expand=True, padx=30, pady=(5, 10))
 
         columnas = ("id", "asic", "tipo", "fecha_inicio", "fecha_fin", "lugar", "participantes", "registrador")
@@ -151,45 +150,54 @@ class ActividadView:
         self.tabla.column("participantes", width=60,  anchor="center")
         self.tabla.column("registrador",   width=120, anchor="w")
 
+        style = ttk.Style()
+        style.configure("Act.Treeview",
+                        background=t["bg_base"], foreground=t["text_primary"],
+                        fieldbackground=t["bg_base"], rowheight=28)
+        style.configure("Act.Treeview.Heading",
+                        background=t["bg_card"], foreground=t["text_primary"],
+                        font=("Arial", 10, "bold"), relief="flat")
+        style.map("Act.Treeview",
+                  background=[("selected", t["accent"])],
+                  foreground=[("selected", t["text_primary"])])
+
+        self.tabla.configure(style="Act.Treeview")
+
         scroll_y = ttk.Scrollbar(marco_tabla, orient="vertical", command=self.tabla.yview)
         self.tabla.configure(yscrollcommand=scroll_y.set)
         self.tabla.pack(side="left", fill="both", expand=True)
         scroll_y.pack(side="right", fill="y")
 
-        # Botones de edición y eliminación
-        marco_acciones_bottom = tk.Frame(self.parent, bg="#1a1a2e")
+        marco_acciones_bottom = ctk.CTkFrame(self.parent, fg_color="transparent")
         marco_acciones_bottom.pack(fill="x", padx=30, pady=(0, 20))
 
-        tk.Button(marco_acciones_bottom, text="Editar Seleccionada",
-                  font=("Arial", 10), bg="#533483", fg="#ffffff",
-                  relief="flat", cursor="hand2", padx=15, pady=7,
-                  command=self._editar_seleccionada
-                  ).pack(side="left")
+        ctk.CTkButton(marco_acciones_bottom, text="Editar Seleccionada",
+                      font=("Arial", 10), fg_color=t["accent_dim"],
+                      hover_color=t["accent"], corner_radius=8,
+                      command=self._editar_seleccionada
+                      ).pack(side="left")
 
-        tk.Button(marco_acciones_bottom, text="Eliminar Seleccionada",
-                  font=("Arial", 10), bg="#333333", fg="#ff6b6b",
-                  relief="flat", cursor="hand2", padx=15, pady=7,
-                  command=self._eliminar_seleccionada
-                  ).pack(side="left", padx=10)
+        ctk.CTkButton(marco_acciones_bottom, text="Eliminar Seleccionada",
+                      font=("Arial", 10), fg_color=t["red_bg"],
+                      hover_color=t["red"], corner_radius=8,
+                      command=self._eliminar_seleccionada
+                      ).pack(side="left", padx=10)
 
         self._cargar_datos_tabla()
 
-    # ── Placeholders en filtros de fecha ───────────────────────────────
-
     def _poner_placeholder_fecha(self, entrada):
+        t = self.t
         if entrada.get() == "":
             entrada.insert(0, "AAAA-MM-DD")
-            entrada.config(fg="#8892b0")
+            entrada.configure(text_color=t["text_dim"])
 
     def _limpiar_placeholder_fecha(self, entrada):
+        t = self.t
         if entrada.get() == "AAAA-MM-DD":
             entrada.delete(0, tk.END)
-            entrada.config(fg="#ffffff")
-
-    # ── Lógica de filtrado ─────────────────────────────────────────────
+            entrada.configure(text_color=t["text_primary"])
 
     def _aplicar_filtros(self):
-        """Lee los campos de filtro y actualiza la tabla."""
         asic_sel = self.combo_filtro_asic.get()
         tipo_sel = self.combo_filtro_tipo.get()
         f_desde  = self.ent_filtro_desde.get().strip()
@@ -221,7 +229,6 @@ class ActividadView:
         self._cargar_datos_tabla(filtros)
 
     def _limpiar_filtros(self):
-        """Reinicia todos los filtros a su estado por defecto."""
         self.combo_filtro_asic.current(0)
         self.combo_filtro_tipo.current(0)
         self.ent_filtro_desde.delete(0, tk.END)
@@ -231,7 +238,6 @@ class ActividadView:
         self._cargar_datos_tabla()
 
     def _cargar_datos_tabla(self, filtros=None):
-        """Carga las actividades de la BD y las inserta en la tabla."""
         for item in self.tabla.get_children():
             self.tabla.delete(item)
 
@@ -258,15 +264,13 @@ class ActividadView:
         except Exception as e:
             messagebox.showerror("Error", f"Ocurrio un error al cargar las actividades: {str(e)}")
 
-    # ── Ventana emergente: formulario ──────────────────────────────────
-
     def _abrir_formulario(self, datos_edicion=None):
-        """Abre la ventana emergente para crear o editar una actividad."""
-        ventana = tk.Toplevel(self.parent)
+        t = self.t
+        ventana = ctk.CTkToplevel(self.parent)
         ventana.title("Registrar Actividad" if datos_edicion is None else "Editar Actividad")
         ventana.geometry("520x680")
         ventana.resizable(False, False)
-        ventana.configure(bg="#16213e")
+        ventana.configure(fg_color=t["bg_surface"])
         ventana.grab_set()
 
         ventana.update_idletasks()
@@ -274,98 +278,102 @@ class ActividadView:
         y = (ventana.winfo_screenheight() // 2) - 340
         ventana.geometry(f"+{x}+{y}")
 
-        tk.Label(ventana,
+        ctk.CTkLabel(ventana,
                  text="Registrar Actividad" if datos_edicion is None else "Editar Actividad",
-                 font=("Arial", 14, "bold"), bg="#16213e", fg="#ffffff"
+                 font=("Arial", 14, "bold"), text_color=t["text_primary"]
                  ).pack(pady=(15, 5))
 
-        marco_form = tk.Frame(ventana, bg="#16213e")
+        marco_form = ctk.CTkFrame(ventana, fg_color="transparent")
         marco_form.pack(fill="both", expand=True, padx=25, pady=5)
 
-        # ASIC
-        tk.Label(marco_form, text="ASIC *", font=("Arial", 9, "bold"), bg="#16213e", fg="#ccd6f6").pack(anchor="w", pady=(2, 2))
+        ctk.CTkLabel(marco_form, text="ASIC *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(2, 2))
         combo_asic = ttk.Combobox(marco_form, state="readonly", font=("Arial", 10))
         combo_asic.pack(fill="x")
         nombres_asics = sorted(list(self.asic_map.keys()))
         combo_asic["values"] = nombres_asics
 
-        # Tipo de Actividad
-        tk.Label(marco_form, text="Tipo de Actividad *", font=("Arial", 9, "bold"), bg="#16213e", fg="#ccd6f6").pack(anchor="w", pady=(8, 2))
+        ctk.CTkLabel(marco_form, text="Tipo de Actividad *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(8, 2))
         combo_tipo = ttk.Combobox(marco_form, state="readonly", font=("Arial", 10))
         combo_tipo.pack(fill="x")
         nombres_tipos = sorted(list(self.tipo_map.keys()))
         combo_tipo["values"] = nombres_tipos
 
-        # Fechas
-        marco_fechas = tk.Frame(marco_form, bg="#16213e")
+        marco_fechas = ctk.CTkFrame(marco_form, fg_color="transparent")
         marco_fechas.pack(fill="x", pady=8)
 
-        col_izq = tk.Frame(marco_fechas, bg="#16213e")
+        col_izq = ctk.CTkFrame(marco_fechas, fg_color="transparent")
         col_izq.pack(side="left", fill="x", expand=True, padx=(0, 10))
-        tk.Label(col_izq, text="Fecha de Inicio *", font=("Arial", 9, "bold"), bg="#16213e", fg="#ccd6f6").pack(anchor="w")
+        ctk.CTkLabel(col_izq, text="Fecha de Inicio *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
 
-        col_der = tk.Frame(marco_fechas, bg="#16213e")
+        col_der = ctk.CTkFrame(marco_fechas, fg_color="transparent")
         col_der.pack(side="right", fill="x", expand=True)
-        tk.Label(col_der, text="Fecha de Fin *", font=("Arial", 9, "bold"), bg="#16213e", fg="#ccd6f6").pack(anchor="w")
+        ctk.CTkLabel(col_der, text="Fecha de Fin *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
 
         if HAS_TKCALENDAR:
-            ent_fecha_ini = DateEntry(col_izq, font=("Arial", 10), background="#0f3460", foreground="white", borderwidth=0, date_pattern="yyyy-mm-dd")
+            ent_fecha_ini = DateEntry(col_izq, font=("Arial", 10), background=t["bg_card"], foreground=t["text_primary"], borderwidth=0, date_pattern="yyyy-mm-dd")
             ent_fecha_ini.pack(fill="x", pady=(2, 0))
-            ent_fecha_fin = DateEntry(col_der, font=("Arial", 10), background="#0f3460", foreground="white", borderwidth=0, date_pattern="yyyy-mm-dd")
+            ent_fecha_fin = DateEntry(col_der, font=("Arial", 10), background=t["bg_card"], foreground=t["text_primary"], borderwidth=0, date_pattern="yyyy-mm-dd")
             ent_fecha_fin.pack(fill="x", pady=(2, 0))
         else:
-            ent_fecha_ini = tk.Entry(col_izq, font=("Arial", 10), bg="#0f3460", fg="#ffffff", relief="flat", bd=5)
+            ent_fecha_ini = ctk.CTkEntry(col_izq, font=("Arial", 10), fg_color=t["bg_card"], text_color=t["text_primary"],
+                                         border_color=t["border"], corner_radius=6)
             ent_fecha_ini.pack(fill="x", pady=(2, 0))
             ent_fecha_ini.insert(0, date.today().strftime("%Y-%m-%d"))
-            ent_fecha_fin = tk.Entry(col_der, font=("Arial", 10), bg="#0f3460", fg="#ffffff", relief="flat", bd=5)
+            ent_fecha_fin = ctk.CTkEntry(col_der, font=("Arial", 10), fg_color=t["bg_card"], text_color=t["text_primary"],
+                                         border_color=t["border"], corner_radius=6)
             ent_fecha_fin.pack(fill="x", pady=(2, 0))
             ent_fecha_fin.insert(0, date.today().strftime("%Y-%m-%d"))
 
-        # Lugar y Participantes
-        marco_lug_part = tk.Frame(marco_form, bg="#16213e")
+        marco_lug_part = ctk.CTkFrame(marco_form, fg_color="transparent")
         marco_lug_part.pack(fill="x", pady=4)
 
-        col_lug = tk.Frame(marco_lug_part, bg="#16213e")
+        col_lug = ctk.CTkFrame(marco_lug_part, fg_color="transparent")
         col_lug.pack(side="left", fill="x", expand=True)
-        tk.Label(col_lug, text="Lugar / Centro de Salud", font=("Arial", 9, "bold"), bg="#16213e", fg="#ccd6f6").pack(anchor="w")
-        ent_lugar = tk.Entry(col_lug, font=("Arial", 10), bg="#0f3460", fg="#ffffff", relief="flat", bd=5)
+        ctk.CTkLabel(col_lug, text="Lugar / Centro de Salud", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        ent_lugar = ctk.CTkEntry(col_lug, font=("Arial", 10), fg_color=t["bg_card"], text_color=t["text_primary"],
+                                 border_color=t["border"], corner_radius=6)
         ent_lugar.pack(fill="x", pady=(2, 0))
 
-        col_part = tk.Frame(marco_lug_part, bg="#16213e")
+        col_part = ctk.CTkFrame(marco_lug_part, fg_color="transparent")
         col_part.pack(side="right", fill="x", expand=False, padx=(15, 0))
-        tk.Label(col_part, text="Participantes *", font=("Arial", 9, "bold"), bg="#16213e", fg="#ccd6f6").pack(anchor="w")
-        ent_participantes = tk.Entry(col_part, font=("Arial", 10), bg="#0f3460", fg="#ffffff", relief="flat", bd=5, width=12, justify="center")
+        ctk.CTkLabel(col_part, text="Participantes *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        ent_participantes = ctk.CTkEntry(col_part, font=("Arial", 10), fg_color=t["bg_card"], text_color=t["text_primary"],
+                                         border_color=t["border"], corner_radius=6, width=120)
         ent_participantes.pack(fill="x", pady=(2, 0))
         ent_participantes.insert(0, "0")
 
-        # Descripción
-        tk.Label(marco_form, text="Descripcion de la Actividad *", font=("Arial", 9, "bold"), bg="#16213e", fg="#ccd6f6").pack(anchor="w", pady=(8, 2))
-        marco_txt = tk.Frame(marco_form, bg="#0f3460")
+        ctk.CTkLabel(marco_form, text="Descripcion de la Actividad *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(8, 2))
+        marco_txt = ctk.CTkFrame(marco_form, fg_color=t["bg_card"], corner_radius=6)
         marco_txt.pack(fill="x")
-        txt_desc = tk.Text(marco_txt, font=("Arial", 10), bg="#0f3460", fg="#ffffff", relief="flat", height=3, insertbackground="#ffffff", wrap="word")
+        txt_desc = tk.Text(marco_txt, font=("Arial", 10), bg=t["bg_card"], fg=t["text_primary"], relief="flat", height=3, insertbackground=t["text_primary"], wrap="word")
         txt_desc.pack(side="left", fill="both", expand=True, padx=5, pady=5)
         scroll_txt = ttk.Scrollbar(marco_txt, orient="vertical", command=txt_desc.yview)
         txt_desc.configure(yscrollcommand=scroll_txt.set)
         scroll_txt.pack(side="right", fill="y")
 
-        # Evidencias / Adjuntos
-        marco_evidencias = tk.LabelFrame(
-            marco_form, text=" Evidencias / Adjuntos ",
-            font=("Arial", 9, "bold"), bg="#16213e", fg="#ccd6f6",
-            padx=10, pady=5, relief="groove", bd=1
+        marco_evidencias = ctk.CTkFrame(
+            marco_form, fg_color=t["bg_surface"], corner_radius=10,
+            border_width=1, border_color=t["border"]
         )
         marco_evidencias.pack(fill="x", pady=(10, 2))
 
-        marco_lista_ev = tk.Frame(marco_evidencias, bg="#0f3460")
+        ctk.CTkLabel(marco_evidencias, text=" Evidencias / Adjuntos ",
+                     font=("Arial", 9, "bold"), text_color=t["text_muted"]
+                     ).pack(anchor="w", padx=10, pady=(5, 0))
+
+        marco_ev_content = ctk.CTkFrame(marco_evidencias, fg_color="transparent")
+        marco_ev_content.pack(fill="x", padx=10, pady=5)
+
+        marco_lista_ev = ctk.CTkFrame(marco_ev_content, fg_color=t["bg_card"], corner_radius=6)
         marco_lista_ev.pack(side="left", fill="both", expand=True)
-        listbox_evidencias = tk.Listbox(marco_lista_ev, font=("Arial", 9), bg="#0f3460", fg="#ffffff",
-                                        selectbackground="#e94560", relief="flat", height=3)
+        listbox_evidencias = tk.Listbox(marco_lista_ev, font=("Arial", 9), bg=t["bg_card"], fg=t["text_primary"],
+                                        selectbackground=t["accent"], relief="flat", height=3)
         listbox_evidencias.pack(side="left", fill="both", expand=True, padx=2, pady=2)
         scroll_ev = ttk.Scrollbar(marco_lista_ev, orient="vertical", command=listbox_evidencias.yview)
         listbox_evidencias.configure(yscrollcommand=scroll_ev.set)
         scroll_ev.pack(side="right", fill="y")
 
-        marco_btns_ev = tk.Frame(marco_evidencias, bg="#16213e")
+        marco_btns_ev = ctk.CTkFrame(marco_ev_content, fg_color="transparent")
         marco_btns_ev.pack(side="right", padx=(10, 0), fill="y")
 
         evidencias_locales_nuevas = []
@@ -440,19 +448,18 @@ class ActividadView:
                 evidencias_locales_nuevas.pop(idx)
                 refrescar_lista_evidencias()
 
-        tk.Button(marco_btns_ev, text="+ Adjuntar", font=("Arial", 9, "bold"),
-                  bg="#0f3460", fg="#ffffff", relief="flat", cursor="hand2", padx=8, pady=3,
-                  command=adjuntar_archivo).pack(fill="x", pady=2)
-        tk.Button(marco_btns_ev, text="- Quitar", font=("Arial", 9),
-                  bg="#333333", fg="#ff6b6b", relief="flat", cursor="hand2", padx=8, pady=3,
-                  command=quitar_archivo).pack(fill="x", pady=2)
+        ctk.CTkButton(marco_btns_ev, text="+ Adjuntar", font=("Arial", 9, "bold"),
+                      fg_color=t["bg_card"], hover_color=t["bg_hover"],
+                      corner_radius=8, command=adjuntar_archivo).pack(fill="x", pady=2)
+        ctk.CTkButton(marco_btns_ev, text="- Quitar", font=("Arial", 9),
+                      fg_color=t["red_bg"], hover_color=t["red"],
+                      corner_radius=8, command=quitar_archivo).pack(fill="x", pady=2)
 
         refrescar_lista_evidencias()
 
-        lbl_error = tk.Label(ventana, text="", font=("Arial", 9), bg="#16213e", fg="#e94560")
+        lbl_error = ctk.CTkLabel(ventana, text="", font=("Arial", 9), text_color=t["red"])
         lbl_error.pack(pady=3)
 
-        # Si es edición, cargamos los datos
         if datos_edicion:
             if datos_edicion["asic_nombre"] in nombres_asics:
                 combo_asic.set(datos_edicion["asic_nombre"])
@@ -493,19 +500,17 @@ class ActividadView:
                 ventana.destroy()
                 self._cargar_datos_tabla()
             else:
-                lbl_error.config(text=msg)
+                lbl_error.configure(text=msg)
 
-        tk.Button(ventana, text="Guardar Actividad",
-                  font=("Arial", 11, "bold"), bg="#e94560", fg="#ffffff",
-                  relief="flat", cursor="hand2", command=guardar
-                  ).pack(fill="x", padx=25, pady=(5, 15), ipady=8)
+        ctk.CTkButton(ventana, text="Guardar Actividad",
+                      font=("Arial", 11, "bold"), fg_color=t["accent"],
+                      hover_color=t["accent_dim"], corner_radius=8, command=guardar
+                      ).pack(fill="x", padx=25, pady=(5, 15), ipady=8)
 
     def _abrir_form_nueva(self):
-        """Abre el formulario vacío para registrar una nueva actividad."""
         self._abrir_formulario()
 
     def _editar_seleccionada(self):
-        """Obtiene el registro seleccionado y abre el formulario de edición."""
         seleccion = self.tabla.selection()
         if not seleccion:
             messagebox.showwarning("Atencion", "Selecciona una actividad de la tabla para editar.")
@@ -522,7 +527,6 @@ class ActividadView:
             messagebox.showerror("Error", f"Ocurrio un error al obtener la actividad: {str(e)}")
 
     def _eliminar_seleccionada(self):
-        """Elimina de forma lógica la actividad seleccionada."""
         seleccion = self.tabla.selection()
         if not seleccion:
             messagebox.showwarning("Atencion", "Selecciona una actividad de la tabla para eliminar.")
