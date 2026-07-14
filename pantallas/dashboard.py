@@ -57,15 +57,14 @@ class DashboardView:
                  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
         fecha_str = f"{dias[hoy.weekday()]}, {hoy.day} de {meses[hoy.month - 1]} de {hoy.year}"
 
-        date_badge = ctk.CTkFrame(header_wrap, fg_color=t["bg_card"],
-                                  corner_radius=8, border_width=1,
-                                  border_color=t["border"])
+        date_badge = ctk.CTkFrame(header_wrap, fg_color=self._alpha_color(t["accent"], 0.1),
+                                  corner_radius=10)
         date_badge.pack(side="right", padx=(12, 0))
 
         ctk.CTkLabel(
             date_badge, text=f"\U0001f4c5  {fecha_str}",
-            font=("Segoe UI", 9), text_color=t["text_muted"],
-        ).pack(padx=12, pady=6)
+            font=("Segoe UI", 11), text_color=t["text_primary"],
+        ).pack(padx=16, pady=8)
 
         # Separator
         sep1 = ctk.CTkFrame(self._scroll, fg_color=t["border"], height=1)
@@ -87,13 +86,15 @@ class DashboardView:
 
         # ── Table card ─────────────────────────────────────
         table_card = ctk.CTkFrame(self._scroll, fg_color=t["bg_card"],
-                                  corner_radius=12, border_width=1,
-                                  border_color=t["border"])
+                                  corner_radius=14)
         table_card.pack(fill="both", expand=True, padx=32, pady=(0, 28))
 
-        # Table header
+        accent_bar = ctk.CTkFrame(table_card, fg_color=t["accent"], height=4,
+                                  corner_radius=2)
+        accent_bar.pack(fill="x", padx=16, pady=(12, 0))
+
         table_header = ctk.CTkFrame(table_card, fg_color="transparent")
-        table_header.pack(fill="x", padx=20, pady=(16, 12))
+        table_header.pack(fill="x", padx=20, pady=(14, 10))
 
         left_header = ctk.CTkFrame(table_header, fg_color="transparent")
         left_header.pack(side="left")
@@ -101,29 +102,27 @@ class DashboardView:
         icon_box = ctk.CTkLabel(
             left_header, text="\u23F0",
             font=("Segoe UI", 18), text_color=t["accent"],
-            width=30, height=30,
-            fg_color=self._alpha_color(t["accent"], 0.1),
-            corner_radius=6,
+            width=34, height=34,
+            fg_color=self._alpha_color(t["accent"], 0.12),
+            corner_radius=8,
         )
         icon_box.pack(side="left", padx=(0, 10))
 
         ctk.CTkLabel(
             left_header, text="\u00daltimas actividades",
-            font=("Segoe UI", 12, "bold"), text_color=t["text_primary"],
+            font=("Segoe UI", 13, "bold"), text_color=t["text_primary"],
         ).pack(side="left")
 
         ver_todas = ctk.CTkLabel(
             table_header, text="Ver todas  \u2192",
-            font=("Segoe UI", 9, "bold"), text_color=t["accent"],
+            font=("Segoe UI", 10, "bold"), text_color=t["accent"],
             cursor="hand2",
         )
         ver_todas.pack(side="right")
 
-        # Separator
         sep2 = ctk.CTkFrame(table_card, fg_color=t["border"], height=1)
         sep2.pack(fill="x", padx=20)
 
-        # Table
         self._crear_tabla(table_card)
 
     def _alpha_color(self, hex_color, alpha):
@@ -143,14 +142,16 @@ class DashboardView:
         t = self.t
 
         card = ctk.CTkFrame(parent, fg_color=t["bg_card"],
-                            corner_radius=12, border_width=1,
-                            border_color=t["border"])
+                            corner_radius=14)
         card.pack(side="left", fill="x", expand=True, padx=(0, 12))
 
-        inner = ctk.CTkFrame(card, fg_color="transparent")
-        inner.pack(fill="x", padx=20, pady=16)
+        accent_bar = ctk.CTkFrame(card, fg_color=color, height=4,
+                                  corner_radius=2)
+        accent_bar.pack(fill="x", padx=16, pady=(12, 0))
 
-        # Top row: label + icon box
+        inner = ctk.CTkFrame(card, fg_color="transparent")
+        inner.pack(fill="x", padx=20, pady=(14, 16))
+
         top_row = ctk.CTkFrame(inner, fg_color="transparent")
         top_row.pack(fill="x")
 
@@ -159,38 +160,35 @@ class DashboardView:
 
         ctk.CTkLabel(
             left_col, text=label,
-            font=("Segoe UI", 8), text_color=t["text_muted"],
+            font=("Segoe UI", 10, "bold"), text_color=t["text_muted"],
         ).pack(anchor="w")
 
         ctk.CTkLabel(
             left_col, textvariable=var,
-            font=("Segoe UI", 30, "bold"), text_color=t["text_primary"],
-        ).pack(anchor="w", pady=(6, 0))
+            font=("Segoe UI", 36, "bold"), text_color=t["text_primary"],
+        ).pack(anchor="w", pady=(4, 0))
 
-        # Icon box
-        icon_text = "\u25B3" if label.startswith("ACT") else "\u2603"
         icon_box = ctk.CTkLabel(
-            top_row, text=icon_text,
-            font=("Segoe UI", 20), text_color=color,
-            width=44, height=44,
-            fg_color=self._alpha_color(color, 0.1),
-            corner_radius=10,
+            top_row, text=arrow,
+            font=("Segoe UI", 22), text_color=color,
+            width=50, height=50,
+            fg_color=self._alpha_color(color, 0.12),
+            corner_radius=14,
         )
         icon_box.pack(side="right", anchor="ne")
 
-        # Trend row
         trend = ctk.CTkFrame(inner, fg_color="transparent")
-        trend.pack(fill="x", pady=(10, 0))
+        trend.pack(fill="x", pady=(12, 0))
 
         ctk.CTkLabel(
-            trend, text="\u25B2  0% incremento",
-            font=("Segoe UI", 8), text_color=t["success"],
+            trend, text=f"{arrow}  0% incremento",
+            font=("Segoe UI", 9, "bold"), text_color=t["success"],
         ).pack(side="left")
 
         ctk.CTkLabel(
             trend, text="desde el mes anterior",
-            font=("Segoe UI", 8), text_color=t["text_muted"],
-        ).pack(side="left", padx=(4, 0))
+            font=("Segoe UI", 9), text_color=t["text_muted"],
+        ).pack(side="left", padx=(6, 0))
 
     def _crear_tabla(self, parent):
         t = self.t
@@ -200,35 +198,46 @@ class DashboardView:
 
         style = ttk.Style()
         style.theme_use("clam")
-        style.configure("Html.Treeview",
+
+        alt_bg = self._alpha_color(t["border"], 0.15)
+
+        style.configure("Dash.Treeview",
                         background=t["bg_card"], foreground=t["text_primary"],
-                        fieldbackground=t["bg_card"], rowheight=40,
-                        font=("Segoe UI", 9), borderwidth=0, padding=(8, 0))
-        style.configure("Html.Treeview.Heading",
-                        background=self._alpha_color(t["border"], 0.3),
+                        fieldbackground=t["bg_card"], rowheight=44,
+                        font=("Segoe UI", 10), borderwidth=0,
+                        padding=(10, 0))
+        style.configure("Dash.Treeview.Heading",
+                        background=self._alpha_color(t["accent"], 0.08),
                         foreground=t["text_muted"],
-                        relief="flat", font=("Segoe UI", 8, "bold"),
-                        borderwidth=0, padding=(8, 8))
-        style.map("Html.Treeview",
-                  background=[("selected", t["accent_dim"])],
-                  foreground=[("selected", t["text_primary"])])
-        style.layout("Html.Treeview", [
-            ("Html.Treeview.treearea", {"sticky": "nswe"})
+                        relief="flat", font=("Segoe UI", 9, "bold"),
+                        borderwidth=0, padding=(10, 10))
+        style.map("Dash.Treeview",
+                  background=[("selected", t["accent_dim"]),
+                              ("!selected", alt_bg)],
+                  foreground=[("selected", "#FFFFFF")])
+        style.layout("Dash.Treeview", [
+            ("Dash.Treeview.treearea", {"sticky": "nswe"})
         ])
 
         cont = ctk.CTkFrame(parent, fg_color="transparent")
         cont.pack(fill="both", expand=True, padx=20, pady=(0, 20))
 
         tree = ttk.Treeview(cont, columns=cols, show="headings",
-                            style="Html.Treeview", height=8)
+                            style="Dash.Treeview", height=8)
         for col, lab, ancho in zip(cols, labs, anchs):
             tree.heading(col, text=lab)
             tree.column(col, width=ancho, minwidth=40, anchor="w")
 
+        sy = ttk.Scrollbar(cont, orient="vertical", command=tree.yview)
         sx = ttk.Scrollbar(cont, orient="horizontal", command=tree.xview)
-        tree.configure(xscrollcommand=sx.set)
-        sx.pack(side="bottom", fill="x")
-        tree.pack(fill="both", expand=True)
+        tree.configure(yscrollcommand=sy.set, xscrollcommand=sx.set)
+
+        tree.grid(row=0, column=0, sticky="nsew")
+        sy.grid(row=0, column=1, sticky="ns")
+        sx.grid(row=1, column=0, sticky="ew")
+        cont.grid_rowconfigure(0, weight=1)
+        cont.grid_columnconfigure(0, weight=1)
+
         self._tree = tree
 
     def _cargar_metricas(self):

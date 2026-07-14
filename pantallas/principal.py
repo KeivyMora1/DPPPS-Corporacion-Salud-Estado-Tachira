@@ -164,16 +164,6 @@ class MainView:
         )
         self.header_right.pack(side="right", padx=24)
 
-        self.btn_logout = ctk.CTkButton(
-            self.header_right, text="  Salir  ",
-            font=("Segoe UI", 9),
-            fg_color=t["red_bg"], hover_color=t["red"],
-            text_color=t["red_fg"],
-            corner_radius=6,
-            command=self._cerrar_sesion,
-        )
-        self.btn_logout.pack(side="right", padx=(12, 0))
-
         nombre = self.usuario["nombre_completo"] if self.usuario else "Usuario"
 
         self.user_info_frame = ctk.CTkFrame(
@@ -182,10 +172,12 @@ class MainView:
         self.user_info_frame.pack(side="right")
 
         self.avatar_canvas = tk.Canvas(
-            self.user_info_frame, width=34, height=34,
-            bg=t["border"], highlightthickness=0,
+            self.user_info_frame, width=44, height=44,
+            bg=t["bg_header"], highlightthickness=0,
+            cursor="hand2",
         )
-        self.avatar_canvas.pack(side="right", padx=(10, 0), pady=15)
+        self.avatar_canvas.pack(side="right", padx=(10, 0), pady=10)
+        self.avatar_canvas.bind("<Button-1>", lambda e: self._toggle_avatar_menu(e))
 
         self.user_text_frame = ctk.CTkFrame(
             self.user_info_frame, fg_color="transparent",
@@ -194,14 +186,14 @@ class MainView:
 
         self.lbl_user_name = ctk.CTkLabel(
             self.user_text_frame, text=nombre,
-            font=("Segoe UI", 10, "bold"),
+            font=("Segoe UI", 12, "bold"),
             text_color=t["text_primary"],
         )
         self.lbl_user_name.pack(anchor="e")
 
         self.lbl_user_email = ctk.CTkLabel(
             self.user_text_frame, text="admin@dppps.gob",
-            font=("Segoe UI", 8),
+            font=("Segoe UI", 10),
             text_color=t["text_muted"],
         )
         self.lbl_user_email.pack(anchor="e")
@@ -233,10 +225,55 @@ class MainView:
     def _draw_avatar(self, nombre):
         self.avatar_canvas.delete("all")
         inicial = nombre[0].upper() if nombre else "U"
-        self.avatar_canvas.create_oval(0, 0, 34, 34, fill=self.t["accent"], outline="")
-        self.avatar_canvas.create_text(17, 17, text=inicial,
-                                       font=("Segoe UI", 13, "bold"),
+        self.avatar_canvas.create_oval(0, 0, 44, 44, fill=self.t["accent"], outline="")
+        self.avatar_canvas.create_text(22, 22, text=inicial,
+                                       font=("Segoe UI", 15, "bold"),
                                        fill="#FFFFFF")
+
+    def _toggle_avatar_menu(self, event):
+        if hasattr(self, "_avatar_menu") and self._avatar_menu.winfo_exists():
+            self._avatar_menu.destroy()
+            self.root.unbind("<Button-1>")
+            return
+
+        t = self.t
+        x = self.avatar_canvas.winfo_rootx()
+        y = self.avatar_canvas.winfo_rooty() + 48
+
+        self._avatar_menu = ctk.CTkToplevel(self.root)
+        self._avatar_menu.overrideredirect(True)
+        self._avatar_menu.geometry(f"180x42+{x - 136}+{y}")
+        self._avatar_menu.configure(fg_color=t["bg_card"], corner_radius=10)
+
+        btn_logout = ctk.CTkButton(
+            self._avatar_menu, text="Cerrar sesión",
+            font=("Segoe UI", 11), anchor="w",
+            fg_color="transparent", hover_color=t["red_bg"],
+            text_color=t["red_fg"], corner_radius=6, height=32,
+            command=self._cerrar_sesion,
+        )
+        btn_logout.pack(fill="x", padx=8, pady=8)
+
+        self._avatar_menu.focus_set()
+
+        self.root.after(10, lambda: self.root.bind(
+            "<Button-1>", self._cerrar_avatar_menu, add="+"
+        ))
+
+    def _cerrar_avatar_menu(self, event):
+        if not hasattr(self, "_avatar_menu") or not self._avatar_menu.winfo_exists():
+            self.root.unbind("<Button-1>")
+            return
+        widget = event.widget
+        try:
+            wstr = str(widget)
+            menu_wstr = str(self._avatar_menu)
+            if wstr.startswith(menu_wstr) or wstr.startswith(str(self.avatar_canvas)):
+                return
+            self._avatar_menu.destroy()
+            self.root.unbind("<Button-1>")
+        except Exception:
+            pass
 
     def _navegar(self, seccion):
         self.seccion_actual = seccion
@@ -324,7 +361,7 @@ class MainView:
         self.header_right.configure(fg_color=t["bg_header"])
         self.user_info_frame.configure(fg_color="transparent")
         self.user_text_frame.configure(fg_color="transparent")
-        self.avatar_canvas.config(bg=t["border"], highlightbackground=t["accent"])
+        self.avatar_canvas.config(bg=t["bg_header"])
         self.lbl_user_name.configure(text_color=t["text_primary"])
         self.lbl_user_email.configure(text_color=t["text_muted"])
         self.btn_logout.configure(fg_color=t["red_bg"], text_color=t["red_fg"])
