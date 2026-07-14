@@ -42,8 +42,8 @@ class LoginView:
         content.pack(fill="both", expand=True)
 
         card = ctk.CTkFrame(content, fg_color=t["bg_card"],
-                            corner_radius=10, width=370)
-        card.place(relx=0.5, rely=0.5, anchor="center")
+                            corner_radius=10)
+        card.pack(fill="both", expand=True, padx=30, pady=30)
 
         inner = ctk.CTkFrame(card, fg_color="transparent")
         inner.pack(fill="both", expand=True, padx=36, pady=36)
@@ -56,19 +56,13 @@ class LoginView:
             text_color=t["text_primary"]
         ).pack(pady=(8, 0))
 
-        ctk.CTkLabel(
-            inner, text="Sistema de Informes Médicos",
-            font=("Segoe UI", 10),
-            text_color=t["text_muted"]
-        ).pack(pady=(2, 0))
-
         sep = ctk.CTkFrame(inner, fg_color=t["accent"], height=2, width=60,
                            corner_radius=1)
         sep.pack(pady=(14, 24))
 
         ctk.CTkLabel(
             inner, text="Usuario",
-            font=("Segoe UI", 9, "bold"),
+            font=("Segoe UI", 12, "bold"),
             text_color=t["text_muted"], anchor="w"
         ).pack(fill="x")
 
@@ -87,7 +81,7 @@ class LoginView:
 
         ctk.CTkLabel(
             inner, text="Contraseña",
-            font=("Segoe UI", 9, "bold"),
+            font=("Segoe UI", 12, "bold"),
             text_color=t["text_muted"], anchor="w"
         ).pack(fill="x")
 
@@ -105,19 +99,19 @@ class LoginView:
             show="●",
             height=38,
         )
-        self.entrada_password.pack(side="left", fill="x", expand=True)
+        self.entrada_password.pack(fill="x")
 
         self._ojo_visible = False
         self.btn_ojo = ctk.CTkButton(
-            pw_frame, text="👁", width=36, height=38,
+            pw_frame, text="👁", width=32, height=30,
             font=("Segoe UI", 14),
             fg_color="transparent",
             hover_color=t["bg_hover"],
             text_color=t["text_muted"],
-            corner_radius=6,
+            corner_radius=4,
             command=self._toggle_ojo,
         )
-        self.btn_ojo.pack(side="right", padx=(4, 0))
+        self.btn_ojo.place(relx=1.0, rely=0.5, anchor="e", x=-6)
 
         self.btn_login = ctk.CTkButton(
             inner,
@@ -140,16 +134,6 @@ class LoginView:
             wraplength=320,
         )
         self.lbl_error.pack(pady=(14, 0))
-
-        pie = ctk.CTkFrame(self.root, fg_color=t["bg_base"],
-                           corner_radius=0)
-        pie.place(relx=0.5, rely=1.0, anchor="s", y=-14)
-        ctk.CTkLabel(
-            pie,
-            text="Corporación de Salud Estado Táchira  •  Uso interno",
-            font=("Segoe UI", 8),
-            text_color=t["text_dim"],
-        ).pack()
 
         self.root.bind("<Return>", lambda e: self._intentar_login())
         self.entrada_usuario.focus()

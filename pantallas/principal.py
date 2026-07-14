@@ -28,13 +28,12 @@ class MainView:
         self.t = THEMES["dark"]
 
         self.root.title("DPPPS")
-        self.root.geometry("1100x680")
-        self.root.minsize(900, 600)
         self.root.configure(fg_color=self.t["bg_base"])
 
-        centrar_ventana(self.root, 1100, 680)
         self._construir_ui()
         self._navegar("dashboard")
+
+        self.root.after(50, lambda: self.root.state("zoomed"))
 
     def _construir_ui(self):
         t = self.t
@@ -58,7 +57,7 @@ class MainView:
         self.logo_area.pack(fill="x", padx=20, pady=(20, 28))
 
         self.logo_canvas = tk.Canvas(
-            self.logo_area, width=36, height=36,
+            self.logo_area, width=52, height=52,
             bg=t["accent"], highlightthickness=0,
         )
         self.logo_canvas.pack(side="left")
@@ -66,21 +65,21 @@ class MainView:
         self.logo_text_frame = ctk.CTkFrame(
             self.logo_area, fg_color=t["bg_sidebar"], corner_radius=0,
         )
-        self.logo_text_frame.pack(side="left", padx=(10, 0))
+        self.logo_text_frame.pack(side="left", padx=(12, 0))
 
         self.lbl_logo_title = ctk.CTkLabel(
             self.logo_text_frame, text="DPPPS",
-            font=("Segoe UI", 15, "bold"),
+            font=("Segoe UI", 18, "bold"),
             text_color=t["text_primary"],
         )
-        self.lbl_logo_title.pack(anchor="w")
+        self.lbl_logo_title.pack(anchor="w", pady=0)
 
         self.lbl_logo_sub = ctk.CTkLabel(
             self.logo_text_frame, text="SISTEMA DE INFORMES",
-            font=("Segoe UI", 7),
+            font=("Segoe UI", 9),
             text_color=t["text_dim"],
         )
-        self.lbl_logo_sub.pack(anchor="w")
+        self.lbl_logo_sub.pack(anchor="w", pady=0)
 
         # ── Separator ──────────────────────────────────────
         self.sep_nav = ctk.CTkFrame(
@@ -95,27 +94,20 @@ class MainView:
         self.nav_frame.pack(fill="x", padx=10)
 
         for clave, label in self.MENU_ITEMS:
-            item = ctk.CTkFrame(
-                self.nav_frame, fg_color=t["bg_sidebar"], corner_radius=0,
-            )
-            item.pack(fill="x", pady=2)
-
-            lbl = ctk.CTkLabel(
-                item, text=f"    {label}",
-                font=("Segoe UI", 10),
+            btn = ctk.CTkButton(
+                self.nav_frame,
+                text=f"  {label}",
+                font=("Segoe UI", 13),
+                anchor="w",
+                height=38,
+                corner_radius=8,
+                fg_color="transparent",
+                hover_color=t["bg_hover"],
                 text_color=t["text_muted"],
-                anchor="w", padx=12, pady=10,
+                command=lambda c=clave: self._navegar(c),
             )
-            lbl.pack(fill="x")
-
-            for widget in (item, lbl):
-                widget.bind("<Enter>", lambda e, i=item, l=lbl, k=clave:
-                            self._hover_enter(i, l, k))
-                widget.bind("<Leave>", lambda e, i=item, l=lbl, k=clave:
-                            self._hover_leave(i, l, k))
-                widget.bind("<Button-1>", lambda e, c=clave: self._navegar(c))
-
-            self.frames_menu[clave] = {"frame": item, "label": lbl}
+            btn.pack(fill="x", pady=3, padx=4)
+            self.frames_menu[clave] = {"button": btn}
 
         # ── Theme toggle (bottom) ──────────────────────────
         self.sep_bottom = ctk.CTkFrame(
@@ -123,30 +115,19 @@ class MainView:
         )
         self.sep_bottom.pack(side="bottom", fill="x", padx=20, pady=(12, 0))
 
-        self.theme_frame = ctk.CTkFrame(
-            self.sidebar_inner, fg_color=t["bg_sidebar"], corner_radius=0,
-        )
-        self.theme_frame.pack(side="bottom", fill="x", padx=10, pady=(8, 16))
-
-        self.btn_tema_icon = ctk.CTkLabel(
-            self.theme_frame, text="\u2600",
-            font=("Segoe UI", 12), fg_color="transparent",
-            text_color=t["text_muted"],
-        )
-        self.btn_tema_icon.pack(side="left", padx=(12, 8))
-
         self.btn_tema = ctk.CTkButton(
-            self.theme_frame, text="Modo claro",
-            font=("Segoe UI", 10),
+            self.sidebar_inner,
+            text="☀  Modo claro",
+            font=("Segoe UI", 12),
+            anchor="w",
+            height=38,
+            corner_radius=8,
             fg_color="transparent",
             hover_color=t["bg_hover"],
             text_color=t["text_muted"],
-            anchor="w",
             command=self._alternar_tema,
         )
-        self.btn_tema.pack(side="left")
-
-        self._bind_theme_toggle()
+        self.btn_tema.pack(side="bottom", fill="x", padx=14, pady=(8, 16))
 
         # ── Main area ──────────────────────────────────────
         self.main_area = ctk.CTkFrame(
@@ -173,8 +154,8 @@ class MainView:
         self.status_dot.pack(side="left", padx=(0, 8))
 
         self.lbl_status = ctk.CTkLabel(
-            self.status_frame, text="Servidor Activo",
-            font=("Segoe UI", 9), text_color=t["text_muted"],
+            self.status_frame,             text="DPPPS Corporación Salud Estado Táchira",
+            font=("Segoe UI", 14, "bold"), text_color=t["text_primary"],
         )
         self.lbl_status.pack(side="left")
 
@@ -195,17 +176,21 @@ class MainView:
 
         nombre = self.usuario["nombre_completo"] if self.usuario else "Usuario"
 
-        self.avatar_canvas = tk.Canvas(
-            self.header_right, width=34, height=34,
-            bg=t["border"], highlightthickness=1,
-            highlightbackground=t["accent"],
+        self.user_info_frame = ctk.CTkFrame(
+            self.header_right, fg_color="transparent",
         )
-        self.avatar_canvas.pack(side="right", padx=(12, 0))
+        self.user_info_frame.pack(side="right")
+
+        self.avatar_canvas = tk.Canvas(
+            self.user_info_frame, width=34, height=34,
+            bg=t["border"], highlightthickness=0,
+        )
+        self.avatar_canvas.pack(side="right", padx=(10, 0), pady=15)
 
         self.user_text_frame = ctk.CTkFrame(
-            self.barra_top, fg_color=t["bg_header"], corner_radius=0,
+            self.user_info_frame, fg_color="transparent",
         )
-        self.user_text_frame.pack(side="right")
+        self.user_text_frame.pack(side="right", padx=(0, 10))
 
         self.lbl_user_name = ctk.CTkLabel(
             self.user_text_frame, text=nombre,
@@ -236,24 +221,10 @@ class MainView:
         self._draw_status_dot()
         self._draw_avatar(nombre)
 
-    def _bind_theme_toggle(self):
-        for w in (self.theme_frame, self.btn_tema_icon):
-            w.bind("<Button-1>", lambda e: self._alternar_tema())
-            w.bind("<Enter>", lambda e: (
-                self.theme_frame.configure(fg_color=self.t["bg_hover"]),
-                self.btn_tema_icon.configure(fg_color=self.t["bg_hover"]),
-                self.btn_tema.configure(fg_color=self.t["bg_hover"], text_color=self.t["text_primary"]),
-            ))
-            w.bind("<Leave>", lambda e: (
-                self.theme_frame.configure(fg_color=self.t["bg_sidebar"]),
-                self.btn_tema_icon.configure(fg_color=self.t["bg_sidebar"]),
-                self.btn_tema.configure(fg_color="transparent", text_color=self.t["text_muted"]),
-            ))
-
     def _draw_logo_letter(self):
         self.logo_canvas.delete("all")
-        self.logo_canvas.create_text(18, 18, text="D",
-                                     font=("Segoe UI", 14, "bold"), fill="#ffffff")
+        self.logo_canvas.create_text(26, 26, text="D",
+                                     font=("Segoe UI", 18, "bold"), fill="#ffffff")
 
     def _draw_status_dot(self):
         self.status_dot.delete("all")
@@ -262,19 +233,10 @@ class MainView:
     def _draw_avatar(self, nombre):
         self.avatar_canvas.delete("all")
         inicial = nombre[0].upper() if nombre else "U"
+        self.avatar_canvas.create_oval(0, 0, 34, 34, fill=self.t["accent"], outline="")
         self.avatar_canvas.create_text(17, 17, text=inicial,
                                        font=("Segoe UI", 13, "bold"),
-                                       fill=self.t["accent"])
-
-    def _hover_enter(self, frame, label, clave):
-        if clave != self.seccion_actual:
-            frame.configure(fg_color=self.t["bg_hover"])
-            label.configure(fg_color=self.t["bg_hover"], text_color=self.t["text_primary"])
-
-    def _hover_leave(self, frame, label, clave):
-        if clave != self.seccion_actual:
-            frame.configure(fg_color=self.t["bg_sidebar"])
-            label.configure(fg_color=self.t["bg_sidebar"], text_color=self.t["text_muted"])
+                                       fill="#FFFFFF")
 
     def _navegar(self, seccion):
         self.seccion_actual = seccion
@@ -284,14 +246,19 @@ class MainView:
             widget.destroy()
 
         for clave, data in self.frames_menu.items():
-            frame = data["frame"]
-            label = data["label"]
+            btn = data["button"]
             if clave == seccion:
-                frame.configure(fg_color=t["bg_active"])
-                label.configure(fg_color=t["bg_active"], text_color=t["accent"])
+                btn.configure(
+                    fg_color=t["accent"],
+                    hover_color=t["accent_dim"],
+                    text_color="#FFFFFF",
+                )
             else:
-                frame.configure(fg_color=t["bg_sidebar"])
-                label.configure(fg_color=t["bg_sidebar"], text_color=t["text_muted"])
+                btn.configure(
+                    fg_color="transparent",
+                    hover_color=t["bg_hover"],
+                    text_color=t["text_muted"],
+                )
 
         from pantallas.dashboard   import DashboardView
         from pantallas.catalogos   import CatalogoView
@@ -316,12 +283,10 @@ class MainView:
         self.tema_actual = "light" if self.tema_actual == "dark" else "dark"
         self.t = THEMES[self.tema_actual]
         t = self.t
-        self.btn_tema.configure(
-            text="Modo oscuro" if self.tema_actual == "light" else "Modo claro"
-        )
-        self.btn_tema_icon.configure(
-            text="☾" if self.tema_actual == "light" else "☀"
-        )
+
+        icono = "☾" if self.tema_actual == "light" else "☀"
+        texto = "Modo oscuro" if self.tema_actual == "light" else "Modo claro"
+        self.btn_tema.configure(text=f"{icono}  {texto}")
 
         self.root.configure(fg_color=t["bg_base"])
         self.panel_menu.configure(fg_color=t["bg_sidebar"])
@@ -335,12 +300,21 @@ class MainView:
         self._draw_logo_letter()
         self.lbl_logo_title.configure(text_color=t["text_primary"])
         self.lbl_logo_sub.configure(text_color=t["text_dim"])
-        self.theme_frame.configure(fg_color=t["bg_sidebar"])
-        self.btn_tema_icon.configure(fg_color=t["bg_sidebar"], text_color=t["text_muted"])
         self.btn_tema.configure(fg_color="transparent", text_color=t["text_muted"])
         for clave, data in self.frames_menu.items():
-            data["frame"].configure(fg_color=t["bg_sidebar"])
-            data["label"].configure(fg_color=t["bg_sidebar"], text_color=t["text_muted"])
+            btn = data["button"]
+            if clave == self.seccion_actual:
+                btn.configure(
+                    fg_color=t["accent"],
+                    hover_color=t["accent_dim"],
+                    text_color="#FFFFFF",
+                )
+            else:
+                btn.configure(
+                    fg_color="transparent",
+                    hover_color=t["bg_hover"],
+                    text_color=t["text_muted"],
+                )
         self.main_area.configure(fg_color=t["bg_base"])
         self.barra_top.configure(fg_color=t["bg_header"])
         self.status_frame.configure(fg_color=t["bg_header"])
@@ -348,7 +322,8 @@ class MainView:
         self._draw_status_dot()
         self.lbl_status.configure(text_color=t["text_muted"])
         self.header_right.configure(fg_color=t["bg_header"])
-        self.user_text_frame.configure(fg_color=t["bg_header"])
+        self.user_info_frame.configure(fg_color="transparent")
+        self.user_text_frame.configure(fg_color="transparent")
         self.avatar_canvas.config(bg=t["border"], highlightbackground=t["accent"])
         self.lbl_user_name.configure(text_color=t["text_primary"])
         self.lbl_user_email.configure(text_color=t["text_muted"])
@@ -365,12 +340,19 @@ class MainView:
             widget.destroy()
 
         for clave, data in self.frames_menu.items():
+            btn = data["button"]
             if clave == seccion:
-                data["frame"].configure(fg_color=t["bg_active"])
-                data["label"].configure(fg_color=t["bg_active"], text_color=t["accent"])
+                btn.configure(
+                    fg_color=t["accent"],
+                    hover_color=t["accent_dim"],
+                    text_color="#FFFFFF",
+                )
             else:
-                data["frame"].configure(fg_color=t["bg_sidebar"])
-                data["label"].configure(fg_color=t["bg_sidebar"], text_color=t["text_muted"])
+                btn.configure(
+                    fg_color="transparent",
+                    hover_color=t["bg_hover"],
+                    text_color=t["text_muted"],
+                )
 
         self.area_contenido.configure(fg_color=t["bg_base"])
 
