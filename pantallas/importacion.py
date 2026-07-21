@@ -79,7 +79,7 @@ class ImportacionView:
                      ).pack(anchor="w", pady=(0, 6))
 
         ctk.CTkLabel(inner,
-                     text="El archivo debe tener las columnas: asic, tipo_actividad, fecha_inicio, fecha_fin, lugar, descripcion, participantes.",
+                     text="El archivo debe seguir la plantilla descargable y contener al menos FECHA, ASIC, ACTIVIDAD DESARROLLADA, TEMA TRATADO, LUGAR/UBICACIÓN y TOTAL DE ASISTENCIA.",
                      font=("Arial", 9), text_color=t["text_muted"],
                      wraplength=700, justify="left",
                      ).pack(anchor="w", pady=(0, 20))

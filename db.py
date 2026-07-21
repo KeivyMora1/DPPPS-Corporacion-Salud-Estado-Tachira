@@ -1133,6 +1133,8 @@ class CatalogoController:
 # ============================================================
 
 import openpyxl
+import re
+import unicodedata
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
@@ -1285,8 +1287,66 @@ class ConsolidacionService:
 
 # Columnas requeridas en el Excel de importación
 COLUMNAS_REQUERIDAS = [
-    "asic", "tipo_actividad", "fecha_inicio", "fecha_fin",
-    "lugar", "descripcion", "participantes",
+    "asic", "tipo_actividad", "fecha_inicio", "lugar",
+    "descripcion", "participantes",
+]
+
+HEADER_ALIASES = {
+    # Fecha
+    "fecha": "fecha_inicio",
+    "fecha inicio": "fecha_inicio",
+    "fecha inicio yyyy mm dd": "fecha_inicio",
+    "fecha fin": "fecha_fin",
+
+    # Ubicación
+    "estado": "estado",
+    "municipio": "municipio",
+    "parroquia": "parroquia",
+    "asic": "asic",
+    "establecimiento de salud": "establecimiento_salud",
+    "nombre del establecimiento de salud": "nombre_establecimiento_salud",
+    "comites de salud": "comites_de_salud",
+    "comités de salud": "comites_de_salud",
+    "ubicación": "ubicacion",
+
+    # Tipo de actividad
+    "actividad desarrollada": "tipo_actividad",
+    "actividad": "tipo_actividad",
+    "tipo de actividad": "tipo_actividad",
+    "tipo actividad": "tipo_actividad",
+    "tipo de actividad nombre exacto": "tipo_actividad",
+    "asic nombre exacto": "asic",
+
+    # Descripción / tema
+    "tema tratado": "descripcion",
+    "descripcion": "descripcion",
+    "descripcion numero": "descripcion",
+
+    # Participantes y totales
+    "participantes": "participantes",
+    "participantes numero": "participantes",
+    "medicos": "medicos",
+    "promotores en salud": "promotores_en_salud",
+    "voceros de comité de salud": "voceros_de_comite_de_salud",
+    "vocero del consejo de direccion del asic": "vocero_del_consejo_de_direccion_del_asic",
+    "coordinador de docencia e investigacion del asic": "coordinador_de_docencia_e_investigacion_del_asic",
+    "autoridades presentes": "autoridades_presentes",
+    "otros actores involucrados": "otros_actores_involucrados",
+    "cantidad de personas de la comunidad": "cantidad_personas_comunidad",
+    "estudiantes aspirantes para la salud involucrados en la actividad": "estudiantes_aspirantes",
+    "total de asistencia": "total_asistencia",
+}
+
+PARTICIPANTES_CATEGORIAS = [
+    "medicos", "promotores_en_salud", "voceros_de_comite_de_salud",
+    "vocero_del_consejo_de_direccion_del_asic", "coordinador_de_docencia_e_investigacion_del_asic",
+    "autoridades_presentes", "otros_actores_involucrados", "cantidad_personas_comunidad",
+    "estudiantes_aspirantes",
+]
+
+LOCATION_FIELDS = [
+    "estado", "municipio", "parroquia", "establecimiento_salud",
+    "nombre_establecimiento_salud", "comites_de_salud",
 ]
 
 
@@ -1313,58 +1373,63 @@ class ExcelService:
         wb = openpyxl.load_workbook(ruta_archivo, data_only=True)
         ws = wb.active
 
-        cabecera_raw   = [str(c.value).strip() if c.value is not None else "" for c in next(ws.iter_rows(min_row=1, max_row=1))]
-        cabecera_lower = [h.lower() for h in cabecera_raw]
+        # Detecta si es la plantilla nueva (fila 3 con encabezados) o vieja (fila 1 con encabezados).
+        raw_header_row = next(ws.iter_rows(min_row=3, max_row=3, values_only=True))
+        cabecera_raw = [str(c).strip() if c is not None else "" for c in raw_header_row]
+        cabecera_normalizada = [self._normalizar_encabezado(c) for c in cabecera_raw]
+        idx = {cab: i for i, cab in enumerate(cabecera_normalizada) if cab}
+        data_start = 4
 
-        faltantes = [col for col in COLUMNAS_REQUERIDAS if col not in cabecera_lower]
+        if not any(col in idx for col in COLUMNAS_REQUERIDAS):
+            raw_header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True))
+            cabecera_raw = [str(c).strip() if c is not None else "" for c in raw_header_row]
+            cabecera_normalizada = [self._normalizar_encabezado(c) for c in cabecera_raw]
+            idx = {cab: i for i, cab in enumerate(cabecera_normalizada) if cab}
+            data_start = 2
+
+        # Chequea que existan las columnas mínimas necesarias para la importación.
+        faltantes = [col for col in COLUMNAS_REQUERIDAS if col not in idx]
         if faltantes:
             raise ValueError(
                 f"El archivo no tiene las columnas requeridas: {', '.join(faltantes)}.\n"
                 f"Columnas detectadas: {', '.join(cabecera_raw)}"
             )
 
-        idx = {col: cabecera_lower.index(col) for col in COLUMNAS_REQUERIDAS}
         filas_validas = []
         filas_error   = []
 
-        for numero_fila, fila in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+        for numero_fila, fila in enumerate(ws.iter_rows(min_row=4, values_only=True), start=4):
             if all(v is None or str(v).strip() == "" for v in fila):
                 continue
 
-            datos_crudos = {col: fila[idx[col]] for col in COLUMNAS_REQUERIDAS}
+            datos_crudos = {col: fila[idx[col]] if col in idx and idx[col] < len(fila) else None for col in COLUMNAS_REQUERIDAS}
             errores = []
 
             asic_nombre  = str(datos_crudos["asic"]).strip()          if datos_crudos["asic"]          else ""
             tipo_nombre  = str(datos_crudos["tipo_actividad"]).strip() if datos_crudos["tipo_actividad"] else ""
-            lugar        = str(datos_crudos["lugar"]).strip()          if datos_crudos["lugar"]          else ""
+            lugar        = self._combinar_ubicacion(fila, idx) or (str(datos_crudos.get("lugar")).strip() if datos_crudos.get("lugar") else "")
             descripcion  = str(datos_crudos["descripcion"]).strip()    if datos_crudos["descripcion"]    else ""
 
             try:
-                participantes = int(datos_crudos["participantes"])
-                if participantes < 0:
+                participantes = self._calcular_total_asistencia(fila, idx, datos_crudos)
+                if participantes is None or participantes < 0:
                     raise ValueError()
             except (TypeError, ValueError):
                 participantes = None
-                errores.append("'participantes' debe ser un número entero >= 0.")
+                errores.append("'TOTAL DE ASISTENCIA' no es un número entero válido.")
 
             fecha_inicio = self._parsear_fecha(datos_crudos["fecha_inicio"])
-            fecha_fin    = self._parsear_fecha(datos_crudos["fecha_fin"])
 
             if fecha_inicio is None:
-                errores.append("'fecha_inicio' no tiene formato de fecha válido (YYYY-MM-DD o DD/MM/YYYY).")
-            if fecha_fin is None:
-                errores.append("'fecha_fin' no tiene formato de fecha válido (YYYY-MM-DD o DD/MM/YYYY).")
-            if fecha_inicio and fecha_fin and fecha_fin < fecha_inicio:
-                errores.append("'fecha_fin' no puede ser anterior a 'fecha_inicio'.")
-
+                errores.append("'FECHA' no tiene formato de fecha válido (YYYY-MM-DD o DD/MM/YYYY).")
             if not asic_nombre:
-                errores.append("El campo 'asic' está vacío.")
+                errores.append("El campo 'ASIC' está vacío.")
             if not tipo_nombre:
-                errores.append("El campo 'tipo_actividad' está vacío.")
+                errores.append("El campo 'ACTIVIDAD DESARROLLADA' está vacío.")
             if not lugar:
-                errores.append("El campo 'lugar' está vacío.")
+                errores.append("Los campos de ubicación no están completos.")
             if not descripcion:
-                errores.append("El campo 'descripcion' está vacío.")
+                errores.append("El campo 'TEMA TRATADO' está vacío.")
 
             id_asic = None
             id_tipo = None
@@ -1391,7 +1456,7 @@ class ExcelService:
                 "id_asic": id_asic,
                 "id_tipo": id_tipo,
                 "fecha_inicio": fecha_inicio,
-                "fecha_fin": fecha_fin,
+                "fecha_fin": fecha_inicio,
                 "lugar": lugar,
                 "descripcion": descripcion,
                 "participantes": participantes,
@@ -1438,6 +1503,67 @@ class ExcelService:
                 })
 
         return {"insertadas": insertadas, "errores_al_insertar": errores_al_insertar}
+
+    def _normalizar_encabezado(self, texto):
+        if texto is None:
+            return ""
+        valor = str(texto).strip().lower()
+        valor = unicodedata.normalize("NFKD", valor)
+        valor = "".join(ch for ch in valor if not unicodedata.combining(ch))
+        valor = re.sub(r"[^a-z0-9]+", " ", valor)
+        valor = " ".join(valor.split())
+        return HEADER_ALIASES.get(valor, valor)
+
+    def _obtener_valor_columna(self, fila, idx, campo):
+        if campo not in idx or idx[campo] >= len(fila):
+            return None
+        return fila[idx[campo]]
+
+    def _combinar_ubicacion(self, fila, idx):
+        valores = []
+        for campo in LOCATION_FIELDS:
+            valor = self._obtener_valor_columna(fila, idx, campo)
+            if valor is not None and str(valor).strip() != "":
+                valores.append(str(valor).strip())
+        return " / ".join(valores).strip()
+
+    def _parse_int(self, valor):
+        if valor is None:
+            return None
+        if isinstance(valor, bool):
+            return None
+        if isinstance(valor, (int, float)) and float(valor).is_integer():
+            return int(valor)
+        try:
+            texto = str(valor).strip()
+            if texto == "":
+                return None
+            return int(texto)
+        except (TypeError, ValueError):
+            return None
+
+    def _calcular_total_asistencia(self, fila, idx, datos_crudos):
+        total = self._obtener_valor_columna(fila, idx, "total_asistencia")
+        total_num = self._parse_int(total)
+        if total_num is not None:
+            return total_num
+
+        suma = 0
+        encontrado = False
+        for campo in PARTICIPANTES_CATEGORIAS:
+            valor = self._obtener_valor_columna(fila, idx, campo)
+            if valor is None or str(valor).strip() == "":
+                continue
+            encontrado = True
+            valor_num = self._parse_int(valor)
+            if valor_num is None:
+                return None
+            suma += valor_num
+
+        if encontrado:
+            return suma
+
+        return self._parse_int(datos_crudos.get("participantes"))
 
     def _parsear_fecha(self, valor):
         """Acepta objetos date/datetime o strings YYYY-MM-DD / DD/MM/YYYY."""
