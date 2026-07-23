@@ -125,7 +125,7 @@ class ImportacionView:
 
     def _iniciar_previo(self):
         self._btn_previsualizar.configure(state="disabled", text="Procesando…")
-        self.parent.config(cursor="wait")
+        self.parent.configure(cursor="wait")
 
         def _tarea():
             try:
@@ -138,16 +138,16 @@ class ImportacionView:
         threading.Thread(target=_tarea, daemon=True).start()
 
     def _error_previo(self, exc: Exception):
-        self.parent.config(cursor="")
+        self.parent.configure(cursor="")
         messagebox.showerror("Error al leer el archivo",
                              f"No se pudo procesar el archivo:\n\n{exc}")
         self._btn_previsualizar.configure(state="normal", text="▶  Previsualizar",
-                                          fg_color=t["bg_hover"],
-                                          text_color=t["text_dim"])
+                                          fg_color=self.t["bg_hover"],
+                                          text_color=self.t["text_dim"])
 
     def _mostrar_paso2(self, resultado: dict):
         t = self.t
-        self.parent.config(cursor="")
+        self.parent.configure(cursor="")
         self._resultado_previo = resultado
         self._limpiar_pasos()
 
@@ -235,7 +235,7 @@ class ImportacionView:
                         background=t["bg_base"], foreground=t["text_primary"],
                         fieldbackground=t["bg_base"], rowheight=24)
         style.configure("Import.Treeview.Heading",
-                        background=t["bg_card"], foreground=t["text_primary"],
+                        background="#c00000", foreground="white",
                         relief="flat")
         style.map("Import.Treeview", background=[("selected", t["bg_card"])])
 
@@ -289,7 +289,7 @@ class ImportacionView:
             self._ejecutar_importacion(validas)
 
     def _ejecutar_importacion(self, filas_validas: list):
-        self.parent.config(cursor="wait")
+        self.parent.configure(cursor="wait")
 
         def _tarea():
             try:
@@ -302,13 +302,13 @@ class ImportacionView:
         threading.Thread(target=_tarea, daemon=True).start()
 
     def _error_importar(self, exc: Exception):
-        self.parent.config(cursor="")
+        self.parent.configure(cursor="")
         messagebox.showerror("Error al importar",
                              f"Ocurrió un error durante la importación:\n\n{exc}")
 
     def _mostrar_paso3(self, resultado: dict):
         t = self.t
-        self.parent.config(cursor="")
+        self.parent.configure(cursor="")
         self._limpiar_pasos()
 
         insertadas  = resultado["insertadas"]

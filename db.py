@@ -1286,9 +1286,12 @@ class ConsolidacionService:
 
 
 # Columnas requeridas en el Excel de importación
+# NOTA: Usamos detección flexible — "lugar" puede venir como columna única
+# O componerse desde LOCATION_FIELDS; "participantes" puede venir como columna
+# única, como "total_asistencia", o sumarse desde PARTICIPANTES_CATEGORIAS.
 COLUMNAS_REQUERIDAS = [
-    "asic", "tipo_actividad", "fecha_inicio", "lugar",
-    "descripcion", "participantes",
+    "asic", "tipo_actividad", "fecha_inicio", "descripcion",
+    "lugar", "participantes",
 ]
 
 HEADER_ALIASES = {
@@ -1304,10 +1307,12 @@ HEADER_ALIASES = {
     "parroquia": "parroquia",
     "asic": "asic",
     "establecimiento de salud": "establecimiento_salud",
+    "establecimiento de salud cdi sri hospital cat clinica popular": "establecimiento_salud",
     "nombre del establecimiento de salud": "nombre_establecimiento_salud",
     "comites de salud": "comites_de_salud",
     "comités de salud": "comites_de_salud",
     "ubicación": "ubicacion",
+    "ubicacion": "ubicacion",
 
     # Tipo de actividad
     "actividad desarrollada": "tipo_actividad",
@@ -1328,11 +1333,13 @@ HEADER_ALIASES = {
     "medicos": "medicos",
     "promotores en salud": "promotores_en_salud",
     "voceros de comité de salud": "voceros_de_comite_de_salud",
+    "voceros de comite de salud": "voceros_de_comite_de_salud",
     "vocero del consejo de direccion del asic": "vocero_del_consejo_de_direccion_del_asic",
     "coordinador de docencia e investigacion del asic": "coordinador_de_docencia_e_investigacion_del_asic",
     "autoridades presentes": "autoridades_presentes",
     "otros actores involucrados": "otros_actores_involucrados",
     "cantidad de personas de la comunidad": "cantidad_personas_comunidad",
+    "cantidad de personas de la comunidad estudiantes ninos y adultos": "cantidad_personas_comunidad",
     "estudiantes aspirantes para la salud involucrados en la actividad": "estudiantes_aspirantes",
     "total de asistencia": "total_asistencia",
 }
@@ -1380,6 +1387,16 @@ class ExcelService:
         idx = {cab: i for i, cab in enumerate(cabecera_normalizada) if cab}
         data_start = 4
 
+        # Si faltan columnas en fila 3 (ej. "FECHA" está en celda fusionada A2:A3),
+        # complementa con encabezados de la fila 2 (solo para columnas vacías en fila 3).
+        raw_row2 = next(ws.iter_rows(min_row=2, max_row=2, values_only=True))
+        for i, val in enumerate(raw_row2):
+            if i < len(cabecera_raw) and not cabecera_raw[i] and val is not None:
+                normalizado = self._normalizar_encabezado(str(val))
+                if normalizado:
+                    idx[normalizado] = i
+                    cabecera_raw[i] = str(val).strip()
+
         if not any(col in idx for col in COLUMNAS_REQUERIDAS):
             raw_header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True))
             cabecera_raw = [str(c).strip() if c is not None else "" for c in raw_header_row]
@@ -1388,7 +1405,18 @@ class ExcelService:
             data_start = 2
 
         # Chequea que existan las columnas mínimas necesarias para la importación.
-        faltantes = [col for col in COLUMNAS_REQUERIDAS if col not in idx]
+        # "lugar" puede ser una columna única o componerse desde LOCATION_FIELDS.
+        # "participantes" puede ser columna única, "total_asistencia" o varias categorías.
+        faltantes = []
+        for col in COLUMNAS_REQUERIDAS:
+            if col in idx:
+                continue
+            if col == "lugar" and any(cf in idx for cf in LOCATION_FIELDS):
+                continue
+            if col == "participantes" and ("total_asistencia" in idx or any(cf in idx for cf in PARTICIPANTES_CATEGORIAS)):
+                continue
+            faltantes.append(col)
+
         if faltantes:
             raise ValueError(
                 f"El archivo no tiene las columnas requeridas: {', '.join(faltantes)}.\n"

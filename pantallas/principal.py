@@ -15,6 +15,7 @@ class MainView:
         ("tipos",       "Tipos"),
         ("importar",    "Importar"),
         ("reportes",    "Reportes"),
+        ("vocerias",    "Vocerias CS"),
     ]
 
     def __init__(self, root):
@@ -302,6 +303,7 @@ class MainView:
         from pantallas.actividades import ActividadView
         from pantallas.importacion import ImportacionView
         from pantallas.reportes    import ReporteView
+        from pantallas.vocerias    import VoceriaView
 
         if seccion == "dashboard":
             DashboardView(self.area_contenido, theme=self.tema_actual)
@@ -315,6 +317,8 @@ class MainView:
             ImportacionView(self.area_contenido, theme=self.tema_actual)
         elif seccion == "reportes":
             ReporteView(self.area_contenido, theme=self.tema_actual)
+        elif seccion == "vocerias":
+            VoceriaView(self.area_contenido, theme=self.tema_actual)
 
     def _alternar_tema(self):
         self.tema_actual = "light" if self.tema_actual == "dark" else "dark"
@@ -398,6 +402,7 @@ class MainView:
         from pantallas.actividades import ActividadView
         from pantallas.importacion import ImportacionView
         from pantallas.reportes    import ReporteView
+        from pantallas.vocerias    import VoceriaView
 
         if seccion == "dashboard":
             DashboardView(self.area_contenido, theme=self.tema_actual)
@@ -411,6 +416,8 @@ class MainView:
             ImportacionView(self.area_contenido, theme=self.tema_actual)
         elif seccion == "reportes":
             ReporteView(self.area_contenido, theme=self.tema_actual)
+        elif seccion == "vocerias":
+            VoceriaView(self.area_contenido, theme=self.tema_actual)
 
         self.area_contenido.update_idletasks()
 
