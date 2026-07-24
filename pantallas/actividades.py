@@ -9,8 +9,10 @@ import customtkinter as ctk
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from datetime import datetime, date
-from db import ActividadController, ALLOWED_EXTENSIONS, MAX_FILE_SIZE_MB
+from db import ActividadController, ALLOWED_EXTENSIONS, MAX_FILE_SIZE_MB, ExcelService, TEMPLATE_PATH
 import os
+import threading
+from tkinter import filedialog, messagebox
 
 from themes import THEMES
 
@@ -126,10 +128,22 @@ class ActividadView:
                       command=self._cargar_datos_tabla
                       ).pack(side="left", padx=10)
 
+        ctk.CTkButton(marco_acciones_top, text="⬇ Descargar Plantilla",
+                      font=("Arial", 9), fg_color=t["bg_card"],
+                      hover_color=t["bg_hover"], corner_radius=8,
+                      command=self._descargar_plantilla
+                      ).pack(side="right", padx=5)
+
+        ctk.CTkButton(marco_acciones_top, text="📥 Importar Actividades",
+                      font=("Arial", 9, "bold"), fg_color=t["success"],
+                      hover_color=t["success_dim"], corner_radius=8,
+                      command=self._abrir_modal_importar
+                      ).pack(side="right")
+
         marco_tabla = ctk.CTkFrame(self.parent, fg_color="transparent", corner_radius=10)
         marco_tabla.pack(fill="both", expand=True, padx=30, pady=(5, 10))
 
-        columnas = ("id", "asic", "tipo", "fecha_inicio", "fecha_fin", "lugar", "participantes", "registrador")
+        columnas = ("id", "asic", "tipo", "fecha_inicio", "fecha_fin", "estado", "municipio", "lugar", "participantes", "registrador")
         self.tabla = ttk.Treeview(marco_tabla, columns=columnas, show="headings", height=12)
 
         self.tabla.heading("id",            text="ID")
@@ -137,15 +151,19 @@ class ActividadView:
         self.tabla.heading("tipo",          text="Tipo de Actividad")
         self.tabla.heading("fecha_inicio",  text="F. Inicio")
         self.tabla.heading("fecha_fin",     text="F. Fin")
+        self.tabla.heading("estado",        text="Estado")
+        self.tabla.heading("municipio",     text="Municipio")
         self.tabla.heading("lugar",         text="Lugar")
         self.tabla.heading("participantes", text="Part.")
         self.tabla.heading("registrador",   text="Registrado Por")
 
         self.tabla.column("id",            width=45,  anchor="center")
-        self.tabla.column("asic",          width=180, anchor="w")
-        self.tabla.column("tipo",          width=180, anchor="w")
-        self.tabla.column("fecha_inicio",  width=90,  anchor="center")
-        self.tabla.column("fecha_fin",     width=90,  anchor="center")
+        self.tabla.column("asic",          width=150, anchor="w")
+        self.tabla.column("tipo",          width=160, anchor="w")
+        self.tabla.column("fecha_inicio",  width=85,  anchor="center")
+        self.tabla.column("fecha_fin",     width=85,  anchor="center")
+        self.tabla.column("estado",        width=100, anchor="w")
+        self.tabla.column("municipio",     width=100, anchor="w")
         self.tabla.column("lugar",         width=140, anchor="w")
         self.tabla.column("participantes", width=60,  anchor="center")
         self.tabla.column("registrador",   width=120, anchor="w")
@@ -257,6 +275,8 @@ class ActividadView:
                     act["tipo_nombre"],
                     f_ini,
                     f_fin,
+                    act.get("estado") or "",
+                    act.get("municipio") or "",
                     act["lugar"] or "",
                     act["participantes"],
                     act["usuario_nombre"]
@@ -268,14 +288,14 @@ class ActividadView:
         t = self.t
         ventana = ctk.CTkToplevel(self.parent)
         ventana.title("Registrar Actividad" if datos_edicion is None else "Editar Actividad")
-        ventana.geometry("520x680")
+        ventana.geometry("600x850")
         ventana.resizable(False, False)
         ventana.configure(fg_color=t["bg_surface"])
         ventana.grab_set()
 
         ventana.update_idletasks()
-        x = (ventana.winfo_screenwidth()  // 2) - 260
-        y = (ventana.winfo_screenheight() // 2) - 340
+        x = (ventana.winfo_screenwidth()  // 2) - 300
+        y = (ventana.winfo_screenheight() // 2) - 425
         ventana.geometry(f"+{x}+{y}")
 
         ctk.CTkLabel(ventana,
@@ -283,9 +303,14 @@ class ActividadView:
                  font=("Arial", 14, "bold"), text_color=t["text_primary"]
                  ).pack(pady=(15, 5))
 
-        marco_form = ctk.CTkFrame(ventana, fg_color="transparent")
-        marco_form.pack(fill="both", expand=True, padx=25, pady=5)
+        # Scrollable frame for form
+        scroll_frame = ctk.CTkScrollableFrame(ventana, fg_color="transparent")
+        scroll_frame.pack(fill="both", expand=True, padx=25, pady=5)
 
+        marco_form = ctk.CTkFrame(scroll_frame, fg_color="transparent")
+        marco_form.pack(fill="both", expand=True)
+
+        # --- ASIC y Tipo ---
         ctk.CTkLabel(marco_form, text="ASIC *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(2, 2))
         combo_asic = ttk.Combobox(marco_form, state="readonly", font=("Arial", 10))
         combo_asic.pack(fill="x")
@@ -298,6 +323,7 @@ class ActividadView:
         nombres_tipos = sorted(list(self.tipo_map.keys()))
         combo_tipo["values"] = nombres_tipos
 
+        # --- Fechas ---
         marco_fechas = ctk.CTkFrame(marco_form, fg_color="transparent")
         marco_fechas.pack(fill="x", pady=8)
 
@@ -324,25 +350,72 @@ class ActividadView:
             ent_fecha_fin.pack(fill="x", pady=(2, 0))
             ent_fecha_fin.insert(0, date.today().strftime("%Y-%m-%d"))
 
-        marco_lug_part = ctk.CTkFrame(marco_form, fg_color="transparent")
-        marco_lug_part.pack(fill="x", pady=4)
+        # --- Ubicación (campos de la plantilla) ---
+        ctk.CTkLabel(marco_form, text="Ubicación", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(8, 2))
 
-        col_lug = ctk.CTkFrame(marco_lug_part, fg_color="transparent")
-        col_lug.pack(side="left", fill="x", expand=True)
-        ctk.CTkLabel(col_lug, text="Lugar / Centro de Salud", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_lugar = ctk.CTkEntry(col_lug, font=("Arial", 10), fg_color=t["bg_card"], text_color=t["text_primary"],
+        marco_ubicacion = ctk.CTkFrame(marco_form, fg_color=t["bg_card"], corner_radius=8)
+        marco_ubicacion.pack(fill="x", pady=(0, 4))
+        inner_ubic = ctk.CTkFrame(marco_ubicacion, fg_color="transparent")
+        inner_ubic.pack(fill="x", padx=10, pady=8)
+
+        # Fila 1: Estado, Municipio, Parroquia
+        fila_ubi1 = ctk.CTkFrame(inner_ubic, fg_color="transparent")
+        fila_ubi1.pack(fill="x", pady=2)
+
+        col_estado = ctk.CTkFrame(fila_ubi1, fg_color="transparent")
+        col_estado.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        ctk.CTkLabel(col_estado, text="Estado", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        ent_estado = ctk.CTkEntry(col_estado, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"],
+                                  border_color=t["border"], corner_radius=6)
+        ent_estado.pack(fill="x", pady=(2, 0))
+
+        col_municipio = ctk.CTkFrame(fila_ubi1, fg_color="transparent")
+        col_municipio.pack(side="left", fill="x", expand=True, padx=5)
+        ctk.CTkLabel(col_municipio, text="Municipio", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        ent_municipio = ctk.CTkEntry(col_municipio, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"],
+                                     border_color=t["border"], corner_radius=6)
+        ent_municipio.pack(fill="x", pady=(2, 0))
+
+        col_parroquia = ctk.CTkFrame(fila_ubi1, fg_color="transparent")
+        col_parroquia.pack(side="right", fill="x", expand=True, padx=(5, 0))
+        ctk.CTkLabel(col_parroquia, text="Parroquia", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        ent_parroquia = ctk.CTkEntry(col_parroquia, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"],
+                                     border_color=t["border"], corner_radius=6)
+        ent_parroquia.pack(fill="x", pady=(2, 0))
+
+        # Fila 2: Establecimiento, Nombre Establecimiento, Comités de Salud
+        fila_ubi2 = ctk.CTkFrame(inner_ubic, fg_color="transparent")
+        fila_ubi2.pack(fill="x", pady=2)
+
+        col_estab = ctk.CTkFrame(fila_ubi2, fg_color="transparent")
+        col_estab.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        ctk.CTkLabel(col_estab, text="Establecimiento de Salud", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        ent_establecimiento = ctk.CTkEntry(col_estab, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"],
+                                           border_color=t["border"], corner_radius=6)
+        ent_establecimiento.pack(fill="x", pady=(2, 0))
+
+        col_nom_estab = ctk.CTkFrame(fila_ubi2, fg_color="transparent")
+        col_nom_estab.pack(side="left", fill="x", expand=True, padx=5)
+        ctk.CTkLabel(col_nom_estab, text="Nombre del Establecimiento", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        ent_nombre_establecimiento = ctk.CTkEntry(col_nom_estab, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"],
+                                                  border_color=t["border"], corner_radius=6)
+        ent_nombre_establecimiento.pack(fill="x", pady=(2, 0))
+
+        col_comites = ctk.CTkFrame(fila_ubi2, fg_color="transparent")
+        col_comites.pack(side="right", fill="x", expand=True, padx=(5, 0))
+        ctk.CTkLabel(col_comites, text="Comités de Salud", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        ent_comites = ctk.CTkEntry(col_comites, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"],
+                                   border_color=t["border"], corner_radius=6)
+        ent_comites.pack(fill="x", pady=(2, 0))
+
+        # Lugar combinado (legacy/opcional)
+        ctk.CTkLabel(marco_form, text="Lugar / Centro de Salud (resumen)", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(8, 2))
+        ent_lugar = ctk.CTkEntry(marco_form, font=("Arial", 10), fg_color=t["bg_card"], text_color=t["text_primary"],
                                  border_color=t["border"], corner_radius=6)
         ent_lugar.pack(fill="x", pady=(2, 0))
 
-        col_part = ctk.CTkFrame(marco_lug_part, fg_color="transparent")
-        col_part.pack(side="right", fill="x", expand=False, padx=(15, 0))
-        ctk.CTkLabel(col_part, text="Participantes *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_participantes = ctk.CTkEntry(col_part, font=("Arial", 10), fg_color=t["bg_card"], text_color=t["text_primary"],
-                                         border_color=t["border"], corner_radius=6, width=120)
-        ent_participantes.pack(fill="x", pady=(2, 0))
-        ent_participantes.insert(0, "0")
-
-        ctk.CTkLabel(marco_form, text="Descripcion de la Actividad *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(8, 2))
+        # --- Descripción ---
+        ctk.CTkLabel(marco_form, text="Tema Tratado / Descripción *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(8, 2))
         marco_txt = ctk.CTkFrame(marco_form, fg_color=t["bg_card"], corner_radius=6)
         marco_txt.pack(fill="x")
         txt_desc = tk.Text(marco_txt, font=("Arial", 10), bg=t["bg_card"], fg=t["text_primary"], relief="flat", height=3, insertbackground=t["text_primary"], wrap="word")
@@ -351,6 +424,48 @@ class ActividadView:
         txt_desc.configure(yscrollcommand=scroll_txt.set)
         scroll_txt.pack(side="right", fill="y")
 
+        # --- Participantes por categoría ---
+        ctk.CTkLabel(marco_form, text="Participantes por Categoría", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(10, 2))
+
+        marco_part = ctk.CTkFrame(marco_form, fg_color=t["bg_card"], corner_radius=8)
+        marco_part.pack(fill="x", pady=(0, 4))
+        inner_part = ctk.CTkFrame(marco_part, fg_color="transparent")
+        inner_part.pack(fill="x", padx=10, pady=8)
+
+        # Fila 1: Médicos, Promotores, Voceros Comité
+        fila_p1 = ctk.CTkFrame(inner_part, fg_color="transparent")
+        fila_p1.pack(fill="x", pady=2)
+
+        self._crear_campo_numerico(fila_p1, "Médicos", "ent_medicos", 0)
+        self._crear_campo_numerico(fila_p1, "Promotores en Salud", "ent_promotores", 0)
+        self._crear_campo_numerico(fila_p1, "Voceros Comité Salud", "ent_voceros_comite", 0)
+
+        # Fila 2: Vocero Consejo, Coordinador Docencia, Autoridades
+        fila_p2 = ctk.CTkFrame(inner_part, fg_color="transparent")
+        fila_p2.pack(fill="x", pady=2)
+
+        self._crear_campo_numerico(fila_p2, "Vocero Consejo Dir. ASIC", "ent_vocero_consejo", 0)
+        self._crear_campo_numerico(fila_p2, "Coordinador Docencia ASIC", "ent_coordinador", 0)
+        self._crear_campo_numerico(fila_p2, "Autoridades Presentes", "ent_autoridades", 0)
+
+        # Fila 3: Otros Actores, Personas Comunidad, Estudiantes Aspirantes
+        fila_p3 = ctk.CTkFrame(inner_part, fg_color="transparent")
+        fila_p3.pack(fill="x", pady=2)
+
+        self._crear_campo_numerico(fila_p3, "Otros Actores", "ent_otros_actores", 0)
+        self._crear_campo_numerico(fila_p3, "Personas Comunidad", "ent_personas_comunidad", 0)
+        self._crear_campo_numerico(fila_p3, "Estudiantes Aspirantes", "ent_estudiantes", 0)
+
+        # Total Participantes
+        marco_total = ctk.CTkFrame(marco_form, fg_color="transparent")
+        marco_total.pack(fill="x", pady=4)
+        ctk.CTkLabel(marco_total, text="Total de Asistencia *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        ent_participantes = ctk.CTkEntry(marco_total, font=("Arial", 10), fg_color=t["bg_card"], text_color=t["text_primary"],
+                                         border_color=t["border"], corner_radius=6, width=120)
+        ent_participantes.pack(fill="x", pady=(2, 0))
+        ent_participantes.insert(0, "0")
+
+        # --- Evidencias ---
         marco_evidencias = ctk.CTkFrame(
             marco_form, fg_color=t["bg_surface"], corner_radius=10,
             border_width=1, border_color=t["border"]
@@ -473,10 +588,30 @@ class ActividadView:
                 ent_fecha_ini.insert(0, datos_edicion["fecha_inicio"])
                 ent_fecha_fin.delete(0, tk.END)
                 ent_fecha_fin.insert(0, datos_edicion["fecha_fin"])
-            ent_lugar.insert(0, datos_edicion["lugar"])
+
+            # Cargar campos de ubicación
+            ent_estado.insert(0, datos_edicion.get("estado", "") or "")
+            ent_municipio.insert(0, datos_edicion.get("municipio", "") or "")
+            ent_parroquia.insert(0, datos_edicion.get("parroquia", "") or "")
+            ent_establecimiento.insert(0, datos_edicion.get("establecimiento_salud", "") or "")
+            ent_nombre_establecimiento.insert(0, datos_edicion.get("nombre_establecimiento", "") or "")
+            ent_comites.insert(0, datos_edicion.get("comites_salud", "") or "")
+            ent_lugar.insert(0, datos_edicion.get("lugar", "") or "")
+
+            # Cargar participantes por categoría
+            self.ent_medicos.insert(0, str(datos_edicion.get("medicos", 0) or 0))
+            self.ent_promotores.insert(0, str(datos_edicion.get("promotores_salud", 0) or 0))
+            self.ent_voceros_comite.insert(0, str(datos_edicion.get("voceros_comite_salud", 0) or 0))
+            self.ent_vocero_consejo.insert(0, str(datos_edicion.get("vocero_consejo_direccion", 0) or 0))
+            self.ent_coordinador.insert(0, str(datos_edicion.get("coordinador_docencia", 0) or 0))
+            self.ent_autoridades.insert(0, str(datos_edicion.get("autoridades_presentes", 0) or 0))
+            self.ent_otros_actores.insert(0, str(datos_edicion.get("otros_actores", 0) or 0))
+            self.ent_personas_comunidad.insert(0, str(datos_edicion.get("personas_comunidad", 0) or 0))
+            self.ent_estudiantes.insert(0, str(datos_edicion.get("estudiantes_aspirantes", 0) or 0))
+
             ent_participantes.delete(0, tk.END)
-            ent_participantes.insert(0, str(datos_edicion["participantes"]))
-            txt_desc.insert("1.0", datos_edicion["descripcion"])
+            ent_participantes.insert(0, str(datos_edicion.get("participantes", 0) or 0))
+            txt_desc.insert("1.0", datos_edicion.get("descripcion", "") or "")
 
         def guardar():
             id_asic = self.asic_map.get(combo_asic.get())
@@ -489,8 +624,23 @@ class ActividadView:
                 id_tipo=id_tipo,
                 fecha_inicio=f_ini,
                 fecha_fin=f_fin,
+                estado=ent_estado.get(),
+                municipio=ent_municipio.get(),
+                parroquia=ent_parroquia.get(),
+                establecimiento_salud=ent_establecimiento.get(),
+                nombre_establecimiento=ent_nombre_establecimiento.get(),
+                comites_salud=ent_comites.get(),
                 lugar=ent_lugar.get(),
                 descripcion=txt_desc.get("1.0", "end-1c"),
+                medicos=self.ent_medicos.get(),
+                promotores_salud=self.ent_promotores.get(),
+                voceros_comite_salud=self.ent_voceros_comite.get(),
+                vocero_consejo_direccion=self.ent_vocero_consejo.get(),
+                coordinador_docencia=self.ent_coordinador.get(),
+                autoridades_presentes=self.ent_autoridades.get(),
+                otros_actores=self.ent_otros_actores.get(),
+                personas_comunidad=self.ent_personas_comunidad.get(),
+                estudiantes_aspirantes=self.ent_estudiantes.get(),
                 participantes=ent_participantes.get(),
                 id_actividad=id_actividad_edicion,
                 evidencias_temporales=evidencias_locales_nuevas if id_actividad_edicion is None else None
@@ -506,6 +656,19 @@ class ActividadView:
                       font=("Arial", 11, "bold"), fg_color=t["accent"],
                       hover_color=t["accent_dim"], corner_radius=8, command=guardar
                       ).pack(fill="x", padx=25, pady=(5, 15), ipady=8)
+
+    def _crear_campo_numerico(self, parent, label, attr_name, default=0):
+        """Helper para crear campos numéricos con label."""
+        t = self.t
+        col = ctk.CTkFrame(parent, fg_color="transparent")
+        col.pack(side="left", fill="x", expand=True, padx=5)
+        ctk.CTkLabel(col, text=label, font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        ent = ctk.CTkEntry(col, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"],
+                           border_color=t["border"], corner_radius=6, width=80)
+        ent.pack(fill="x", pady=(2, 0))
+        ent.insert(0, str(default))
+        setattr(self, attr_name, ent)
+        return ent
 
     def _abrir_form_nueva(self):
         self._abrir_formulario()
@@ -547,3 +710,366 @@ class ActividadView:
                     messagebox.showerror("Error", msg)
             except Exception as e:
                 messagebox.showerror("Error", f"No se pudo eliminar la actividad: {str(e)}")
+
+    def _descargar_plantilla(self):
+        if not os.path.exists(TEMPLATE_PATH):
+            messagebox.showerror("Plantilla no encontrada",
+                                 f"No se encontro la plantilla en:\n{TEMPLATE_PATH}\n\n"
+                                 "Asegurate de que el archivo exista en esa ruta.")
+            return
+
+        destino = filedialog.asksaveasfilename(
+            title="Guardar plantilla como...",
+            defaultextension=".xlsx",
+            initialfile="plantilla_importacion.xlsx",
+            filetypes=[("Archivos Excel", "*.xlsx")],
+        )
+        if destino:
+            import shutil
+            shutil.copy2(TEMPLATE_PATH, destino)
+            messagebox.showinfo("Plantilla guardada", f"Plantilla guardada en:\n{destino}")
+
+    def _abrir_modal_importar(self):
+        self._ImportarModal(self)
+
+    class _ImportarModal:
+        def __init__(self, parent_view):
+            self.parent_view = parent_view
+            self.parent = parent_view.parent
+            self.t = parent_view.t
+            self.controller = parent_view.controller
+            self.auth = parent_view.controller.actividad_dao.auth if hasattr(parent_view.controller.actividad_dao, 'auth') else None
+            from db import AuthController
+            self.auth_ctrl = AuthController()
+            self.usuario = self.auth_ctrl.obtener_usuario_actual()
+            self._ruta_archivo = None
+            self._resultado_previo = None
+
+            self._construir_modal()
+            self._mostrar_paso1()
+
+        def _construir_modal(self):
+            t = self.t
+            self.ventana = ctk.CTkToplevel(self.parent)
+            self.ventana.title("Importar Actividades desde Excel")
+            self.ventana.geometry("750x650")
+            self.ventana.resizable(False, False)
+            self.ventana.configure(fg_color=t["bg_surface"])
+            self.ventana.grab_set()
+
+            self.ventana.update_idletasks()
+            x = (self.ventana.winfo_screenwidth() // 2) - 375
+            y = (self.ventana.winfo_screenheight() // 2) - 325
+            self.ventana.geometry(f"+{x}+{y}")
+
+            header = ctk.CTkFrame(self.ventana, fg_color="transparent")
+            header.pack(fill="x", padx=20, pady=(15, 5))
+
+            ctk.CTkLabel(header, text="📥 Importar Actividades desde Excel",
+                         font=("Arial", 14, "bold"), text_color=t["text_primary"]).pack(side="left")
+
+            ctk.CTkButton(header, text="✕", width=30, height=30,
+                          fg_color="transparent", hover_color=t["bg_hover"],
+                          text_color=t["text_primary"], corner_radius=6,
+                          command=self.ventana.destroy).pack(side="right")
+
+            ctk.CTkLabel(self.ventana,
+                         text="Importa actividades en bloque subiendo un archivo .xlsx con el formato de la plantilla.",
+                         font=("Arial", 9), text_color=t["text_muted"],
+                         ).pack(anchor="w", padx=20, pady=(0, 10))
+
+            self._frame_pasos = ctk.CTkFrame(self.ventana, fg_color="transparent")
+            self._frame_pasos.pack(fill="both", expand=True, padx=20, pady=(0, 15))
+
+            btn_frame = ctk.CTkFrame(self.ventana, fg_color="transparent")
+            btn_frame.pack(fill="x", padx=20, pady=(0, 15))
+
+            self._btn_cerrar = ctk.CTkButton(btn_frame, text="Cerrar",
+                                             font=("Arial", 10), fg_color=t["bg_card"],
+                                             hover_color=t["bg_hover"], corner_radius=8,
+                                             command=self.ventana.destroy)
+            self._btn_cerrar.pack(side="right")
+
+        def _limpiar_pasos(self):
+            for w in self._frame_pasos.winfo_children():
+                w.destroy()
+
+        def _mostrar_paso1(self):
+            t = self.t
+            self._limpiar_pasos()
+            self._ruta_archivo = None
+            self._resultado_previo = None
+
+            card = ctk.CTkFrame(self._frame_pasos, fg_color=t["bg_surface"], corner_radius=10)
+            card.pack(fill="x", padx=10)
+
+            inner = ctk.CTkFrame(card, fg_color="transparent")
+            inner.pack(fill="x", padx=20, pady=20)
+
+            ctk.CTkLabel(inner, text="Paso 1 de 3 — Seleccionar archivo Excel",
+                         font=("Arial", 11, "bold"), text_color=t["text_primary"]).pack(anchor="w", pady=(0, 4))
+
+            ctk.CTkLabel(inner,
+                         text="El archivo debe seguir la plantilla descargable y contener al menos: FECHA, ASIC, ACTIVIDAD DESARROLLADA, TEMA TRATADO, LUGAR/UBICACIÓN y TOTAL DE ASISTENCIA.",
+                         font=("Arial", 8), text_color=t["text_muted"],
+                         wraplength=650, justify="left").pack(anchor="w", pady=(0, 15))
+
+            self._lbl_ruta = ctk.CTkLabel(inner, text="Ningún archivo seleccionado",
+                                          font=("Arial", 9, "italic"), text_color=t["text_muted"])
+            self._lbl_ruta.pack(anchor="w", pady=(0, 12))
+
+            fila_botones = ctk.CTkFrame(inner, fg_color="transparent")
+            fila_botones.pack(anchor="w")
+
+            ctk.CTkButton(fila_botones, text="📂 Examinar…",
+                          font=("Arial", 9), fg_color=t["bg_card"],
+                          hover_color=t["bg_hover"], text_color=t["text_primary"],
+                          corner_radius=8, command=self._seleccionar_archivo).pack(side="left", padx=(0, 10))
+
+            self._btn_previsualizar = ctk.CTkButton(
+                fila_botones, text="▶ Previsualizar",
+                font=("Arial", 9, "bold"), fg_color=t["bg_hover"],
+                hover_color=t["bg_hover"], text_color=t["text_dim"],
+                text_color_disabled=t["text_dim"], corner_radius=8,
+                state="disabled", command=self._iniciar_previo)
+            self._btn_previsualizar.pack(side="left")
+
+        def _seleccionar_archivo(self):
+            t = self.t
+            ruta = filedialog.askopenfilename(
+                title="Seleccionar archivo Excel",
+                filetypes=[("Archivos Excel", "*.xlsx *.xls"), ("Todos los archivos", "*.*")],
+                parent=self.ventana
+            )
+            if ruta:
+                self._ruta_archivo = ruta
+                nombre = os.path.basename(ruta)
+                self._lbl_ruta.configure(text=f"📄 {nombre}  ({ruta})", text_color=t["text_primary"])
+                self._btn_previsualizar.configure(
+                    state="normal", fg_color=t["accent"],
+                    hover_color=t["accent_dim"], text_color=t["text_primary"])
+
+        def _iniciar_previo(self):
+            self._btn_previsualizar.configure(state="disabled", text="Procesando…")
+            self.ventana.configure(cursor="wait")
+
+            def _tarea():
+                try:
+                    from db import ExcelService
+                    svc = ExcelService(id_usuario_registro=self.usuario["id_usuario"])
+                    resultado = svc.previsualizar(self._ruta_archivo)
+                    self.ventana.after(0, lambda: self._mostrar_paso2(resultado))
+                except Exception as exc:
+                    self.ventana.after(0, lambda e=exc: self._error_previo(e))
+
+            threading.Thread(target=_tarea, daemon=True).start()
+
+        def _error_previo(self, exc):
+            self.ventana.configure(cursor="")
+            messagebox.showerror("Error al leer el archivo",
+                                 f"No se pudo procesar el archivo:\n\n{exc}", parent=self.ventana)
+            self._btn_previsualizar.configure(state="normal", text="▶ Previsualizar",
+                                              fg_color=self.t["bg_hover"],
+                                              text_color=self.t["text_dim"])
+
+        def _mostrar_paso2(self, resultado):
+            t = self.t
+            self.ventana.configure(cursor="")
+            self._resultado_previo = resultado
+            self._limpiar_pasos()
+
+            validas = resultado["filas_validas"]
+            errores = resultado["filas_error"]
+            total = resultado["total_filas"]
+
+            card_resumen = ctk.CTkFrame(self._frame_pasos, fg_color=t["bg_surface"], corner_radius=10)
+            card_resumen.pack(fill="x", pady=(0, 10), padx=10)
+
+            inner = ctk.CTkFrame(card_resumen, fg_color="transparent")
+            inner.pack(fill="x", padx=15, pady=12)
+
+            ctk.CTkLabel(inner, text="Paso 2 de 3 — Resultado del análisis",
+                         font=("Arial", 11, "bold"), text_color=t["text_primary"]).pack(anchor="w", pady=(0, 8))
+
+            fila_resumen = ctk.CTkFrame(inner, fg_color="transparent")
+            fila_resumen.pack(anchor="w")
+
+            def _chip(parent, texto, color):
+                chip = ctk.CTkFrame(parent, fg_color=color, corner_radius=6)
+                chip.pack(side="left", padx=(0, 8))
+                ctk.CTkLabel(chip, text=texto, font=("Arial", 8, "bold"),
+                             text_color=t["text_primary"]).pack(padx=8, pady=3)
+
+            _chip(fila_resumen, f"📄 Total filas: {total}", t["bg_card"])
+            _chip(fila_resumen, f"✅ Válidas: {len(validas)}", t["success"])
+            _chip(fila_resumen, f"❌ Con errores: {len(errores)}",
+                  t["red"] if errores else t["bg_hover"])
+
+            if validas:
+                self._seccion_tabla("Filas listas para importar", t["success"], validas, "validas")
+            if errores:
+                self._seccion_tabla("Filas con errores (no se importarán)", t["red"], errores, "errores")
+
+            card_acciones = ctk.CTkFrame(self._frame_pasos, fg_color=t["bg_surface"], corner_radius=10)
+            card_acciones.pack(fill="x", padx=10, pady=(8, 0))
+
+            inner_acc = ctk.CTkFrame(card_acciones, fg_color="transparent")
+            inner_acc.pack(fill="x", padx=15, pady=12)
+
+            ctk.CTkButton(inner_acc, text="← Seleccionar otro archivo",
+                          font=("Arial", 9), fg_color=t["bg_card"],
+                          hover_color=t["bg_hover"], text_color=t["text_primary"],
+                          corner_radius=8, command=self._mostrar_paso1).pack(side="left", padx=(0, 10))
+
+            if validas:
+                ctk.CTkButton(inner_acc,
+                              text=f"✔ Importar {len(validas)} actividades",
+                              font=("Arial", 9, "bold"), fg_color=t["success"],
+                              hover_color=t["success_dim"], text_color=t["text_primary"],
+                              corner_radius=8, command=self._confirmar_importar).pack(side="left")
+            else:
+                ctk.CTkLabel(inner_acc,
+                             text="No hay filas válidas para importar. Corrige el archivo y vuelve a intentarlo.",
+                             font=("Arial", 8, "italic"), text_color=t["red"]).pack(side="left")
+
+        def _seccion_tabla(self, titulo, color_titulo, filas, modo):
+            t = self.t
+            marco = ctk.CTkFrame(self._frame_pasos, fg_color=t["bg_surface"], corner_radius=10)
+            marco.pack(fill="both", expand=(modo == "validas"), pady=(0, 8), padx=10)
+
+            inner = ctk.CTkFrame(marco, fg_color="transparent")
+            inner.pack(fill="both", expand=True, padx=10, pady=8)
+
+            ctk.CTkLabel(inner, text=titulo, font=("Arial", 9, "bold"),
+                         text_color=color_titulo).pack(anchor="w", pady=(0, 4))
+
+            if modo == "validas":
+                columnas = ("fila", "asic", "tipo", "fecha_inicio", "fecha_fin", "lugar", "participantes")
+            else:
+                columnas = ("fila", "asic", "tipo", "fecha_inicio", "errores")
+
+            tree_frame = ctk.CTkFrame(inner, fg_color="transparent")
+            tree_frame.pack(fill="both", expand=True)
+
+            style = ttk.Style()
+            style.theme_use("clam")
+            style.configure("ImportModal.Treeview",
+                            background=t["bg_base"], foreground=t["text_primary"],
+                            fieldbackground=t["bg_base"], rowheight=24)
+            style.configure("ImportModal.Treeview.Heading",
+                            background=t["bg_card"], foreground=t["text_primary"],
+                            font=("Arial", 9, "bold"), relief="flat")
+            style.map("ImportModal.Treeview",
+                      background=[("selected", t["accent"])],
+                      foreground=[("selected", t["text_primary"])])
+
+            tree = ttk.Treeview(tree_frame, columns=columnas, show="headings",
+                                style="ImportModal.Treeview", height=min(len(filas), 8))
+
+            col_ancho = {"fila": 40, "asic": 150, "tipo": 130, "fecha_inicio": 90,
+                         "fecha_fin": 90, "lugar": 150, "participantes": 80, "errores": 320}
+            col_labels = {"fila": "#", "asic": "ASIC", "tipo": "Tipo Actividad",
+                          "fecha_inicio": "Fecha Inicio", "fecha_fin": "Fecha Fin",
+                          "lugar": "Lugar", "participantes": "Partic.", "errores": "Errores detectados"}
+
+            for col in columnas:
+                tree.heading(col, text=col_labels[col])
+                tree.column(col, width=col_ancho[col], minwidth=40, anchor="w")
+
+            for fila in filas:
+                dc = fila.get("datos_crudos", {})
+                if modo == "validas":
+                    valores = (
+                        fila["numero_fila"],
+                        dc.get("asic", ""),
+                        dc.get("tipo_actividad", ""),
+                        str(fila["fecha_inicio"]) if fila["fecha_inicio"] else dc.get("fecha_inicio", ""),
+                        str(fila["fecha_fin"]) if fila["fecha_fin"] else dc.get("fecha_fin", ""),
+                        fila["lugar"],
+                        fila["participantes"],
+                    )
+                else:
+                    valores = (
+                        fila["numero_fila"],
+                        dc.get("asic", ""),
+                        dc.get("tipo_actividad", ""),
+                        dc.get("fecha_inicio", ""),
+                        " | ".join(fila.get("errores", [])),
+                    )
+                tree.insert("", "end", values=valores)
+
+            scrolly = ttk.Scrollbar(tree_frame, orient="vertical", command=tree.yview)
+            scrollx = ttk.Scrollbar(tree_frame, orient="horizontal", command=tree.xview)
+            tree.configure(yscrollcommand=scrolly.set, xscrollcommand=scrollx.set)
+            scrolly.pack(side="right", fill="y")
+            scrollx.pack(side="bottom", fill="x")
+            tree.pack(fill="both", expand=True)
+
+        def _confirmar_importar(self):
+            validas = self._resultado_previo["filas_validas"]
+            if messagebox.askyesno("Confirmar importación",
+                                   f"Se importarán {len(validas)} actividades en la base de datos.\n\n¿Deseas continuar?",
+                                   parent=self.ventana):
+                self._ejecutar_importacion(validas)
+
+        def _ejecutar_importacion(self, filas_validas):
+            self.ventana.configure(cursor="wait")
+
+            def _tarea():
+                try:
+                    from db import ExcelService
+                    svc = ExcelService(id_usuario_registro=self.usuario["id_usuario"])
+                    resultado = svc.importar(filas_validas)
+                    self.ventana.after(0, lambda r=resultado: self._mostrar_paso3(r))
+                except Exception as exc:
+                    self.ventana.after(0, lambda e=exc: self._error_importar(e))
+
+            threading.Thread(target=_tarea, daemon=True).start()
+
+        def _error_importar(self, exc):
+            self.ventana.configure(cursor="")
+            messagebox.showerror("Error al importar",
+                                 f"Ocurrió un error durante la importación:\n\n{exc}", parent=self.ventana)
+
+        def _mostrar_paso3(self, resultado):
+            t = self.t
+            self.ventana.configure(cursor="")
+            self._limpiar_pasos()
+
+            insertadas = resultado["insertadas"]
+            errores_bd = resultado["errores_al_insertar"]
+
+            card = ctk.CTkFrame(self._frame_pasos, fg_color=t["bg_surface"], corner_radius=10)
+            card.pack(fill="x", padx=10)
+
+            inner = ctk.CTkFrame(card, fg_color="transparent")
+            inner.pack(fill="x", padx=25, pady=25)
+
+            icono = "✅" if not errores_bd else "⚠️"
+            color = t["success"] if not errores_bd else t["amber"]
+            titulo = "Importación completada" if not errores_bd else "Importación completada con advertencias"
+
+            ctk.CTkLabel(inner, text=f"{icono}  {titulo}",
+                         font=("Arial", 13, "bold"), text_color=color).pack(anchor="w", pady=(0, 10))
+
+            ctk.CTkLabel(inner, text=f"Se insertaron correctamente {insertadas} actividades.",
+                         font=("Arial", 10), text_color=t["text_primary"]).pack(anchor="w")
+
+            if errores_bd:
+                ctk.CTkLabel(inner,
+                             text=f"{len(errores_bd)} actividades no pudieron insertarse (ver detalles abajo).",
+                             font=("Arial", 9), text_color=t["red"]).pack(anchor="w", pady=(4, 0))
+                for err in errores_bd:
+                    ctk.CTkLabel(inner, text=f"  • Fila {err['numero_fila']}: {err['error']}",
+                                 font=("Arial", 8), text_color=t["red"]).pack(anchor="w")
+
+            ctk.CTkButton(inner, text="↩ Hacer otra importación",
+                          font=("Arial", 9), fg_color=t["bg_card"],
+                          hover_color=t["bg_hover"], text_color=t["text_primary"],
+                          corner_radius=8, command=self._mostrar_paso1).pack(anchor="w", pady=(18, 0))
+
+            ctk.CTkButton(inner, text="Cerrar",
+                          font=("Arial", 9, "bold"), fg_color=t["accent"],
+                          hover_color=t["accent_dim"], text_color=t["text_primary"],
+                          corner_radius=8, command=lambda: (self.ventana.destroy(), self.parent_view._cargar_datos_tabla())
+                          ).pack(anchor="w", pady=(8, 0))

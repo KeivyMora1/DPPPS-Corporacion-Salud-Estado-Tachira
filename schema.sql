@@ -70,9 +70,26 @@ CREATE TABLE IF NOT EXISTS actividad (
     id_usuario_registro INT NOT NULL,            -- Quién registró esta actividad
     fecha_inicio        DATE NOT NULL,
     fecha_fin           DATE NOT NULL,
-    lugar               VARCHAR(150),
-    descripcion         TEXT NOT NULL,
-    participantes       INT NOT NULL DEFAULT 0,  -- Cantidad de personas beneficiadas
+    -- Ubicación detallada (campos de la plantilla de importación)
+    estado              VARCHAR(100),
+    municipio           VARCHAR(100),
+    parroquia           VARCHAR(100),
+    establecimiento_salud VARCHAR(100),
+    nombre_establecimiento VARCHAR(150),
+    comites_salud       VARCHAR(150),
+    lugar               VARCHAR(150),            -- Campo combinado/legacy
+    descripcion         TEXT NOT NULL,           -- TEMA TRATADO
+    -- Participantes por categoría (plantilla de importación)
+    medicos             INT NOT NULL DEFAULT 0,
+    promotores_salud    INT NOT NULL DEFAULT 0,
+    voceros_comite_salud INT NOT NULL DEFAULT 0,
+    vocero_consejo_direccion INT NOT NULL DEFAULT 0,
+    coordinador_docencia INT NOT NULL DEFAULT 0,
+    autoridades_presentes INT NOT NULL DEFAULT 0,
+    otros_actores       INT NOT NULL DEFAULT 0,
+    personas_comunidad  INT NOT NULL DEFAULT 0,
+    estudiantes_aspirantes INT NOT NULL DEFAULT 0,
+    participantes       INT NOT NULL DEFAULT 0,  -- TOTAL DE ASISTENCIA (suma o campo directo)
     eliminado           BOOLEAN NOT NULL DEFAULT FALSE, -- Soft delete
     created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
