@@ -215,6 +215,26 @@ class ActividadView:
             entrada.delete(0, tk.END)
             entrada.configure(text_color=t["text_primary"])
 
+    def _poner_placeholder_entry(self, entrada, placeholder):
+        """Pone un placeholder en un CTkEntry si está vacío."""
+        t = self.t
+        if entrada.get() == "":
+            entrada.insert(0, placeholder)
+            try:
+                entrada.configure(text_color=t["text_dim"])
+            except Exception:
+                pass
+
+    def _limpiar_placeholder_entry(self, entrada, placeholder):
+        """Limpia el placeholder si coincide con el texto actual."""
+        t = self.t
+        if entrada.get() == placeholder:
+            entrada.delete(0, tk.END)
+            try:
+                entrada.configure(text_color=t["text_primary"])
+            except Exception:
+                pass
+
     def _aplicar_filtros(self):
         asic_sel = self.combo_filtro_asic.get()
         tipo_sel = self.combo_filtro_tipo.get()
@@ -288,20 +308,26 @@ class ActividadView:
         t = self.t
         ventana = ctk.CTkToplevel(self.parent)
         ventana.title("Registrar Actividad" if datos_edicion is None else "Editar Actividad")
-        ventana.geometry("600x850")
         ventana.resizable(False, False)
         ventana.configure(fg_color=t["bg_surface"])
         ventana.grab_set()
 
         ventana.update_idletasks()
-        x = (ventana.winfo_screenwidth()  // 2) - 300
-        y = (ventana.winfo_screenheight() // 2) - 425
-        ventana.geometry(f"+{x}+{y}")
+        screen_w = ventana.winfo_screenwidth()
+        screen_h = ventana.winfo_screenheight()
+        
+        # Altura al 100% de la pantalla (restando un margen para evitar que se oculte bajo la barra de tareas)
+        ancho = 600
+        alto = screen_h - 80
+        
+        x = (screen_w // 2) - (ancho // 2)
+        y = 10
+        ventana.geometry(f"{ancho}x{alto}+{x}+{y}")
 
         ctk.CTkLabel(ventana,
-                 text="Registrar Actividad" if datos_edicion is None else "Editar Actividad",
-                 font=("Arial", 14, "bold"), text_color=t["text_primary"]
-                 ).pack(pady=(15, 5))
+             text="Registrar Actividad" if datos_edicion is None else "Editar Actividad",
+             font=("Arial", 16, "bold"), text_color=t["text_primary"]
+             ).pack(pady=(15, 5))
 
         # Scrollable frame for form
         scroll_frame = ctk.CTkScrollableFrame(ventana, fg_color="transparent")
@@ -310,50 +336,61 @@ class ActividadView:
         marco_form = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         marco_form.pack(fill="both", expand=True)
 
-        # --- ASIC y Tipo ---
-        ctk.CTkLabel(marco_form, text="ASIC *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(2, 2))
-        combo_asic = ttk.Combobox(marco_form, state="readonly", font=("Arial", 10))
-        combo_asic.pack(fill="x")
-        nombres_asics = sorted(list(self.asic_map.keys()))
-        combo_asic["values"] = nombres_asics
+        # Contenedor para campos opcionales/avanzados (siempre visible)
+        frame_avanzado = ctk.CTkFrame(marco_form, fg_color="transparent")
+        frame_avanzado.pack(fill="x", pady=(6, 6))
 
-        ctk.CTkLabel(marco_form, text="Tipo de Actividad *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(8, 2))
-        combo_tipo = ttk.Combobox(marco_form, state="readonly", font=("Arial", 10))
+        # --- ASIC y Tipo ---
+        ctk.CTkLabel(marco_form, text="ASIC *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(2, 2))
+        nombres_asics = sorted(list(self.asic_map.keys()))
+        combo_asic = ctk.CTkOptionMenu(marco_form, values=nombres_asics)
+        if nombres_asics:
+            try:
+                combo_asic.set(nombres_asics[0])
+            except Exception:
+                pass
+        combo_asic.pack(fill="x")
+
+        ctk.CTkLabel(marco_form, text="Tipo de Actividad *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(8, 2))
+        opciones_fijas = [
+            "Seguimiento a los Comités de Salud mediante las vocerías en salud comunal.",
+            "Actualización de los comités de salud.",
+            "Salud toca tu puerta",
+            "Sesiones educativas",
+            "*Los Comités de Salud van a la escuela\".",
+            "Actividades de Promoción y Prevención Social",
+            "Participación Activa en Jornadas.",
+            "Participación Activa en Inmunizaciones",
+            "Entrevista servicio social.",
+        ]
+        nombres_tipos = [n for n in opciones_fijas if n in self.tipo_map]
+        combo_tipo = ctk.CTkOptionMenu(marco_form, values=nombres_tipos)
+        if nombres_tipos:
+            try:
+                combo_tipo.set(nombres_tipos[0])
+            except Exception:
+                pass
         combo_tipo.pack(fill="x")
-        nombres_tipos = sorted(list(self.tipo_map.keys()))
-        combo_tipo["values"] = nombres_tipos
 
         # --- Fechas ---
         marco_fechas = ctk.CTkFrame(marco_form, fg_color="transparent")
         marco_fechas.pack(fill="x", pady=8)
 
-        col_izq = ctk.CTkFrame(marco_fechas, fg_color="transparent")
-        col_izq.pack(side="left", fill="x", expand=True, padx=(0, 10))
-        ctk.CTkLabel(col_izq, text="Fecha de Inicio *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        # Fecha (un solo campo, la plantilla usa una sola fecha)
+        col_fecha = ctk.CTkFrame(marco_fechas, fg_color="transparent")
+        col_fecha.pack(fill="x", expand=True)
+        ctk.CTkLabel(col_fecha, text="Fecha *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
 
-        col_der = ctk.CTkFrame(marco_fechas, fg_color="transparent")
-        col_der.pack(side="right", fill="x", expand=True)
-        ctk.CTkLabel(col_der, text="Fecha de Fin *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-
-        if HAS_TKCALENDAR:
-            ent_fecha_ini = DateEntry(col_izq, font=("Arial", 10), background=t["bg_card"], foreground=t["text_primary"], borderwidth=0, date_pattern="yyyy-mm-dd")
-            ent_fecha_ini.pack(fill="x", pady=(2, 0))
-            ent_fecha_fin = DateEntry(col_der, font=("Arial", 10), background=t["bg_card"], foreground=t["text_primary"], borderwidth=0, date_pattern="yyyy-mm-dd")
-            ent_fecha_fin.pack(fill="x", pady=(2, 0))
-        else:
-            ent_fecha_ini = ctk.CTkEntry(col_izq, font=("Arial", 10), fg_color=t["bg_card"], text_color=t["text_primary"],
-                                         border_color=t["border"], corner_radius=6)
-            ent_fecha_ini.pack(fill="x", pady=(2, 0))
-            ent_fecha_ini.insert(0, date.today().strftime("%Y-%m-%d"))
-            ent_fecha_fin = ctk.CTkEntry(col_der, font=("Arial", 10), fg_color=t["bg_card"], text_color=t["text_primary"],
-                                         border_color=t["border"], corner_radius=6)
-            ent_fecha_fin.pack(fill="x", pady=(2, 0))
-            ent_fecha_fin.insert(0, date.today().strftime("%Y-%m-%d"))
+        # Usar CTkEntry para fecha para mantener estilo consistente
+        ent_fecha = ctk.CTkEntry(col_fecha, font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"],
+                                 border_color=t["border"], corner_radius=6)
+        ent_fecha.pack(fill="x", pady=(2, 0))
+        ent_fecha.insert(0, date.today().strftime("%Y-%m-%d"))
 
         # --- Ubicación (campos de la plantilla) ---
-        ctk.CTkLabel(marco_form, text="Ubicación", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(8, 2))
+        ctk.CTkLabel(frame_avanzado, text="Ubicación", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(8, 2))
 
-        marco_ubicacion = ctk.CTkFrame(marco_form, fg_color=t["bg_card"], corner_radius=8)
+        marco_ubicacion = ctk.CTkFrame(frame_avanzado, fg_color=t["bg_card"], corner_radius=8)
         marco_ubicacion.pack(fill="x", pady=(0, 4))
         inner_ubic = ctk.CTkFrame(marco_ubicacion, fg_color="transparent")
         inner_ubic.pack(fill="x", padx=10, pady=8)
@@ -364,24 +401,33 @@ class ActividadView:
 
         col_estado = ctk.CTkFrame(fila_ubi1, fg_color="transparent")
         col_estado.pack(side="left", fill="x", expand=True, padx=(0, 5))
-        ctk.CTkLabel(col_estado, text="Estado", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_estado = ctk.CTkEntry(col_estado, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"],
+        ctk.CTkLabel(col_estado, text="Estado", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        ent_estado = ctk.CTkEntry(col_estado, font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"],
                                   border_color=t["border"], corner_radius=6)
         ent_estado.pack(fill="x", pady=(2, 0))
+        self._poner_placeholder_entry(ent_estado, "Estado")
+        ent_estado.bind("<FocusIn>", lambda e: self._limpiar_placeholder_entry(ent_estado, "Estado"))
+        ent_estado.bind("<FocusOut>", lambda e: self._poner_placeholder_entry(ent_estado, "Estado"))
 
         col_municipio = ctk.CTkFrame(fila_ubi1, fg_color="transparent")
         col_municipio.pack(side="left", fill="x", expand=True, padx=5)
-        ctk.CTkLabel(col_municipio, text="Municipio", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_municipio = ctk.CTkEntry(col_municipio, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"],
+        ctk.CTkLabel(col_municipio, text="Municipio", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        ent_municipio = ctk.CTkEntry(col_municipio, font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"],
                                      border_color=t["border"], corner_radius=6)
         ent_municipio.pack(fill="x", pady=(2, 0))
+        self._poner_placeholder_entry(ent_municipio, "Municipio")
+        ent_municipio.bind("<FocusIn>", lambda e: self._limpiar_placeholder_entry(ent_municipio, "Municipio"))
+        ent_municipio.bind("<FocusOut>", lambda e: self._poner_placeholder_entry(ent_municipio, "Municipio"))
 
         col_parroquia = ctk.CTkFrame(fila_ubi1, fg_color="transparent")
         col_parroquia.pack(side="right", fill="x", expand=True, padx=(5, 0))
-        ctk.CTkLabel(col_parroquia, text="Parroquia", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_parroquia = ctk.CTkEntry(col_parroquia, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"],
+        ctk.CTkLabel(col_parroquia, text="Parroquia", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        ent_parroquia = ctk.CTkEntry(col_parroquia, font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"],
                                      border_color=t["border"], corner_radius=6)
         ent_parroquia.pack(fill="x", pady=(2, 0))
+        self._poner_placeholder_entry(ent_parroquia, "Parroquia")
+        ent_parroquia.bind("<FocusIn>", lambda e: self._limpiar_placeholder_entry(ent_parroquia, "Parroquia"))
+        ent_parroquia.bind("<FocusOut>", lambda e: self._poner_placeholder_entry(ent_parroquia, "Parroquia"))
 
         # Fila 2: Establecimiento, Nombre Establecimiento, Comités de Salud
         fila_ubi2 = ctk.CTkFrame(inner_ubic, fg_color="transparent")
@@ -389,45 +435,80 @@ class ActividadView:
 
         col_estab = ctk.CTkFrame(fila_ubi2, fg_color="transparent")
         col_estab.pack(side="left", fill="x", expand=True, padx=(0, 5))
-        ctk.CTkLabel(col_estab, text="Establecimiento de Salud", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_establecimiento = ctk.CTkEntry(col_estab, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"],
+        ctk.CTkLabel(col_estab, text="Establecimiento de Salud", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        ent_establecimiento = ctk.CTkEntry(col_estab, font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"],
                                            border_color=t["border"], corner_radius=6)
         ent_establecimiento.pack(fill="x", pady=(2, 0))
+        self._poner_placeholder_entry(ent_establecimiento, "Establecimiento")
+        ent_establecimiento.bind("<FocusIn>", lambda e: self._limpiar_placeholder_entry(ent_establecimiento, "Establecimiento"))
+        ent_establecimiento.bind("<FocusOut>", lambda e: self._poner_placeholder_entry(ent_establecimiento, "Establecimiento"))
 
         col_nom_estab = ctk.CTkFrame(fila_ubi2, fg_color="transparent")
         col_nom_estab.pack(side="left", fill="x", expand=True, padx=5)
-        ctk.CTkLabel(col_nom_estab, text="Nombre del Establecimiento", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_nombre_establecimiento = ctk.CTkEntry(col_nom_estab, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"],
+        ctk.CTkLabel(col_nom_estab, text="Nombre del Establecimiento", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        ent_nombre_establecimiento = ctk.CTkEntry(col_nom_estab, font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"],
                                                   border_color=t["border"], corner_radius=6)
         ent_nombre_establecimiento.pack(fill="x", pady=(2, 0))
+        self._poner_placeholder_entry(ent_nombre_establecimiento, "Nombre del establecimiento")
+        ent_nombre_establecimiento.bind("<FocusIn>", lambda e: self._limpiar_placeholder_entry(ent_nombre_establecimiento, "Nombre del establecimiento"))
+        ent_nombre_establecimiento.bind("<FocusOut>", lambda e: self._poner_placeholder_entry(ent_nombre_establecimiento, "Nombre del establecimiento"))
 
         col_comites = ctk.CTkFrame(fila_ubi2, fg_color="transparent")
         col_comites.pack(side="right", fill="x", expand=True, padx=(5, 0))
-        ctk.CTkLabel(col_comites, text="Comités de Salud", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_comites = ctk.CTkEntry(col_comites, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"],
+        ctk.CTkLabel(col_comites, text="Comités de Salud", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        ent_comites = ctk.CTkEntry(col_comites, font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"],
                                    border_color=t["border"], corner_radius=6)
         ent_comites.pack(fill="x", pady=(2, 0))
+        self._poner_placeholder_entry(ent_comites, "Comités (ej: Comité A, Comité B)")
+        ent_comites.bind("<FocusIn>", lambda e: self._limpiar_placeholder_entry(ent_comites, "Comités (ej: Comité A, Comité B)"))
+        ent_comites.bind("<FocusOut>", lambda e: self._poner_placeholder_entry(ent_comites, "Comités (ej: Comité A, Comité B)"))
 
         # Lugar combinado (legacy/opcional)
-        ctk.CTkLabel(marco_form, text="Lugar / Centro de Salud (resumen)", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(8, 2))
-        ent_lugar = ctk.CTkEntry(marco_form, font=("Arial", 10), fg_color=t["bg_card"], text_color=t["text_primary"],
+        ctk.CTkLabel(marco_form, text="Lugar / Centro de Salud (resumen)", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(8, 2))
+        ent_lugar = ctk.CTkEntry(marco_form, font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"],
                                  border_color=t["border"], corner_radius=6)
         ent_lugar.pack(fill="x", pady=(2, 0))
+        self._poner_placeholder_entry(ent_lugar, "Lugar o centro de salud")
+        ent_lugar.bind("<FocusIn>", lambda e: self._limpiar_placeholder_entry(ent_lugar, "Lugar o centro de salud"))
+        ent_lugar.bind("<FocusOut>", lambda e: self._poner_placeholder_entry(ent_lugar, "Lugar o centro de salud"))
 
         # --- Descripción ---
-        ctk.CTkLabel(marco_form, text="Tema Tratado / Descripción *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(8, 2))
-        marco_txt = ctk.CTkFrame(marco_form, fg_color=t["bg_card"], corner_radius=6)
+        ctk.CTkLabel(marco_form, text="Tema Tratado / Descripción *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(8, 2))
+        marco_txt = ctk.CTkFrame(marco_form, fg_color=t["bg_base"], corner_radius=6)
         marco_txt.pack(fill="x")
-        txt_desc = tk.Text(marco_txt, font=("Arial", 10), bg=t["bg_card"], fg=t["text_primary"], relief="flat", height=3, insertbackground=t["text_primary"], wrap="word")
+        txt_desc = tk.Text(marco_txt, font=("Arial", 11), bg=t["bg_base"], fg=t["text_primary"], relief="flat", height=3, insertbackground=t["text_primary"], wrap="word")
         txt_desc.pack(side="left", fill="both", expand=True, padx=5, pady=5)
         scroll_txt = ttk.Scrollbar(marco_txt, orient="vertical", command=txt_desc.yview)
         txt_desc.configure(yscrollcommand=scroll_txt.set)
         scroll_txt.pack(side="right", fill="y")
+        # Placeholder para descripción
+        placeholder_desc = "Breve descripción del tema tratado..."
+        txt_desc.insert("1.0", placeholder_desc)
+        try:
+            txt_desc.configure(fg=t["text_dim"])
+        except Exception:
+            pass
+        def _txt_focus_in(e):
+            if txt_desc.get("1.0", "end-1c") == placeholder_desc:
+                txt_desc.delete("1.0", "end")
+                try:
+                    txt_desc.configure(fg=t["text_primary"])
+                except Exception:
+                    pass
+        def _txt_focus_out(e):
+            if txt_desc.get("1.0", "end-1c").strip() == "":
+                txt_desc.insert("1.0", placeholder_desc)
+                try:
+                    txt_desc.configure(fg=t["text_dim"])
+                except Exception:
+                    pass
+        txt_desc.bind("<FocusIn>", _txt_focus_in)
+        txt_desc.bind("<FocusOut>", _txt_focus_out)
 
         # --- Participantes por categoría ---
-        ctk.CTkLabel(marco_form, text="Participantes por Categoría", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(10, 2))
+        ctk.CTkLabel(frame_avanzado, text="Participantes por Categoría", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(10, 2))
 
-        marco_part = ctk.CTkFrame(marco_form, fg_color=t["bg_card"], corner_radius=8)
+        marco_part = ctk.CTkFrame(frame_avanzado, fg_color=t["bg_card"], corner_radius=8)
         marco_part.pack(fill="x", pady=(0, 4))
         inner_part = ctk.CTkFrame(marco_part, fg_color="transparent")
         inner_part.pack(fill="x", padx=10, pady=8)
@@ -456,18 +537,28 @@ class ActividadView:
         self._crear_campo_numerico(fila_p3, "Personas Comunidad", "ent_personas_comunidad", 0)
         self._crear_campo_numerico(fila_p3, "Estudiantes Aspirantes", "ent_estudiantes", 0)
 
-        # Total Participantes
+        # Total Participantes (mostrar contador calculado)
+        # Registrar nombres de campos de participantes para sumar automáticamente
+        self._participantes_field_names = [
+            "ent_medicos", "ent_promotores", "ent_voceros_comite",
+            "ent_vocero_consejo", "ent_coordinador", "ent_autoridades",
+            "ent_otros_actores", "ent_personas_comunidad", "ent_estudiantes",
+        ]
+
         marco_total = ctk.CTkFrame(marco_form, fg_color="transparent")
         marco_total.pack(fill="x", pady=4)
-        ctk.CTkLabel(marco_total, text="Total de Asistencia *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_participantes = ctk.CTkEntry(marco_total, font=("Arial", 10), fg_color=t["bg_card"], text_color=t["text_primary"],
-                                         border_color=t["border"], corner_radius=6, width=120)
-        ent_participantes.pack(fill="x", pady=(2, 0))
-        ent_participantes.insert(0, "0")
+        ctk.CTkLabel(marco_total, text="Total de Asistencia *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        self.lbl_total_participantes = ctk.CTkLabel(marco_total, text="0", font=("Arial", 12, "bold"), text_color=t["text_primary"], fg_color=t["bg_base"], corner_radius=6)
+        self.lbl_total_participantes.pack(fill="x", pady=(6, 0))
+        # Inicializar total con los valores actuales de los spinboxes
+        try:
+            self._actualizar_total_participantes()
+        except Exception:
+            pass
 
         # --- Evidencias ---
         marco_evidencias = ctk.CTkFrame(
-            marco_form, fg_color=t["bg_surface"], corner_radius=10,
+            frame_avanzado, fg_color=t["bg_surface"], corner_radius=10,
             border_width=1, border_color=t["border"]
         )
         marco_evidencias.pack(fill="x", pady=(10, 2))
@@ -579,45 +670,67 @@ class ActividadView:
             if datos_edicion["asic_nombre"] in nombres_asics:
                 combo_asic.set(datos_edicion["asic_nombre"])
             if datos_edicion["tipo_nombre"] in nombres_tipos:
-                combo_tipo.set(datos_edicion["tipo_nombre"])
-            if HAS_TKCALENDAR:
-                ent_fecha_ini.set_date(datos_edicion["fecha_inicio"])
-                ent_fecha_fin.set_date(datos_edicion["fecha_fin"])
-            else:
-                ent_fecha_ini.delete(0, tk.END)
-                ent_fecha_ini.insert(0, datos_edicion["fecha_inicio"])
-                ent_fecha_fin.delete(0, tk.END)
-                ent_fecha_fin.insert(0, datos_edicion["fecha_fin"])
+                try:
+                    combo_tipo.set(datos_edicion["tipo_nombre"])
+                except Exception:
+                    pass
+            ent_fecha.delete(0, tk.END)
+            ent_fecha.insert(0, datos_edicion["fecha_inicio"])
 
-            # Cargar campos de ubicación
+            # Cargar campos de ubicación (limpiando placeholders previos)
+            ent_estado.delete(0, tk.END)
             ent_estado.insert(0, datos_edicion.get("estado", "") or "")
+            ent_municipio.delete(0, tk.END)
             ent_municipio.insert(0, datos_edicion.get("municipio", "") or "")
+            ent_parroquia.delete(0, tk.END)
             ent_parroquia.insert(0, datos_edicion.get("parroquia", "") or "")
+            ent_establecimiento.delete(0, tk.END)
             ent_establecimiento.insert(0, datos_edicion.get("establecimiento_salud", "") or "")
+            ent_nombre_establecimiento.delete(0, tk.END)
             ent_nombre_establecimiento.insert(0, datos_edicion.get("nombre_establecimiento", "") or "")
+            ent_comites.delete(0, tk.END)
             ent_comites.insert(0, datos_edicion.get("comites_salud", "") or "")
+            ent_lugar.delete(0, tk.END)
             ent_lugar.insert(0, datos_edicion.get("lugar", "") or "")
 
-            # Cargar participantes por categoría
+            # Cargar participantes por categoría (reemplazando valores por defecto)
+            self.ent_medicos.delete(0, tk.END)
             self.ent_medicos.insert(0, str(datos_edicion.get("medicos", 0) or 0))
+            self.ent_promotores.delete(0, tk.END)
             self.ent_promotores.insert(0, str(datos_edicion.get("promotores_salud", 0) or 0))
+            self.ent_voceros_comite.delete(0, tk.END)
             self.ent_voceros_comite.insert(0, str(datos_edicion.get("voceros_comite_salud", 0) or 0))
+            self.ent_vocero_consejo.delete(0, tk.END)
             self.ent_vocero_consejo.insert(0, str(datos_edicion.get("vocero_consejo_direccion", 0) or 0))
+            self.ent_coordinador.delete(0, tk.END)
             self.ent_coordinador.insert(0, str(datos_edicion.get("coordinador_docencia", 0) or 0))
+            self.ent_autoridades.delete(0, tk.END)
             self.ent_autoridades.insert(0, str(datos_edicion.get("autoridades_presentes", 0) or 0))
+            self.ent_otros_actores.delete(0, tk.END)
             self.ent_otros_actores.insert(0, str(datos_edicion.get("otros_actores", 0) or 0))
+            self.ent_personas_comunidad.delete(0, tk.END)
             self.ent_personas_comunidad.insert(0, str(datos_edicion.get("personas_comunidad", 0) or 0))
+            self.ent_estudiantes.delete(0, tk.END)
             self.ent_estudiantes.insert(0, str(datos_edicion.get("estudiantes_aspirantes", 0) or 0))
 
-            ent_participantes.delete(0, tk.END)
-            ent_participantes.insert(0, str(datos_edicion.get("participantes", 0) or 0))
+            # Mostrar total en el label (no es un input editable)
+            # Recalcular total a partir de los campos por categoría
+            try:
+                self._actualizar_total_participantes()
+            except Exception:
+                pass
+            # Reemplazar contenido del textarea (limpiando placeholder si existe)
+            try:
+                txt_desc.delete("1.0", "end")
+            except Exception:
+                pass
             txt_desc.insert("1.0", datos_edicion.get("descripcion", "") or "")
 
         def guardar():
             id_asic = self.asic_map.get(combo_asic.get())
             id_tipo = self.tipo_map.get(combo_tipo.get())
-            f_ini   = ent_fecha_ini.get_date() if HAS_TKCALENDAR else ent_fecha_ini.get()
-            f_fin   = ent_fecha_fin.get_date() if HAS_TKCALENDAR else ent_fecha_fin.get()
+            f_ini   = ent_fecha.get()
+            f_fin   = f_ini
 
             ok, msg = self.controller.guardar_actividad(
                 id_asic=id_asic,
@@ -641,7 +754,7 @@ class ActividadView:
                 otros_actores=self.ent_otros_actores.get(),
                 personas_comunidad=self.ent_personas_comunidad.get(),
                 estudiantes_aspirantes=self.ent_estudiantes.get(),
-                participantes=ent_participantes.get(),
+                participantes=str(self._actualizar_total_participantes()),
                 id_actividad=id_actividad_edicion,
                 evidencias_temporales=evidencias_locales_nuevas if id_actividad_edicion is None else None
             )
@@ -662,13 +775,47 @@ class ActividadView:
         t = self.t
         col = ctk.CTkFrame(parent, fg_color="transparent")
         col.pack(side="left", fill="x", expand=True, padx=5)
-        ctk.CTkLabel(col, text=label, font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent = ctk.CTkEntry(col, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"],
-                           border_color=t["border"], corner_radius=6, width=80)
+        ctk.CTkLabel(col, text=label, font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        ent = tk.Spinbox(col, from_=0, to=99999, font=("Arial", 11), width=8, command=lambda: getattr(self, '_actualizar_total_participantes', lambda: None)())
+        # aplicar estilo similar a CTkEntry de ubicación
+        try:
+            ent.configure(bg=t["bg_base"], fg=t["text_primary"], relief="flat", borderwidth=0, insertbackground=t["text_primary"])
+        except Exception:
+            pass
         ent.pack(fill="x", pady=(2, 0))
+        try:
+            ent.delete(0, tk.END)
+        except Exception:
+            pass
         ent.insert(0, str(default))
+        # actualizar total cuando se escribe manualmente
+        try:
+            ent.bind('<KeyRelease>', lambda e: getattr(self, '_actualizar_total_participantes', lambda: None)())
+        except Exception:
+            pass
         setattr(self, attr_name, ent)
         return ent
+
+    def _actualizar_total_participantes(self):
+        """Suma los campos numéricos de participantes y actualiza el label del total."""
+        total = 0
+        for name in getattr(self, '_participantes_field_names', []):
+            ent = getattr(self, name, None)
+            if not ent:
+                continue
+            try:
+                val = int(ent.get() or 0)
+            except Exception:
+                try:
+                    val = int(str(ent.get()).strip() or 0)
+                except Exception:
+                    val = 0
+            total += val
+        try:
+            self.lbl_total_participantes.configure(text=str(total))
+        except Exception:
+            pass
+        return total
 
     def _abrir_form_nueva(self):
         self._abrir_formulario()

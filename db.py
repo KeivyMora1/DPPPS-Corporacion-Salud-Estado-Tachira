@@ -774,6 +774,25 @@ class ActividadController:
         return self.asic_dao.obtener_todos()
     def listar_tipos_actividad(self):
         """Retorna la lista de todos los tipos de actividad activos."""
+        tipos_predeterminados = [
+            ("TIPO-PRED-1", "Seguimiento a los Comités de Salud mediante las vocerías en salud comunal."),
+            ("TIPO-PRED-2", "Actualización de los comités de salud."),
+            ("TIPO-PRED-3", "Salud toca tu puerta"),
+            ("TIPO-PRED-4", "Sesiones educativas"),
+            ("TIPO-PRED-5", "*Los Comités de Salud van a la escuela\"."),
+            ("TIPO-PRED-6", "Actividades de Promoción y Prevención Social"),
+            ("TIPO-PRED-7", "Participación Activa en Jornadas."),
+            ("TIPO-PRED-8", "Participación Activa en Inmunizaciones"),
+            ("TIPO-PRED-9", "Entrevista servicio social.")
+        ]
+        try:
+            existentes = self.tipo_dao.obtener_todos()
+            nombres_existentes = {t["nombre"] for t in existentes}
+            for codigo, nombre in tipos_predeterminados:
+                if nombre not in nombres_existentes:
+                    self.tipo_dao.crear(codigo, nombre, f"Tipo de actividad predeterminado: {nombre}")
+        except Exception:
+            pass
         return self.tipo_dao.obtener_todos()
     def guardar_actividad(self, id_asic, id_tipo, fecha_inicio, fecha_fin,
                                estado, municipio, parroquia, establecimiento_salud,

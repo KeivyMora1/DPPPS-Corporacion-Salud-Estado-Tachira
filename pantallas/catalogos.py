@@ -160,14 +160,14 @@ class CatalogoView:
         t = self.t
         ventana = ctk.CTkToplevel(self.parent)
         ventana.title("Nuevo ASIC" if datos is None else "Editar ASIC")
-        ventana.geometry("420x340")
+        ventana.geometry("420x410")
         ventana.resizable(False, False)
         ventana.configure(fg_color=t["bg_surface"])
         ventana.grab_set()
 
         ventana.update_idletasks()
         x = (ventana.winfo_screenwidth()  // 2) - 210
-        y = (ventana.winfo_screenheight() // 2) - 170
+        y = (ventana.winfo_screenheight() // 2) - 205
         ventana.geometry(f"+{x}+{y}")
 
         ctk.CTkLabel(ventana,
@@ -325,14 +325,14 @@ class CatalogoView:
         t = self.t
         ventana = ctk.CTkToplevel(self.parent)
         ventana.title("Nuevo Tipo" if datos is None else "Editar Tipo")
-        ventana.geometry("420x320")
+        ventana.geometry("420x360")
         ventana.resizable(False, False)
         ventana.configure(fg_color=t["bg_surface"])
         ventana.grab_set()
 
         ventana.update_idletasks()
         x = (ventana.winfo_screenwidth()  // 2) - 210
-        y = (ventana.winfo_screenheight() // 2) - 160
+        y = (ventana.winfo_screenheight() // 2) - 180
         ventana.geometry(f"+{x}+{y}")
 
         ctk.CTkLabel(ventana,

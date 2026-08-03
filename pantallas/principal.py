@@ -12,7 +12,6 @@ class MainView:
         ("dashboard",   "Dashboard"),
         ("actividades", "Actividades"),
         ("asic",        "ASIC"),
-        ("tipos",       "Tipos"),
         ("importar",    "Importar"),
         ("reportes",    "Reportes"),
         ("vocerias",    "Vocerias CS"),
