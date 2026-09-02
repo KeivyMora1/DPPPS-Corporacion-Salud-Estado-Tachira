@@ -15,7 +15,7 @@ from tkinter import filedialog, messagebox, ttk
 import customtkinter as ctk
 
 from db import AuthController, ExcelService, TEMPLATE_PATH
-from themes import THEMES
+from themes import THEME
 
 
 class ImportacionView:
@@ -24,11 +24,11 @@ class ImportacionView:
     Se monta como hijo del área de contenido de MainView.
     """
 
-    def __init__(self, parent: tk.Frame, theme="dark"):
+    def __init__(self, parent: tk.Frame):
         self.parent  = parent
         self.auth    = AuthController()
         self.usuario = self.auth.obtener_usuario_actual()
-        self.t       = THEMES[theme]
+        self.t       = THEME
 
         self._ruta_archivo:    str | None  = None
         self._resultado_previo: dict | None = None

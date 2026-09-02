@@ -12,9 +12,7 @@ from datetime import datetime, date
 from db import ActividadController, ALLOWED_EXTENSIONS, MAX_FILE_SIZE_MB, ExcelService, TEMPLATE_PATH
 import os
 import threading
-from tkinter import filedialog, messagebox
-
-from themes import THEMES
+from themes import THEME
 
 try:
     from tkcalendar import DateEntry
@@ -29,10 +27,10 @@ class ActividadView:
     Se carga en el panel de contenido de la ventana principal.
     """
 
-    def __init__(self, parent, theme="dark"):
+    def __init__(self, parent):
         self.parent     = parent
         self.controller = ActividadController()
-        self.t          = THEMES[theme]
+        self.t          = THEME
 
         self.asic_map = {}
         self.tipo_map = {}
