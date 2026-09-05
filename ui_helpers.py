@@ -129,3 +129,44 @@ def treeview_style(style_name, rowheight=28):
 
 def card_with_accent(parent, **kwargs):
     return frame(parent, **kwargs)
+
+
+def entry_with_placeholder(parent, placeholder="", **kwargs):
+    """CTkEntry con manejo automático de placeholder."""
+    font = kwargs.pop("font", ("Segoe UI", 11))
+    e = ctk.CTkEntry(parent, font=font, corner_radius=6, **kwargs)
+    if placeholder:
+        e.insert(0, placeholder)
+        e.configure(text_color="gray50")
+        def on_focus_in(event):
+            if e.get() == placeholder:
+                e.delete(0, tk.END)
+                e.configure(text_color="white")
+        def on_focus_out(event):
+            if e.get() == "":
+                e.insert(0, placeholder)
+                e.configure(text_color="gray50")
+        e.bind("<FocusIn>", on_focus_in)
+        e.bind("<FocusOut>", on_focus_out)
+    return e
+
+
+def spinbox_numeric(parent, label_text="", default=0, on_change=None, **kwargs):
+    """Campo numérico (Spinbox) con label opcional."""
+    if label_text:
+        lbl = ctk.CTkLabel(parent, text=label_text, font=("Segoe UI", 10, "bold"))
+        lbl.pack(anchor="w")
+    ent = tk.Spinbox(parent, from_=0, to=99999, font=("Arial", 11), width=8, **kwargs)
+    ent.pack(fill="x", pady=(2, 0))
+    ent.delete(0, tk.END)
+    ent.insert(0, str(default))
+    if on_change:
+        ent.bind("<KeyRelease>", lambda e: on_change())
+        ent.configure(command=on_change)
+    return ent
+
+
+def form_field_row(parent, fields, label_width=10):
+    """Crea una fila de campos de formulario (label + entry) en columnas."""
+    # fields: lista de dicts con keys: label, placeholder, width, etc.
+    pass  # placeholder for future use

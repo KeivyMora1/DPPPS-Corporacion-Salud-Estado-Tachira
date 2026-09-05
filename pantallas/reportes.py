@@ -169,7 +169,7 @@ class ReporteView:
         obs     = self._txt_obs.get("1.0", "end").strip()
         id_asic = self._asic_map.get(self._asic_var.get())
 
-        self.parent.config(cursor="wait")
+        self.parent.configure(cursor="wait")
 
         def _tarea():
             try:
@@ -184,7 +184,7 @@ class ReporteView:
         threading.Thread(target=_tarea, daemon=True).start()
 
     def _mostrar_paso2(self, previo: dict):
-        self.parent.config(cursor="")
+        self.parent.configure(cursor="")
         self._previo = previo
         self._limpiar(self._frame_generar)
 
@@ -326,14 +326,14 @@ class ReporteView:
         ruta = filedialog.asksaveasfilename(title="Guardar PDF como…", defaultextension=".pdf", initialfile=nombre_sugerido, filetypes=[("PDF", "*.pdf")])
         if not ruta:
             return
-        self.parent.config(cursor="wait")
+        self.parent.configure(cursor="wait")
 
         def _tarea():
             try:
                 PDFService().generar_pdf(self._previo, ruta)
-                self.parent.after(0, lambda: (self.parent.config(cursor=""), messagebox.showinfo("PDF generado", f"PDF guardado en:\n{ruta}")))
+                self.parent.after(0, lambda: (self.parent.configure(cursor=""), messagebox.showinfo("PDF generado", f"PDF guardado en:\n{ruta}")))
             except Exception as exc:
-                self.parent.after(0, lambda e=exc: (self.parent.config(cursor=""), messagebox.showerror("Error al generar PDF", str(e))))
+                self.parent.after(0, lambda e=exc: (self.parent.configure(cursor=""), messagebox.showerror("Error al generar PDF", str(e))))
 
         threading.Thread(target=_tarea, daemon=True).start()
 
@@ -345,14 +345,14 @@ class ReporteView:
         ruta = filedialog.asksaveasfilename(title="Guardar Excel como…", defaultextension=".xlsx", initialfile=nombre_sugerido, filetypes=[("Excel", "*.xlsx")])
         if not ruta:
             return
-        self.parent.config(cursor="wait")
+        self.parent.configure(cursor="wait")
 
         def _tarea():
             try:
                 PDFService().generar_excel(self._previo, ruta)
-                self.parent.after(0, lambda: (self.parent.config(cursor=""), messagebox.showinfo("Excel generado", f"Excel guardado en:\n{ruta}")))
+                self.parent.after(0, lambda: (self.parent.configure(cursor=""), messagebox.showinfo("Excel generado", f"Excel guardado en:\n{ruta}")))
             except Exception as exc:
-                self.parent.after(0, lambda e=exc: (self.parent.config(cursor=""), messagebox.showerror("Error al generar Excel", str(e))))
+                self.parent.after(0, lambda e=exc: (self.parent.configure(cursor=""), messagebox.showerror("Error al generar Excel", str(e))))
 
         threading.Thread(target=_tarea, daemon=True).start()
 
@@ -420,16 +420,16 @@ class ReporteView:
         ruta = filedialog.asksaveasfilename(title="Guardar PDF como…", defaultextension=".pdf", initialfile=nombre, filetypes=[("PDF", "*.pdf")])
         if not ruta:
             return
-        self.parent.config(cursor="wait")
+        self.parent.configure(cursor="wait")
 
         def _tarea():
             try:
                 svc = ConsolidacionService(self.usuario["id_usuario"])
                 datos = svc.obtener_informe_completo(id_inf)
                 PDFService().generar_pdf(datos, ruta)
-                self.parent.after(0, lambda: (self.parent.config(cursor=""), messagebox.showinfo("PDF generado", f"PDF guardado en:\n{ruta}")))
+                self.parent.after(0, lambda: (self.parent.configure(cursor=""), messagebox.showinfo("PDF generado", f"PDF guardado en:\n{ruta}")))
             except Exception as exc:
-                self.parent.after(0, lambda e=exc: (self.parent.config(cursor=""), messagebox.showerror("Error", str(e))))
+                self.parent.after(0, lambda e=exc: (self.parent.configure(cursor=""), messagebox.showerror("Error", str(e))))
 
         threading.Thread(target=_tarea, daemon=True).start()
 
@@ -441,16 +441,16 @@ class ReporteView:
         ruta = filedialog.asksaveasfilename(title="Guardar Excel como…", defaultextension=".xlsx", initialfile=nombre, filetypes=[("Excel", "*.xlsx")])
         if not ruta:
             return
-        self.parent.config(cursor="wait")
+        self.parent.configure(cursor="wait")
 
         def _tarea():
             try:
                 svc = ConsolidacionService(self.usuario["id_usuario"])
                 datos = svc.obtener_informe_completo(id_inf)
                 PDFService().generar_excel(datos, ruta)
-                self.parent.after(0, lambda: (self.parent.config(cursor=""), messagebox.showinfo("Excel generado", f"Excel guardado en:\n{ruta}")))
+                self.parent.after(0, lambda: (self.parent.configure(cursor=""), messagebox.showinfo("Excel generado", f"Excel guardado en:\n{ruta}")))
             except Exception as exc:
-                self.parent.after(0, lambda e=exc: (self.parent.config(cursor=""), messagebox.showerror("Error", str(e))))
+                self.parent.after(0, lambda e=exc: (self.parent.configure(cursor=""), messagebox.showerror("Error", str(e))))
 
         threading.Thread(target=_tarea, daemon=True).start()
 
@@ -476,5 +476,5 @@ class ReporteView:
         label(chip, texto, font_size=9, bold=True).pack(padx=10, pady=4)
 
     def _error(self, exc: Exception):
-        self.parent.config(cursor="")
+        self.parent.configure(cursor="")
         messagebox.showerror("Error", str(exc))

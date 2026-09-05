@@ -28,55 +28,43 @@ class LoginView:
         self._construir_ui()
 
     def _construir_ui(self):
-        barra_top = ctk.CTkFrame(self.root, fg_color="#613BE3", height=4, corner_radius=0)
-        barra_top.pack(fill="x", side="top")
-
         content = ctk.CTkFrame(self.root, corner_radius=0)
         content.pack(fill="both", expand=True)
 
-        card = ctk.CTkFrame(content, corner_radius=10)
-        card.pack(fill="both", expand=True, padx=30, pady=30)
-
-        inner = ctk.CTkFrame(card, fg_color="transparent")
-        inner.pack(fill="both", expand=True, padx=36, pady=36)
-
-        self._dibujar_icono(inner)
+        inner = ctk.CTkFrame(content, fg_color="transparent")
+        inner.pack(fill="both", expand=True, padx=48, pady=72)
 
         ctk.CTkLabel(
             inner, text="DPPPS",
             font=("Segoe UI", 22, "bold"),
-        ).pack(pady=(8, 0))
-
-        sep = ctk.CTkFrame(inner, fg_color="#613BE3", height=2, width=60, corner_radius=1)
-        sep.pack(pady=(14, 24))
+        ).pack(pady=(0, 4))
 
         ctk.CTkLabel(
-            inner, text="Usuario",
-            font=("Segoe UI", 12, "bold"), anchor="w"
-        ).pack(fill="x")
+            inner,
+            text="Dirección de Programas y Proyectos de Promoción de Salud",
+            font=("Segoe UI", 11),
+            wraplength=340,
+            justify="center",
+        ).pack(pady=(0, 28))
 
         self.entrada_usuario = ctk.CTkEntry(
             inner,
             font=("Segoe UI", 12),
             corner_radius=6,
-            placeholder_text="",
+            placeholder_text="Usuario",
             height=38,
         )
-        self.entrada_usuario.pack(fill="x", pady=(4, 16), ipady=0)
-
-        ctk.CTkLabel(
-            inner, text="Contraseña",
-            font=("Segoe UI", 12, "bold"), anchor="w"
-        ).pack(fill="x")
+        self.entrada_usuario.pack(fill="x", pady=(0, 14), ipady=0)
 
         pw_frame = ctk.CTkFrame(inner, fg_color="transparent", corner_radius=0)
-        pw_frame.pack(fill="x", pady=(4, 28))
+        pw_frame.pack(fill="x", pady=(0, 28))
 
         self.entrada_password = ctk.CTkEntry(
             pw_frame,
             font=("Segoe UI", 12),
             corner_radius=6,
             show="●",
+            placeholder_text="Contraseña",
             height=38,
         )
         self.entrada_password.pack(fill="x")
@@ -122,27 +110,6 @@ class LoginView:
         else:
             self.entrada_password.configure(show="●")
             self.btn_ojo.configure(text_color="gray70")
-
-    def _dibujar_icono(self, parent):
-        import tkinter as tk
-        size = 64
-        c = tk.Canvas(parent, width=size, height=size, highlightthickness=0)
-        c.pack(pady=(0, 0))
-
-        margin = 4
-        c.create_oval(
-            margin, margin, size - margin, size - margin,
-            fill="gray30", outline="#613BE3", width=2
-        )
-
-        cx, cy = size // 2, size // 2
-        arm_w, arm_h = 8, 22
-        c.create_rectangle(cx - arm_w // 2, cy - arm_h // 2,
-                           cx + arm_w // 2, cy + arm_h // 2,
-                           fill="#613BE3", outline="")
-        c.create_rectangle(cx - arm_h // 2, cy - arm_w // 2,
-                           cx + arm_h // 2, cy + arm_w // 2,
-                           fill="#613BE3", outline="")
 
     def _intentar_login(self):
         username = self.entrada_usuario.get().strip()

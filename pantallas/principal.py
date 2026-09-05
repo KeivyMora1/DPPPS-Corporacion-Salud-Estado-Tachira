@@ -12,10 +12,8 @@ from ui_helpers import (
 class MainView:
 
     MENU_ITEMS = [
-        ("dashboard",   "Dashboard"),
         ("actividades", "Actividades"),
         ("asic",        "ASIC"),
-        ("importar",    "Importar"),
         ("reportes",    "Reportes"),
         ("vocerias",    "Vocerias CS"),
     ]
@@ -26,12 +24,12 @@ class MainView:
         self.usuario = self.auth.obtener_usuario_actual()
 
         self.frames_menu = {}
-        self.seccion_actual = "dashboard"
+        self.seccion_actual = "actividades"
 
         self.root.title("DPPPS")
 
         self._construir_ui()
-        self._navegar("dashboard")
+        self._navegar("actividades")
 
         self.root.after(50, lambda: self.root.state("zoomed"))
 
@@ -192,23 +190,17 @@ class MainView:
             else:
                 btn.configure(fg_color="transparent", hover_color="gray30", text_color="gray70")
 
-        from pantallas.dashboard   import DashboardView
         from pantallas.catalogos   import CatalogoView
         from pantallas.actividades import ActividadView
-        from pantallas.importacion import ImportacionView
         from pantallas.reportes    import ReporteView
         from pantallas.vocerias    import VoceriaView
 
-        if seccion == "dashboard":
-            DashboardView(self.area_contenido)
-        elif seccion == "asic":
+        if seccion == "asic":
             CatalogoView(self.area_contenido, modo="asic")
         elif seccion == "tipos":
             CatalogoView(self.area_contenido, modo="tipos")
         elif seccion == "actividades":
             ActividadView(self.area_contenido)
-        elif seccion == "importar":
-            ImportacionView(self.area_contenido)
         elif seccion == "reportes":
             ReporteView(self.area_contenido)
         elif seccion == "vocerias":

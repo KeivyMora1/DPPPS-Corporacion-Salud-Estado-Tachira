@@ -10,15 +10,22 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from datetime import datetime, date
 from db import ActividadController, ALLOWED_EXTENSIONS, MAX_FILE_SIZE_MB, ExcelService, TEMPLATE_PATH
+from themes import THEME
 import os
 import threading
-from themes import THEME
 
 try:
     from tkcalendar import DateEntry
     HAS_TKCALENDAR = True
 except ImportError:
     HAS_TKCALENDAR = False
+
+from ui_helpers import (
+    frame, frame_transparent, label, label_title, label_subtitle,
+    btn_primary, btn_secondary, btn_danger, btn_success,
+    separator, treeview_style, scrollable_frame, entry_with_placeholder,
+    spinbox_numeric, combobox
+)
 
 
 class ActividadView:
@@ -77,22 +84,12 @@ class ActividadView:
         self.combo_filtro_tipo.grid(row=0, column=3, padx=5, pady=5)
 
         ctk.CTkLabel(marco_filtros, text="Desde:", font=("Arial", 9, "bold"), text_color=t["text_muted"]).grid(row=0, column=4, padx=5, pady=5, sticky="w")
-        self.ent_filtro_desde = ctk.CTkEntry(marco_filtros, width=130, font=("Arial", 10),
-                                              fg_color=t["bg_card"], text_color=t["text_primary"],
-                                              border_color=t["border"], corner_radius=6)
+        self.ent_filtro_desde = entry_with_placeholder(marco_filtros, placeholder="AAAA-MM-DD", width=130, font=("Arial", 10))
         self.ent_filtro_desde.grid(row=0, column=5, padx=5, pady=5)
-        self.ent_filtro_desde.bind("<FocusIn>",  lambda e: self._limpiar_placeholder_fecha(self.ent_filtro_desde))
-        self.ent_filtro_desde.bind("<FocusOut>", lambda e: self._poner_placeholder_fecha(self.ent_filtro_desde))
-        self._poner_placeholder_fecha(self.ent_filtro_desde)
 
         ctk.CTkLabel(marco_filtros, text="Hasta:", font=("Arial", 9, "bold"), text_color=t["text_muted"]).grid(row=0, column=6, padx=5, pady=5, sticky="w")
-        self.ent_filtro_hasta = ctk.CTkEntry(marco_filtros, width=130, font=("Arial", 10),
-                                              fg_color=t["bg_card"], text_color=t["text_primary"],
-                                              border_color=t["border"], corner_radius=6)
+        self.ent_filtro_hasta = entry_with_placeholder(marco_filtros, placeholder="AAAA-MM-DD", width=130, font=("Arial", 10))
         self.ent_filtro_hasta.grid(row=0, column=7, padx=5, pady=5)
-        self.ent_filtro_hasta.bind("<FocusIn>",  lambda e: self._limpiar_placeholder_fecha(self.ent_filtro_hasta))
-        self.ent_filtro_hasta.bind("<FocusOut>", lambda e: self._poner_placeholder_fecha(self.ent_filtro_hasta))
-        self._poner_placeholder_fecha(self.ent_filtro_hasta)
 
         nombres_asic = ["Todos"] + sorted(list(self.asic_map.keys()))
         nombres_tipo = ["Todos"] + sorted(list(self.tipo_map.keys()))
@@ -201,38 +198,6 @@ class ActividadView:
 
         self._cargar_datos_tabla()
 
-    def _poner_placeholder_fecha(self, entrada):
-        t = self.t
-        if entrada.get() == "":
-            entrada.insert(0, "AAAA-MM-DD")
-            entrada.configure(text_color=t["text_dim"])
-
-    def _limpiar_placeholder_fecha(self, entrada):
-        t = self.t
-        if entrada.get() == "AAAA-MM-DD":
-            entrada.delete(0, tk.END)
-            entrada.configure(text_color=t["text_primary"])
-
-    def _poner_placeholder_entry(self, entrada, placeholder):
-        """Pone un placeholder en un CTkEntry si está vacío."""
-        t = self.t
-        if entrada.get() == "":
-            entrada.insert(0, placeholder)
-            try:
-                entrada.configure(text_color=t["text_dim"])
-            except Exception:
-                pass
-
-    def _limpiar_placeholder_entry(self, entrada, placeholder):
-        """Limpia el placeholder si coincide con el texto actual."""
-        t = self.t
-        if entrada.get() == placeholder:
-            entrada.delete(0, tk.END)
-            try:
-                entrada.configure(text_color=t["text_primary"])
-            except Exception:
-                pass
-
     def _aplicar_filtros(self):
         asic_sel = self.combo_filtro_asic.get()
         tipo_sel = self.combo_filtro_tipo.get()
@@ -327,6 +292,12 @@ class ActividadView:
              font=("Arial", 16, "bold"), text_color=t["text_primary"]
              ).pack(pady=(15, 5))
 
+        marco_pie_formulario = ctk.CTkFrame(ventana, fg_color="transparent")
+        marco_pie_formulario.pack(side="bottom", fill="x", padx=25, pady=(5, 15))
+
+        lbl_error = ctk.CTkLabel(marco_pie_formulario, text="", font=("Arial", 9), text_color=t["red"])
+        lbl_error.pack(pady=(0, 3))
+
         # Scrollable frame for form
         scroll_frame = ctk.CTkScrollableFrame(ventana, fg_color="transparent")
         scroll_frame.pack(fill="both", expand=True, padx=25, pady=5)
@@ -350,18 +321,7 @@ class ActividadView:
         combo_asic.pack(fill="x")
 
         ctk.CTkLabel(marco_form, text="Tipo de Actividad *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(8, 2))
-        opciones_fijas = [
-            "Seguimiento a los Comités de Salud mediante las vocerías en salud comunal.",
-            "Actualización de los comités de salud.",
-            "Salud toca tu puerta",
-            "Sesiones educativas",
-            "*Los Comités de Salud van a la escuela\".",
-            "Actividades de Promoción y Prevención Social",
-            "Participación Activa en Jornadas.",
-            "Participación Activa en Inmunizaciones",
-            "Entrevista servicio social.",
-        ]
-        nombres_tipos = [n for n in opciones_fijas if n in self.tipo_map]
+        nombres_tipos = sorted(self.tipo_map.keys())
         combo_tipo = ctk.CTkOptionMenu(marco_form, values=nombres_tipos)
         if nombres_tipos:
             try:
@@ -374,16 +334,22 @@ class ActividadView:
         marco_fechas = ctk.CTkFrame(marco_form, fg_color="transparent")
         marco_fechas.pack(fill="x", pady=8)
 
-        # Fecha (un solo campo, la plantilla usa una sola fecha)
-        col_fecha = ctk.CTkFrame(marco_fechas, fg_color="transparent")
-        col_fecha.pack(fill="x", expand=True)
-        ctk.CTkLabel(col_fecha, text="Fecha *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        # La actividad puede cubrir uno o varios días.
+        col_fecha_inicio = ctk.CTkFrame(marco_fechas, fg_color="transparent")
+        col_fecha_inicio.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        ctk.CTkLabel(col_fecha_inicio, text="Fecha de inicio *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        ent_fecha_inicio = ctk.CTkEntry(col_fecha_inicio, font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"],
+                        border_color=t["border"], corner_radius=6)
+        ent_fecha_inicio.pack(fill="x", pady=(2, 0))
+        ent_fecha_inicio.insert(0, date.today().strftime("%Y-%m-%d"))
 
-        # Usar CTkEntry para fecha para mantener estilo consistente
-        ent_fecha = ctk.CTkEntry(col_fecha, font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"],
-                                 border_color=t["border"], corner_radius=6)
-        ent_fecha.pack(fill="x", pady=(2, 0))
-        ent_fecha.insert(0, date.today().strftime("%Y-%m-%d"))
+        col_fecha_fin = ctk.CTkFrame(marco_fechas, fg_color="transparent")
+        col_fecha_fin.pack(side="left", fill="x", expand=True, padx=(5, 0))
+        ctk.CTkLabel(col_fecha_fin, text="Fecha de fin *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        ent_fecha_fin = ctk.CTkEntry(col_fecha_fin, font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"],
+                         border_color=t["border"], corner_radius=6)
+        ent_fecha_fin.pack(fill="x", pady=(2, 0))
+        ent_fecha_fin.insert(0, date.today().strftime("%Y-%m-%d"))
 
         # --- Ubicación (campos de la plantilla) ---
         ctk.CTkLabel(frame_avanzado, text="Ubicación", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(8, 2))
@@ -515,25 +481,25 @@ class ActividadView:
         fila_p1 = ctk.CTkFrame(inner_part, fg_color="transparent")
         fila_p1.pack(fill="x", pady=2)
 
-        self._crear_campo_numerico(fila_p1, "Médicos", "ent_medicos", 0)
-        self._crear_campo_numerico(fila_p1, "Promotores en Salud", "ent_promotores", 0)
-        self._crear_campo_numerico(fila_p1, "Voceros Comité Salud", "ent_voceros_comite", 0)
+        self.ent_medicos = spinbox_numeric(fila_p1, "Médicos", 0, self._actualizar_total_participantes)
+        self.ent_promotores = spinbox_numeric(fila_p1, "Promotores en Salud", 0, self._actualizar_total_participantes)
+        self.ent_voceros_comite = spinbox_numeric(fila_p1, "Voceros Comité Salud", 0, self._actualizar_total_participantes)
 
         # Fila 2: Vocero Consejo, Coordinador Docencia, Autoridades
         fila_p2 = ctk.CTkFrame(inner_part, fg_color="transparent")
         fila_p2.pack(fill="x", pady=2)
 
-        self._crear_campo_numerico(fila_p2, "Vocero Consejo Dir. ASIC", "ent_vocero_consejo", 0)
-        self._crear_campo_numerico(fila_p2, "Coordinador Docencia ASIC", "ent_coordinador", 0)
-        self._crear_campo_numerico(fila_p2, "Autoridades Presentes", "ent_autoridades", 0)
+        self.ent_vocero_consejo = spinbox_numeric(fila_p2, "Vocero Consejo Dir. ASIC", 0, self._actualizar_total_participantes)
+        self.ent_coordinador = spinbox_numeric(fila_p2, "Coordinador Docencia ASIC", 0, self._actualizar_total_participantes)
+        self.ent_autoridades = spinbox_numeric(fila_p2, "Autoridades Presentes", 0, self._actualizar_total_participantes)
 
         # Fila 3: Otros Actores, Personas Comunidad, Estudiantes Aspirantes
         fila_p3 = ctk.CTkFrame(inner_part, fg_color="transparent")
         fila_p3.pack(fill="x", pady=2)
 
-        self._crear_campo_numerico(fila_p3, "Otros Actores", "ent_otros_actores", 0)
-        self._crear_campo_numerico(fila_p3, "Personas Comunidad", "ent_personas_comunidad", 0)
-        self._crear_campo_numerico(fila_p3, "Estudiantes Aspirantes", "ent_estudiantes", 0)
+        self.ent_otros_actores = spinbox_numeric(fila_p3, "Otros Actores", 0, self._actualizar_total_participantes)
+        self.ent_personas_comunidad = spinbox_numeric(fila_p3, "Personas Comunidad", 0, self._actualizar_total_participantes)
+        self.ent_estudiantes = spinbox_numeric(fila_p3, "Estudiantes Aspirantes", 0, self._actualizar_total_participantes)
 
         # Total Participantes (mostrar contador calculado)
         # Registrar nombres de campos de participantes para sumar automáticamente
@@ -661,9 +627,6 @@ class ActividadView:
 
         refrescar_lista_evidencias()
 
-        lbl_error = ctk.CTkLabel(ventana, text="", font=("Arial", 9), text_color=t["red"])
-        lbl_error.pack(pady=3)
-
         if datos_edicion:
             if datos_edicion["asic_nombre"] in nombres_asics:
                 combo_asic.set(datos_edicion["asic_nombre"])
@@ -672,8 +635,10 @@ class ActividadView:
                     combo_tipo.set(datos_edicion["tipo_nombre"])
                 except Exception:
                     pass
-            ent_fecha.delete(0, tk.END)
-            ent_fecha.insert(0, datos_edicion["fecha_inicio"])
+            ent_fecha_inicio.delete(0, tk.END)
+            ent_fecha_inicio.insert(0, datos_edicion["fecha_inicio"])
+            ent_fecha_fin.delete(0, tk.END)
+            ent_fecha_fin.insert(0, datos_edicion["fecha_fin"])
 
             # Cargar campos de ubicación (limpiando placeholders previos)
             ent_estado.delete(0, tk.END)
@@ -727,21 +692,21 @@ class ActividadView:
         def guardar():
             id_asic = self.asic_map.get(combo_asic.get())
             id_tipo = self.tipo_map.get(combo_tipo.get())
-            f_ini   = ent_fecha.get()
-            f_fin   = f_ini
+            f_ini   = ent_fecha_inicio.get().strip()
+            f_fin   = ent_fecha_fin.get().strip()
 
             ok, msg = self.controller.guardar_actividad(
                 id_asic=id_asic,
                 id_tipo=id_tipo,
                 fecha_inicio=f_ini,
                 fecha_fin=f_fin,
-                estado=ent_estado.get(),
-                municipio=ent_municipio.get(),
-                parroquia=ent_parroquia.get(),
-                establecimiento_salud=ent_establecimiento.get(),
-                nombre_establecimiento=ent_nombre_establecimiento.get(),
-                comites_salud=ent_comites.get(),
-                lugar=ent_lugar.get(),
+                estado=self._valor_entry(ent_estado),
+                municipio=self._valor_entry(ent_municipio),
+                parroquia=self._valor_entry(ent_parroquia),
+                establecimiento_salud=self._valor_entry(ent_establecimiento),
+                nombre_establecimiento=self._valor_entry(ent_nombre_establecimiento),
+                comites_salud=self._valor_entry(ent_comites),
+                lugar=self._valor_entry(ent_lugar),
                 descripcion=txt_desc.get("1.0", "end-1c"),
                 medicos=self.ent_medicos.get(),
                 promotores_salud=self.ent_promotores.get(),
@@ -763,36 +728,31 @@ class ActividadView:
             else:
                 lbl_error.configure(text=msg)
 
-        ctk.CTkButton(ventana, text="Guardar Actividad",
+        ctk.CTkButton(marco_pie_formulario,
+                  text="Crear Actividad" if datos_edicion is None else "Guardar Cambios",
                       font=("Arial", 11, "bold"), fg_color=t["accent"],
                       hover_color=t["accent_dim"], corner_radius=8, command=guardar
-                      ).pack(fill="x", padx=25, pady=(5, 15), ipady=8)
+                  ).pack(fill="x", ipady=8)
 
-    def _crear_campo_numerico(self, parent, label, attr_name, default=0):
-        """Helper para crear campos numéricos con label."""
-        t = self.t
-        col = ctk.CTkFrame(parent, fg_color="transparent")
-        col.pack(side="left", fill="x", expand=True, padx=5)
-        ctk.CTkLabel(col, text=label, font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent = tk.Spinbox(col, from_=0, to=99999, font=("Arial", 11), width=8, command=lambda: getattr(self, '_actualizar_total_participantes', lambda: None)())
-        # aplicar estilo similar a CTkEntry de ubicación
-        try:
-            ent.configure(bg=t["bg_base"], fg=t["text_primary"], relief="flat", borderwidth=0, insertbackground=t["text_primary"])
-        except Exception:
-            pass
-        ent.pack(fill="x", pady=(2, 0))
-        try:
-            ent.delete(0, tk.END)
-        except Exception:
-            pass
-        ent.insert(0, str(default))
-        # actualizar total cuando se escribe manualmente
-        try:
-            ent.bind('<KeyRelease>', lambda e: getattr(self, '_actualizar_total_participantes', lambda: None)())
-        except Exception:
-            pass
-        setattr(self, attr_name, ent)
-        return ent
+    def _poner_placeholder_entry(self, entry_widget, placeholder):
+        """Muestra un placeholder en un CTkEntry vacío."""
+        if not entry_widget.get():
+            entry_widget.insert(0, placeholder)
+            entry_widget.configure(text_color=self.t["text_dim"])
+        entry_widget._placeholder_text = placeholder
+
+    def _limpiar_placeholder_entry(self, entry_widget, placeholder):
+        """Retira el placeholder cuando el campo recibe el foco."""
+        if entry_widget.get() == placeholder:
+            entry_widget.delete(0, tk.END)
+        entry_widget.configure(text_color=self.t["text_primary"])
+
+    def _valor_entry(self, entry_widget):
+        """Retorna vacío si el CTkEntry aún muestra su placeholder."""
+        valor = entry_widget.get().strip()
+        if valor == getattr(entry_widget, "_placeholder_text", None):
+            return ""
+        return valor
 
     def _actualizar_total_participantes(self):
         """Suma los campos numéricos de participantes y actualiza el label del total."""
