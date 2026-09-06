@@ -86,7 +86,7 @@ class MainView:
         self.status_dot.pack(side="left", padx=(0, 8))
 
         self.lbl_status = label(
-            self.status_frame, "DPPPS Corporación Salud Estado Táchira",
+            self.status_frame, "DPPPS | División para la Promoción de la Participación Popular en Salud",
             font_size=14, bold=True
         )
         self.lbl_status.pack(side="left")

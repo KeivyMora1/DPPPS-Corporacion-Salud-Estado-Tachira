@@ -1620,7 +1620,7 @@ class PDFService:
         alcance     = f"ASIC: {asic_nombre}" if asic_nombre else "Todos los ASIC"
         return [
             Paragraph("CORPORACIÓN DE SALUD DEL ESTADO TÁCHIRA", estilos["institucion"]),
-            Paragraph("Dirección de Programas y Proyectos de Promoción de Salud (DPPPS)", estilos["dependencia"]),
+            Paragraph("División para la Promoción de la Participación Popular en Salud (DPPPS)", estilos["dependencia"]),
             Spacer(1, 0.2*cm),
             Paragraph(titulo, estilos["titulo"]),
             Paragraph(f"{subtitulo}  |  {alcance}", estilos["subtitulo_gris"]),

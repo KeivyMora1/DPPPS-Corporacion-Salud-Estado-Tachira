@@ -4,16 +4,17 @@
 
 ### Problema Identificado
 
-La **DPPPS Corporación Salud Estado Táchira** gestiona múltiples actividades mensuales a través de sus **ASIC** (Áreas de Salud Integral Comunitaria). Actualmente:
+La **DPPPS (División para la Promoción de la Participación Popular en Salud)** de la Corporación de Salud del Estado Táchira gestiona múltiples actividades mensuales a través de sus **ASIC** (Áreas de Salud Integral Comunitaria). Actualmente:
 
-| Aspecto | Situación Actual | Impacto |
-|---------|-----------------|---------|
-| Registro de datos | Libretas físicas | Pérdida de información, deterioro, difícil búsqueda |
-| Informes mensuales | Recopilación manual | Demoras de días/semanas, errores de transcripción |
-| Informes trimestrales/anuales | Consolidación manual de libretas | Inconsistencias, datos incompletos |
-| Evidencias | Archivos sueltos sin vinculación | Difícil demostrar actividades realizadas |
+| Aspecto                       | Situación Actual                 | Impacto                                             |
+| ----------------------------- | -------------------------------- | --------------------------------------------------- |
+| Registro de datos             | Libretas físicas                 | Pérdida de información, deterioro, difícil búsqueda |
+| Informes mensuales            | Recopilación manual              | Demoras de días/semanas, errores de transcripción   |
+| Informes trimestrales/anuales | Consolidación manual de libretas | Inconsistencias, datos incompletos                  |
+| Evidencias                    | Archivos sueltos sin vinculación | Difícil demostrar actividades realizadas            |
 
 ### Consecuencias directas
+
 - **Retrasos** en la entrega de informes a entes superiores.
 - **Errores** en cifras consolidadas (participantes, actividades).
 - **Imposibilidad** de generar comparativos rápidos entre períodos.
@@ -294,21 +295,22 @@ erDiagram
 
 ### 5.2 Diccionario de Datos — Tablas Principales
 
-| Tabla | Propósito | Registros estimados |
-|-------|-----------|-------------------|
-| `usuario` | Credenciales y roles del sistema | 10-30 |
-| `asic` | Catálogo de Áreas de Salud | 15-40 |
-| `tipo_actividad` | Catálogo de tipos de actividad | 10-30 |
-| `actividad` | Registro principal de cada actividad | Miles/año |
-| `evidencia` | Archivos/fotos asociados | Miles/año |
-| `periodo` | Períodos de consolidación | ~16/año |
-| `informe_consolidado` | Cabecera de informes generados | Decenas/año |
-| `informe_detalle` | Actividades incluidas en cada informe | Miles/año |
-| `importacion_log` | Registro de importaciones Excel | Decenas/año |
+| Tabla                 | Propósito                             | Registros estimados |
+| --------------------- | ------------------------------------- | ------------------- |
+| `usuario`             | Credenciales y roles del sistema      | 10-30               |
+| `asic`                | Catálogo de Áreas de Salud            | 15-40               |
+| `tipo_actividad`      | Catálogo de tipos de actividad        | 10-30               |
+| `actividad`           | Registro principal de cada actividad  | Miles/año           |
+| `evidencia`           | Archivos/fotos asociados              | Miles/año           |
+| `periodo`             | Períodos de consolidación             | ~16/año             |
+| `informe_consolidado` | Cabecera de informes generados        | Decenas/año         |
+| `informe_detalle`     | Actividades incluidas en cada informe | Miles/año           |
+| `importacion_log`     | Registro de importaciones Excel       | Decenas/año         |
 
 ### 5.3 Regla de Duplicidad
 
 Una actividad se considera **duplicada** si coinciden los 4 campos:
+
 - `id_asic` + `id_tipo` + `fecha_inicio` + `descripcion` (primeros 100 caracteres normalizados a minúscula y sin espacios extra)
 
 ---
@@ -331,15 +333,15 @@ Una actividad se considera **duplicada** si coinciden los 4 campos:
 
 El sistema maneja un único rol **admin** con acceso total:
 
-| Permiso | Admin |
-|---------|-------|
-| Gestionar catálogos (ASIC, tipos) | ✅ |
-| Registrar actividades | ✅ |
-| Editar / Eliminar actividades | ✅ |
-| Importar Excel | ✅ |
-| Generar reportes | ✅ |
-| Exportar PDF/Excel | ✅ |
-| Cerrar/Reabrir períodos | ✅ |
+| Permiso                           | Admin |
+| --------------------------------- | ----- |
+| Gestionar catálogos (ASIC, tipos) | ✅    |
+| Registrar actividades             | ✅    |
+| Editar / Eliminar actividades     | ✅    |
+| Importar Excel                    | ✅    |
+| Generar reportes                  | ✅    |
+| Exportar PDF/Excel                | ✅    |
+| Cerrar/Reabrir períodos           | ✅    |
 
 ---
 
@@ -410,19 +412,21 @@ ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".pdf", ".docx"]
 ## 9. Casos de Uso Principales
 
 ### CU-01: Registrar Actividad Manualmente
+
 - **Actor**: Admin
 - **Flujo**: Login → Actividades → Nueva → Llenar formulario → Adjuntar evidencias → Guardar
 - **Validaciones**: Fecha inicio ≤ fin, participantes ≥ 0, campos obligatorios, verificar duplicidad
 
 ### CU-02: Importar Actividades desde Excel
+
 - **Actor**: Admin
 - **Flujo**: Login → Importación → Seleccionar archivo → Pre-validación → Revisar errores → Confirmar importación
 - **Validaciones**: Formato de plantilla, datos por fila, duplicados
 
 ### CU-03: Generar Informe Consolidado
+
 - **Actor**: Admin
 - **Flujo**: Login → Reportes → Seleccionar período → Seleccionar ASIC (o todas) → Generar → Previsualizar → Exportar PDF/Excel
-
 
 ---
 
@@ -430,15 +434,15 @@ ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".pdf", ".docx"]
 
 La plantilla oficial tendrá las siguientes columnas:
 
-| Columna | Tipo | Obligatorio | Ejemplo |
-|---------|------|-------------|---------|
-| A: Código ASIC | Texto | ✅ | "ASIC-001" |
-| B: Tipo Actividad | Texto | ✅ | "Jornada de Vacunación" |
-| C: Fecha Inicio | Fecha | ✅ | 15/03/2026 |
-| D: Fecha Fin | Fecha | ✅ | 15/03/2026 |
-| E: Lugar | Texto | ❌ | "CDI La Concordia" |
-| F: Descripción | Texto | ✅ | "Jornada de vacunación infantil..." |
-| G: Participantes | Número | ✅ | 150 |
+| Columna           | Tipo   | Obligatorio | Ejemplo                             |
+| ----------------- | ------ | ----------- | ----------------------------------- |
+| A: Código ASIC    | Texto  | ✅          | "ASIC-001"                          |
+| B: Tipo Actividad | Texto  | ✅          | "Jornada de Vacunación"             |
+| C: Fecha Inicio   | Fecha  | ✅          | 15/03/2026                          |
+| D: Fecha Fin      | Fecha  | ✅          | 15/03/2026                          |
+| E: Lugar          | Texto  | ❌          | "CDI La Concordia"                  |
+| F: Descripción    | Texto  | ✅          | "Jornada de vacunación infantil..." |
+| G: Participantes  | Número | ✅          | 150                                 |
 
 > [!NOTE]
 > Las actividades importadas quedan disponibles inmediatamente para consolidación y reportes.
@@ -471,39 +475,39 @@ Una vez aprobada esta planificación, comenzaremos con:
 
 ---
 
-*Documento generado el 17/05/2026 — Versión 1.0*
+_Documento generado el 17/05/2026 — Versión 1.0_
 
 ---
 
 ## 📌 Registro de Avances
 
-| Archivo / Módulo | Estado |
-|---|---|
-| Estructura de carpetas MVC | ✅ FINALIZADO |
-| `config/settings.py` | ✅ FINALIZADO |
-| `db/connection.py` | ✅ FINALIZADO |
-| `db/schema.sql` | ✅ FINALIZADO |
-| `db/setup.py` | ✅ FINALIZADO |
-| `models/usuario.py` (UsuarioDAO) | ✅ FINALIZADO |
-| `controllers/auth_controller.py` | ✅ FINALIZADO |
-| `views/login_view.py` | ✅ FINALIZADO |
-| `views/main_view.py` | ✅ FINALIZADO |
-| `main.py` | ✅ FINALIZADO |
-| `requirements.txt` + dependencias | ✅ FINALIZADO |
-| `models/asic.py` (ASICDAO) | ✅ FINALIZADO |
-| `models/tipo_actividad.py` | ✅ FINALIZADO |
-| `models/actividad.py` (ActividadDAO) | ✅ FINALIZADO |
-| `controllers/catalogo_controller.py` | ✅ FINALIZADO |
-| `controllers/actividad_controller.py` | ✅ FINALIZADO |
-| `views/catalogo_view.py` | ✅ FINALIZADO |
+| Archivo / Módulo                                 | Estado        |
+| ------------------------------------------------ | ------------- |
+| Estructura de carpetas MVC                       | ✅ FINALIZADO |
+| `config/settings.py`                             | ✅ FINALIZADO |
+| `db/connection.py`                               | ✅ FINALIZADO |
+| `db/schema.sql`                                  | ✅ FINALIZADO |
+| `db/setup.py`                                    | ✅ FINALIZADO |
+| `models/usuario.py` (UsuarioDAO)                 | ✅ FINALIZADO |
+| `controllers/auth_controller.py`                 | ✅ FINALIZADO |
+| `views/login_view.py`                            | ✅ FINALIZADO |
+| `views/main_view.py`                             | ✅ FINALIZADO |
+| `main.py`                                        | ✅ FINALIZADO |
+| `requirements.txt` + dependencias                | ✅ FINALIZADO |
+| `models/asic.py` (ASICDAO)                       | ✅ FINALIZADO |
+| `models/tipo_actividad.py`                       | ✅ FINALIZADO |
+| `models/actividad.py` (ActividadDAO)             | ✅ FINALIZADO |
+| `controllers/catalogo_controller.py`             | ✅ FINALIZADO |
+| `controllers/actividad_controller.py`            | ✅ FINALIZADO |
+| `views/catalogo_view.py`                         | ✅ FINALIZADO |
 | `views/actividad_view.py` (Formulario y Listado) | ✅ FINALIZADO |
-| (Consolidado en actividad_view.py) | ✅ FINALIZADO |
-| `models/evidencia.py` + FileUpload | ✅ FINALIZADO |
-| `services/excel_service.py` (importar) | ✅ FINALIZADO |
-| `assets/templates/plantilla_importacion.xlsx` | ✅ FINALIZADO |
-| `views/importacion_view.py` | ✅ FINALIZADO |
-| `services/consolidacion_service.py` | ✅ FINALIZADO |
-| `services/pdf_service.py` | ✅ FINALIZADO |
-| `models/informe.py` (InformeDAO + PeriodoDAO) | ✅ FINALIZADO |
-| `views/reporte_view.py` | ✅ FINALIZADO |
-| `views/dashboard_view.py` (completo) | ✅ FINALIZADO |
+| (Consolidado en actividad_view.py)               | ✅ FINALIZADO |
+| `models/evidencia.py` + FileUpload               | ✅ FINALIZADO |
+| `services/excel_service.py` (importar)           | ✅ FINALIZADO |
+| `assets/templates/plantilla_importacion.xlsx`    | ✅ FINALIZADO |
+| `views/importacion_view.py`                      | ✅ FINALIZADO |
+| `services/consolidacion_service.py`              | ✅ FINALIZADO |
+| `services/pdf_service.py`                        | ✅ FINALIZADO |
+| `models/informe.py` (InformeDAO + PeriodoDAO)    | ✅ FINALIZADO |
+| `views/reporte_view.py`                          | ✅ FINALIZADO |
+| `views/dashboard_view.py` (completo)             | ✅ FINALIZADO |

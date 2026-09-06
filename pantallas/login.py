@@ -41,7 +41,7 @@ class LoginView:
 
         ctk.CTkLabel(
             inner,
-            text="Dirección de Programas y Proyectos de Promoción de Salud",
+            text="División para la Promoción de la Participación Popular en Salud",
             font=("Segoe UI", 11),
             wraplength=340,
             justify="center",
