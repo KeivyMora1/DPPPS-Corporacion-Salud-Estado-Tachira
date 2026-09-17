@@ -53,7 +53,6 @@ CREATE TABLE IF NOT EXISTS tipo_actividad (
     id_tipo    INT AUTO_INCREMENT PRIMARY KEY,
     codigo     VARCHAR(20) NOT NULL UNIQUE,      -- Ej: "TIPO-001"
     nombre     VARCHAR(100) NOT NULL,
-    descripcion TEXT,
     activo     BOOLEAN NOT NULL DEFAULT TRUE,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -207,10 +206,12 @@ VALUES (
     'admin@dppps.gob.ve'
 );
 
--- Tipos de actividad de ejemplo
-INSERT IGNORE INTO tipo_actividad (codigo, nombre, descripcion) VALUES
-    ('TIPO-001', 'Jornada de Vacunación', 'Actividades de vacunación comunitaria'),
-    ('TIPO-002', 'Consulta Médica', 'Consultas médicas generales y especializadas'),
-    ('TIPO-003', 'Charla de Salud', 'Charlas y talleres de educación en salud'),
-    ('TIPO-004', 'Jornada Odontológica', 'Atención odontológica a la comunidad'),
-    ('TIPO-005', 'Actividad Deportiva', 'Actividades físicas y deportivas comunitarias');
+-- Tipos de actividad permitidos por la plantilla de importación
+INSERT IGNORE INTO tipo_actividad (codigo, nombre) VALUES
+    ('TIPO-01', 'Salud toca tu puerta'),
+    ('TIPO-02', 'Sesiones educativas'),
+    ('TIPO-03', 'Los Comités de Salud van a la escuela'),
+    ('TIPO-04', 'Actividades de Promoción y Prevención Social'),
+    ('TIPO-05', 'Participación Activa en Jornadas'),
+    ('TIPO-06', 'Participación Activa en Inmunizaciones'),
+    ('TIPO-07', 'Entrevista servicio social');

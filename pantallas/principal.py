@@ -13,7 +13,6 @@ class MainView:
 
     MENU_ITEMS = [
         ("actividades", "Actividades"),
-        ("asic",        "ASIC"),
         ("reportes",    "Reportes"),
         ("vocerias",    "Vocerias CS"),
     ]
@@ -195,9 +194,7 @@ class MainView:
         from pantallas.reportes    import ReporteView
         from pantallas.vocerias    import VoceriaView
 
-        if seccion == "asic":
-            CatalogoView(self.area_contenido, modo="asic")
-        elif seccion == "tipos":
+        if seccion == "tipos":
             CatalogoView(self.area_contenido, modo="tipos")
         elif seccion == "actividades":
             ActividadView(self.area_contenido)

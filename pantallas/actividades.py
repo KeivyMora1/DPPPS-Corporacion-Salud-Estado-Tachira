@@ -9,7 +9,7 @@ import customtkinter as ctk
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from datetime import datetime, date
-from db import ActividadController, ALLOWED_EXTENSIONS, MAX_FILE_SIZE_MB, ExcelService, TEMPLATE_PATH
+from db import ActividadController, ALLOWED_EXTENSIONS, MAX_FILE_SIZE_MB, ExcelService, TEMPLATE_PATH, ASIC_PREDETERMINADOS
 from themes import THEME
 import os
 import threading
@@ -138,14 +138,13 @@ class ActividadView:
         marco_tabla = ctk.CTkFrame(self.parent, fg_color="transparent", corner_radius=10)
         marco_tabla.pack(fill="both", expand=True, padx=30, pady=(5, 10))
 
-        columnas = ("id", "asic", "tipo", "fecha_inicio", "fecha_fin", "estado", "municipio", "lugar", "participantes", "registrador")
+        columnas = ("id", "asic", "tipo", "fecha", "estado", "municipio", "lugar", "participantes", "registrador")
         self.tabla = ttk.Treeview(marco_tabla, columns=columnas, show="headings", height=12)
 
         self.tabla.heading("id",            text="ID")
         self.tabla.heading("asic",          text="ASIC")
         self.tabla.heading("tipo",          text="Tipo de Actividad")
-        self.tabla.heading("fecha_inicio",  text="F. Inicio")
-        self.tabla.heading("fecha_fin",     text="F. Fin")
+        self.tabla.heading("fecha",         text="Fecha")
         self.tabla.heading("estado",        text="Estado")
         self.tabla.heading("municipio",     text="Municipio")
         self.tabla.heading("lugar",         text="Lugar")
@@ -155,8 +154,7 @@ class ActividadView:
         self.tabla.column("id",            width=45,  anchor="center")
         self.tabla.column("asic",          width=150, anchor="w")
         self.tabla.column("tipo",          width=160, anchor="w")
-        self.tabla.column("fecha_inicio",  width=85,  anchor="center")
-        self.tabla.column("fecha_fin",     width=85,  anchor="center")
+        self.tabla.column("fecha",         width=90,  anchor="center")
         self.tabla.column("estado",        width=100, anchor="w")
         self.tabla.column("municipio",     width=100, anchor="w")
         self.tabla.column("lugar",         width=140, anchor="w")
@@ -257,7 +255,6 @@ class ActividadView:
                     act["asic_nombre"],
                     act["tipo_nombre"],
                     f_ini,
-                    f_fin,
                     act.get("estado") or "",
                     act.get("municipio") or "",
                     act["lugar"] or "",
@@ -305,10 +302,6 @@ class ActividadView:
         marco_form = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         marco_form.pack(fill="both", expand=True)
 
-        # Contenedor para campos opcionales/avanzados (siempre visible)
-        frame_avanzado = ctk.CTkFrame(marco_form, fg_color="transparent")
-        frame_avanzado.pack(fill="x", pady=(6, 6))
-
         # --- ASIC y Tipo ---
         ctk.CTkLabel(marco_form, text="ASIC *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(2, 2))
         nombres_asics = sorted(list(self.asic_map.keys()))
@@ -330,26 +323,20 @@ class ActividadView:
                 pass
         combo_tipo.pack(fill="x")
 
-        # --- Fechas ---
+        # --- Fecha ---
         marco_fechas = ctk.CTkFrame(marco_form, fg_color="transparent")
         marco_fechas.pack(fill="x", pady=8)
 
-        # La actividad puede cubrir uno o varios días.
-        col_fecha_inicio = ctk.CTkFrame(marco_fechas, fg_color="transparent")
-        col_fecha_inicio.pack(side="left", fill="x", expand=True, padx=(0, 5))
-        ctk.CTkLabel(col_fecha_inicio, text="Fecha de inicio *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_fecha_inicio = ctk.CTkEntry(col_fecha_inicio, font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"],
+        ctk.CTkLabel(marco_fechas, text="Fecha *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        ent_fecha_inicio = ctk.CTkEntry(marco_fechas, font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"],
                         border_color=t["border"], corner_radius=6)
         ent_fecha_inicio.pack(fill="x", pady=(2, 0))
         ent_fecha_inicio.insert(0, date.today().strftime("%Y-%m-%d"))
+        ent_fecha_fin = ent_fecha_inicio
 
-        col_fecha_fin = ctk.CTkFrame(marco_fechas, fg_color="transparent")
-        col_fecha_fin.pack(side="left", fill="x", expand=True, padx=(5, 0))
-        ctk.CTkLabel(col_fecha_fin, text="Fecha de fin *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_fecha_fin = ctk.CTkEntry(col_fecha_fin, font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"],
-                         border_color=t["border"], corner_radius=6)
-        ent_fecha_fin.pack(fill="x", pady=(2, 0))
-        ent_fecha_fin.insert(0, date.today().strftime("%Y-%m-%d"))
+        # Contenedor para campos opcionales/avanzados (siempre visible)
+        frame_avanzado = ctk.CTkFrame(marco_form, fg_color="transparent")
+        frame_avanzado.pack(fill="x", pady=(6, 6))
 
         # --- Ubicación (campos de la plantilla) ---
         ctk.CTkLabel(frame_avanzado, text="Ubicación", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(8, 2))
@@ -366,22 +353,21 @@ class ActividadView:
         col_estado = ctk.CTkFrame(fila_ubi1, fg_color="transparent")
         col_estado.pack(side="left", fill="x", expand=True, padx=(0, 5))
         ctk.CTkLabel(col_estado, text="Estado", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_estado = ctk.CTkEntry(col_estado, font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"],
-                                  border_color=t["border"], corner_radius=6)
+        ent_estado = ctk.CTkOptionMenu(col_estado, values=["Táchira"], fg_color=t["bg_base"], button_color=t["bg_card"], button_hover_color=t["bg_hover"], text_color=t["text_primary"], dropdown_fg_color=t["bg_base"], dropdown_text_color=t["text_primary"])
+        ent_estado.set("Táchira")
         ent_estado.pack(fill="x", pady=(2, 0))
-        self._poner_placeholder_entry(ent_estado, "Estado")
-        ent_estado.bind("<FocusIn>", lambda e: self._limpiar_placeholder_entry(ent_estado, "Estado"))
-        ent_estado.bind("<FocusOut>", lambda e: self._poner_placeholder_entry(ent_estado, "Estado"))
 
         col_municipio = ctk.CTkFrame(fila_ubi1, fg_color="transparent")
         col_municipio.pack(side="left", fill="x", expand=True, padx=5)
         ctk.CTkLabel(col_municipio, text="Municipio", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_municipio = ctk.CTkEntry(col_municipio, font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"],
-                                     border_color=t["border"], corner_radius=6)
+        municipios = [nombre for _, nombre in ASIC_PREDETERMINADOS]
+        ent_municipio = ctk.CTkOptionMenu(col_municipio, values=municipios, fg_color=t["bg_base"], button_color=t["bg_card"], button_hover_color=t["bg_hover"], text_color=t["text_primary"], dropdown_fg_color=t["bg_base"], dropdown_text_color=t["text_primary"])
+        if municipios:
+            try:
+                ent_municipio.set(municipios[0])
+            except Exception:
+                pass
         ent_municipio.pack(fill="x", pady=(2, 0))
-        self._poner_placeholder_entry(ent_municipio, "Municipio")
-        ent_municipio.bind("<FocusIn>", lambda e: self._limpiar_placeholder_entry(ent_municipio, "Municipio"))
-        ent_municipio.bind("<FocusOut>", lambda e: self._poner_placeholder_entry(ent_municipio, "Municipio"))
 
         col_parroquia = ctk.CTkFrame(fila_ubi1, fg_color="transparent")
         col_parroquia.pack(side="right", fill="x", expand=True, padx=(5, 0))
@@ -637,14 +623,18 @@ class ActividadView:
                     pass
             ent_fecha_inicio.delete(0, tk.END)
             ent_fecha_inicio.insert(0, datos_edicion["fecha_inicio"])
-            ent_fecha_fin.delete(0, tk.END)
-            ent_fecha_fin.insert(0, datos_edicion["fecha_fin"])
 
             # Cargar campos de ubicación (limpiando placeholders previos)
             ent_estado.delete(0, tk.END)
             ent_estado.insert(0, datos_edicion.get("estado", "") or "")
-            ent_municipio.delete(0, tk.END)
-            ent_municipio.insert(0, datos_edicion.get("municipio", "") or "")
+            municipio_valor = datos_edicion.get("municipio", "") or ""
+            if municipio_valor in municipios:
+                ent_municipio.set(municipio_valor)
+            elif municipio_valor:
+                try:
+                    ent_municipio.set(municipio_valor)
+                except Exception:
+                    pass
             ent_parroquia.delete(0, tk.END)
             ent_parroquia.insert(0, datos_edicion.get("parroquia", "") or "")
             ent_establecimiento.delete(0, tk.END)
@@ -693,7 +683,7 @@ class ActividadView:
             id_asic = self.asic_map.get(combo_asic.get())
             id_tipo = self.tipo_map.get(combo_tipo.get())
             f_ini   = ent_fecha_inicio.get().strip()
-            f_fin   = ent_fecha_fin.get().strip()
+            f_fin   = ent_fecha_inicio.get().strip()
 
             ok, msg = self.controller.guardar_actividad(
                 id_asic=id_asic,
@@ -701,7 +691,7 @@ class ActividadView:
                 fecha_inicio=f_ini,
                 fecha_fin=f_fin,
                 estado=self._valor_entry(ent_estado),
-                municipio=self._valor_entry(ent_municipio),
+                municipio=ent_municipio.get().strip(),
                 parroquia=self._valor_entry(ent_parroquia),
                 establecimiento_salud=self._valor_entry(ent_establecimiento),
                 nombre_establecimiento=self._valor_entry(ent_nombre_establecimiento),

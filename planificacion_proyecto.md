@@ -436,7 +436,7 @@ La plantilla oficial tendrá las siguientes columnas:
 
 | Columna           | Tipo   | Obligatorio | Ejemplo                             |
 | ----------------- | ------ | ----------- | ----------------------------------- |
-| A: Código ASIC    | Texto  | ✅          | "ASIC-001"                          |
+| A: Código ASIC    | Texto  | ✅          | "ASIC-01"                           |
 | B: Tipo Actividad | Texto  | ✅          | "Jornada de Vacunación"             |
 | C: Fecha Inicio   | Fecha  | ✅          | 15/03/2026                          |
 | D: Fecha Fin      | Fecha  | ✅          | 15/03/2026                          |

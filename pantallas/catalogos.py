@@ -211,9 +211,9 @@ class CatalogoView:
 
         self.tabla_tipos = self._crear_tabla(
             parent,
-            ("id", "codigo", "nombre", "descripcion"),
-            ("ID", "Código", "Nombre", "Descripción"),
-            (50, 100, 220, 350),
+            ("id", "codigo", "nombre"),
+            ("ID", "Código", "Nombre"),
+            (50, 120, 320),
             "Tipos"
         )
 
@@ -227,18 +227,17 @@ class CatalogoView:
             self.tabla_tipos.insert("", "end", values=(
                 tipo["id_tipo"],
                 tipo["codigo"],
-                tipo["nombre"],
-                tipo.get("descripcion", "") or ""
+                tipo["nombre"]
             ))
 
     def _abrir_form_tipo(self, datos=None):
         ventana = ctk.CTkToplevel(self.parent)
         ventana.title("Nuevo Tipo" if datos is None else "Editar Tipo")
-        ventana.geometry("420x360")
+        ventana.geometry("420x260")
         ventana.resizable(False, False)
         ventana.configure(fg_color="gray20")
         ventana.grab_set()
-        self._centrar_ventana(ventana, 420, 360)
+        self._centrar_ventana(ventana, 420, 260)
 
         label(ventana, ventana.title(), font_size=14, bold=True).pack(pady=(20, 15))
 
@@ -251,9 +250,8 @@ class CatalogoView:
             entrada.pack(fill="x", pady=(2, 0))
             return entrada
 
-        e_codigo      = campo("Código *",    datos["codigo"]              if datos else "")
-        e_nombre      = campo("Nombre *",    datos["nombre"]              if datos else "")
-        e_descripcion = campo("Descripción", datos.get("descripcion", "") if datos else "")
+        e_codigo = campo("Código *", datos["codigo"] if datos else "")
+        e_nombre = campo("Nombre *", datos["nombre"] if datos else "")
 
         lbl_error = label(ventana, "", font_size=9, text_color="#c45050")
         lbl_error.pack(pady=(4, 0))
@@ -261,7 +259,7 @@ class CatalogoView:
         def guardar():
             id_tipo = datos["id_tipo"] if datos else None
             ok, msg = self.controller.guardar_tipo(
-                e_codigo.get(), e_nombre.get(), e_descripcion.get(), id_tipo
+                e_codigo.get(), e_nombre.get(), id_tipo
             )
             if ok:
                 messagebox.showinfo("Éxito", msg, parent=ventana)
@@ -278,8 +276,7 @@ class CatalogoView:
             messagebox.showwarning("Atención", "Selecciona un tipo de la tabla primero.")
             return
         valores = self.tabla_tipos.item(seleccion[0])["values"]
-        datos = {"id_tipo": valores[0], "codigo": valores[1],
-                 "nombre":  valores[2], "descripcion": valores[3]}
+        datos = {"id_tipo": valores[0], "codigo": valores[1], "nombre": valores[2]}
         self._abrir_form_tipo(datos)
 
     def _eliminar_tipo(self):

@@ -100,13 +100,10 @@ class ReporteView:
 
         label(inner, "Paso 1 de 3 — Configurar parámetros del informe", font_size=12, bold=True).grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 14))
 
-        label(inner, "Fecha inicio:", font_size=10).grid(row=1, column=0, sticky="w", pady=4)
+        label(inner, "Fecha:", font_size=10).grid(row=1, column=0, sticky="w", pady=4)
         self._entry_f_ini = self._date_widget(inner)
-        self._entry_f_ini.grid(row=1, column=1, sticky="w", padx=(8, 30))
-
-        label(inner, "Fecha fin:", font_size=10).grid(row=1, column=2, sticky="w", pady=4)
-        self._entry_f_fin = self._date_widget(inner)
-        self._entry_f_fin.grid(row=1, column=3, sticky="w", padx=8)
+        self._entry_f_ini.grid(row=1, column=1, columnspan=3, sticky="w", padx=(8, 30))
+        self._entry_f_fin = self._entry_f_ini
 
         label(inner, "ASIC (opcional):", font_size=10).grid(row=2, column=0, sticky="w", pady=4)
 
@@ -156,13 +153,10 @@ class ReporteView:
 
     def _iniciar_previo(self):
         f_ini = self._leer_fecha(self._entry_f_ini)
-        f_fin = self._leer_fecha(self._entry_f_fin)
+        f_fin = f_ini
 
-        if not f_ini or not f_fin:
-            messagebox.showerror("Fechas inválidas", "Por favor ingresa fechas válidas (YYYY-MM-DD).")
-            return
-        if f_ini > f_fin:
-            messagebox.showerror("Fechas inválidas", "La fecha de inicio no puede ser posterior a la de fin.")
+        if not f_ini:
+            messagebox.showerror("Fecha inválida", "Por favor ingresa una fecha válida (YYYY-MM-DD).")
             return
 
         titulo  = self._entry_titulo.get().strip() or "Informe Consolidado"
@@ -206,7 +200,7 @@ class ReporteView:
         chips.pack(anchor="w")
         self._chip(chips, f"📋 Actividades: {total_act}", "gray25")
         self._chip(chips, f"👥 Participantes: {total_part}", "#613BE3")
-        self._chip(chips, f"📅 {previo['fecha_inicio']} → {previo['fecha_fin']}", "#266470")
+        self._chip(chips, f"📅 {previo['fecha_inicio']}", "#266470")
         if previo.get("asic_nombre"):
             self._chip(chips, f"🏥 {previo['asic_nombre']}", "#30152a")
 

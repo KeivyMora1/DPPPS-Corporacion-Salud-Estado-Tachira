@@ -45,6 +45,44 @@ TEMPLATE_PATH = "assets/templates/plantilla_importacion.xlsx"
 ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".pdf", ".docx"]
 # Tamaño máximo de archivo en MB
 MAX_FILE_SIZE_MB = 10
+# Catálogo base de ASIC permitidos por el sistema
+ASIC_PREDETERMINADOS = [
+    ("ASIC-01", "Andrés Bello"),
+    ("ASIC-02", "Antonio Rómulo Costa"),
+    ("ASIC-03", "Ayacucho"),
+    ("ASIC-04", "Bolívar"),
+    ("ASIC-05", "Capacho Independencia"),
+    ("ASIC-06", "Capacho Libertad"),
+    ("ASIC-07", "Cárdenas"),
+    ("ASIC-08", "Córdoba"),
+    ("ASIC-09", "Dr. Hugo Murzi"),
+    ("ASIC-10", "Dr. Jacinto Convit"),
+    ("ASIC-11", "Dr. José María Vargas"),
+    ("ASIC-12", "Fernández Feo"),
+    ("ASIC-13", "García de Hevia"),
+    ("ASIC-14", "Guásimos"),
+    ("ASIC-15", "Jáuregui"),
+    ("ASIC-16", "Junín"),
+    ("ASIC-17", "Libertador"),
+    ("ASIC-18", "Michelena"),
+    ("ASIC-19", "Panamericano"),
+    ("ASIC-20", "Sabaneta"),
+    ("ASIC-21", "Samuel Darío Maldonado"),
+    ("ASIC-22", "Sucre"),
+    ("ASIC-23", "Torbes"),
+    ("ASIC-24", "Ureña"),
+    ("ASIC-25", "Uribante"),
+]
+# Catálogo base de tipos de actividad permitidos por el sistema
+TIPOS_ACTIVIDAD_PREDETERMINADOS = [
+    ("TIPO-01", "Salud toca tu puerta"),
+    ("TIPO-02", "Sesiones educativas"),
+    ("TIPO-03", "Los Comités de Salud van a la escuela"),
+    ("TIPO-04", "Actividades de Promoción y Prevención Social"),
+    ("TIPO-05", "Participación Activa en Jornadas"),
+    ("TIPO-06", "Participación Activa en Inmunizaciones"),
+    ("TIPO-07", "Entrevista servicio social"),
+]
 # Título de la aplicación (se muestra en la barra de la ventana)
 APP_TITLE = "DPPPS — Sistema de Consolidación de Informes"
 APP_VERSION = "1.0.0"
@@ -411,26 +449,26 @@ class TipoActividadDAO:
         cursor.close()
         conn.close()
         return tipo
-    def crear(self, codigo, nombre, descripcion=""):
+    def crear(self, codigo, nombre):
         """Inserta un nuevo tipo de actividad. Retorna el ID generado."""
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO tipo_actividad (codigo, nombre, descripcion) VALUES (%s, %s, %s)",
-            (codigo, nombre, descripcion)
+            "INSERT INTO tipo_actividad (codigo, nombre) VALUES (%s, %s)",
+            (codigo, nombre)
         )
         conn.commit()
         nuevo_id = cursor.lastrowid
         cursor.close()
         conn.close()
         return nuevo_id
-    def actualizar(self, id_tipo, codigo, nombre, descripcion=""):
+    def actualizar(self, id_tipo, codigo, nombre):
         """Actualiza un tipo de actividad existente."""
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "UPDATE tipo_actividad SET codigo=%s, nombre=%s, descripcion=%s WHERE id_tipo=%s",
-            (codigo, nombre, descripcion, id_tipo)
+            "UPDATE tipo_actividad SET codigo=%s, nombre=%s WHERE id_tipo=%s",
+            (codigo, nombre, id_tipo)
         )
         conn.commit()
         cursor.close()
@@ -770,30 +808,55 @@ class ActividadController:
         """Retorna la lista de actividades registradas, aplicando filtros si los hay."""
         return self.actividad_dao.obtener_todas(filtros)
     def listar_asics(self):
-        """Retorna la lista de todos los ASIC activos."""
-        return self.asic_dao.obtener_todos()
+        """Retorna solo los ASIC permitidos por la plantilla del sistema."""
+        asics_predeterminados = ASIC_PREDETERMINADOS
+
+        def normalizar(nombre):
+            return " ".join((nombre or "").strip().lower().split())
+
+        try:
+            existentes = self.asic_dao.obtener_todos()
+            nombres_existentes = {normalizar(a["nombre"]) for a in existentes}
+            nombres_permitidos = {normalizar(nombre) for _, nombre in asics_predeterminados}
+
+            for asic in existentes:
+                if normalizar(asic["nombre"]) not in nombres_permitidos:
+                    self.asic_dao.desactivar(asic["id_asic"])
+
+            for codigo, nombre in asics_predeterminados:
+                if normalizar(nombre) not in nombres_existentes:
+                    self.asic_dao.crear(codigo, nombre, "", "")
+        except Exception:
+            pass
+
+        asics = self.asic_dao.obtener_todos()
+        nombres_permitidos = {normalizar(nombre) for _, nombre in asics_predeterminados}
+        return [a for a in asics if normalizar(a["nombre"]) in nombres_permitidos]
     def listar_tipos_actividad(self):
-        """Retorna la lista de todos los tipos de actividad activos."""
-        tipos_predeterminados = [
-            ("TIPO-PRED-1", "Seguimiento a los Comités de Salud mediante las vocerías en salud comunal."),
-            ("TIPO-PRED-2", "Actualización de los comités de salud."),
-            ("TIPO-PRED-3", "Salud toca tu puerta"),
-            ("TIPO-PRED-4", "Sesiones educativas"),
-            ("TIPO-PRED-5", "*Los Comités de Salud van a la escuela\"."),
-            ("TIPO-PRED-6", "Actividades de Promoción y Prevención Social"),
-            ("TIPO-PRED-7", "Participación Activa en Jornadas."),
-            ("TIPO-PRED-8", "Participación Activa en Inmunizaciones"),
-            ("TIPO-PRED-9", "Entrevista servicio social.")
-        ]
+        """Retorna solo los tipos de actividad permitidos por la plantilla del sistema."""
+        tipos_predeterminados = TIPOS_ACTIVIDAD_PREDETERMINADOS
+
+        def normalizar(nombre):
+            return " ".join((nombre or "").strip().lower().split())
+
         try:
             existentes = self.tipo_dao.obtener_todos()
-            nombres_existentes = {t["nombre"] for t in existentes}
+            nombres_existentes = {normalizar(t["nombre"]) for t in existentes}
+            nombres_permitidos = {normalizar(nombre) for _, nombre in tipos_predeterminados}
+
+            for tipo in existentes:
+                if normalizar(tipo["nombre"]) not in nombres_permitidos:
+                    self.tipo_dao.desactivar(tipo["id_tipo"])
+
             for codigo, nombre in tipos_predeterminados:
-                if nombre not in nombres_existentes:
+                if normalizar(nombre) not in nombres_existentes:
                     self.tipo_dao.crear(codigo, nombre, f"Tipo de actividad predeterminado: {nombre}")
         except Exception:
             pass
-        return self.tipo_dao.obtener_todos()
+
+        tipos = self.tipo_dao.obtener_todos()
+        nombres_permitidos = {normalizar(nombre) for _, nombre in tipos_predeterminados}
+        return [t for t in tipos if normalizar(t["nombre"]) in nombres_permitidos]
     def guardar_actividad(self, id_asic, id_tipo, fecha_inicio, fecha_fin,
                                estado, municipio, parroquia, establecimiento_salud,
                                nombre_establecimiento, comites_salud, lugar, descripcion,
@@ -853,11 +916,11 @@ class ActividadController:
                     else:
                         f_ini = datetime.strptime(fecha_inicio, "%Y-%m-%d").date()
                 except ValueError:
-                    return False, "El formato de la fecha de inicio es invalido."
+                    return False, "El formato de la fecha es inválido."
             elif isinstance(fecha_inicio, (datetime, date)):
                 f_ini = fecha_inicio if isinstance(fecha_inicio, date) else fecha_inicio.date()
             else:
-                return False, "Fecha de inicio invalida."
+                return False, "La fecha es inválida."
             if isinstance(fecha_fin, str):
                 try:
                     if "/" in fecha_fin:
@@ -865,13 +928,13 @@ class ActividadController:
                     else:
                         f_fin = datetime.strptime(fecha_fin, "%Y-%m-%d").date()
                 except ValueError:
-                    return False, "El formato de la fecha de fin es invalido."
+                    return False, "El formato de la fecha es inválido."
             elif isinstance(fecha_fin, (datetime, date)):
                 f_fin = fecha_fin if isinstance(fecha_fin, date) else fecha_fin.date()
             else:
-                return False, "Fecha de fin invalida."
+                return False, "La fecha es inválida."
             if f_ini > f_fin:
-                return False, "La fecha de inicio no puede ser posterior a la fecha de fin."
+                return False, "La fecha no puede ser posterior a la fecha final."
             fecha_inicio_bd = f_ini.strftime("%Y-%m-%d")
             fecha_fin_bd    = f_fin.strftime("%Y-%m-%d")
             # 7. Validar duplicidad
@@ -883,7 +946,7 @@ class ActividadController:
                 excluir_id=id_actividad
             )
             if es_duplicado:
-                return False, "Ya existe una actividad registrada para este ASIC, tipo, fecha de inicio y descripcion similar."
+                return False, "Ya existe una actividad registrada para este ASIC, tipo, fecha y descripción similar."
             # 8. Obtener usuario actual
             usuario = self.auth.obtener_usuario_actual()
             if not usuario:
@@ -1057,7 +1120,7 @@ class CatalogoController:
     def listar_tipos(self):
         """Retorna todos los tipos de actividad activos."""
         return self.tipo_dao.obtener_todos()
-    def guardar_tipo(self, codigo, nombre, descripcion="", id_tipo=None):
+    def guardar_tipo(self, codigo, nombre, id_tipo=None):
         """
         Crea o actualiza un tipo de actividad.
         Retorna: (True, "mensaje ok") o (False, "mensaje error")
@@ -1072,10 +1135,10 @@ class CatalogoController:
         if existente and existente["id_tipo"] != id_tipo:
             return False, f"Ya existe un tipo con el codigo '{codigo}'."
         if id_tipo is None:
-            self.tipo_dao.crear(codigo, nombre, descripcion.strip())
+            self.tipo_dao.crear(codigo, nombre)
             return True, f"Tipo '{nombre}' creado correctamente."
         else:
-            self.tipo_dao.actualizar(id_tipo, codigo, nombre, descripcion.strip())
+            self.tipo_dao.actualizar(id_tipo, codigo, nombre)
             return True, f"Tipo '{nombre}' actualizado correctamente."
     def eliminar_tipo(self, id_tipo):
         """Desactiva un tipo de actividad. Retorna (True, mensaje) o (False, error)."""
