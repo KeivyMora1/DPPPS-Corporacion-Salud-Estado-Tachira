@@ -65,7 +65,7 @@ class ActividadView:
 
         ctk.CTkLabel(
             self.parent,
-            text="Administra, busca y registra las jornadas y actividades medicas de las ASIC.",
+            text="Administra, busca y registra actividades de las ASIC.",
             font=("Arial", 10), text_color=t["text_muted"]
         ).pack(anchor="w", padx=30, pady=(0, 15))
 
@@ -138,28 +138,37 @@ class ActividadView:
         marco_tabla = ctk.CTkFrame(self.parent, fg_color="transparent", corner_radius=10)
         marco_tabla.pack(fill="both", expand=True, padx=30, pady=(5, 10))
 
-        columnas = ("id", "asic", "tipo", "fecha", "estado", "municipio", "lugar", "participantes", "registrador")
+        columnas = (
+            "asic", "tipo", "fecha", "estado",
+            "municipio", "parroquia", "establecimiento_salud",
+            "nombre_establecimiento", "comites_salud", "lugar",
+            "participantes"
+        )
         self.tabla = ttk.Treeview(marco_tabla, columns=columnas, show="headings", height=12)
 
-        self.tabla.heading("id",            text="ID")
-        self.tabla.heading("asic",          text="ASIC")
-        self.tabla.heading("tipo",          text="Tipo de Actividad")
-        self.tabla.heading("fecha",         text="Fecha")
-        self.tabla.heading("estado",        text="Estado")
-        self.tabla.heading("municipio",     text="Municipio")
-        self.tabla.heading("lugar",         text="Lugar")
-        self.tabla.heading("participantes", text="Part.")
-        self.tabla.heading("registrador",   text="Registrado Por")
+        self.tabla.heading("asic",                     text="ASIC")
+        self.tabla.heading("tipo",                     text="Tipo de Actividad")
+        self.tabla.heading("fecha",                    text="Fecha")
+        self.tabla.heading("estado",                   text="Estado")
+        self.tabla.heading("municipio",                text="Municipio")
+        self.tabla.heading("parroquia",                text="Parroquia")
+        self.tabla.heading("establecimiento_salud",    text="Establecimiento")
+        self.tabla.heading("nombre_establecimiento",   text="Nombre Establecimiento")
+        self.tabla.heading("comites_salud",            text="Comités")
+        self.tabla.heading("lugar",                    text="Lugar")
+        self.tabla.heading("participantes",            text="Participantes")
 
-        self.tabla.column("id",            width=45,  anchor="center")
-        self.tabla.column("asic",          width=150, anchor="w")
-        self.tabla.column("tipo",          width=160, anchor="w")
-        self.tabla.column("fecha",         width=90,  anchor="center")
-        self.tabla.column("estado",        width=100, anchor="w")
-        self.tabla.column("municipio",     width=100, anchor="w")
-        self.tabla.column("lugar",         width=140, anchor="w")
-        self.tabla.column("participantes", width=60,  anchor="center")
-        self.tabla.column("registrador",   width=120, anchor="w")
+        self.tabla.column("asic",                  width=150,  anchor="w")
+        self.tabla.column("tipo",                  width=160,  anchor="w")
+        self.tabla.column("fecha",                 width=90,   anchor="center")
+        self.tabla.column("estado",                width=100,  anchor="w")
+        self.tabla.column("municipio",             width=110,  anchor="w")
+        self.tabla.column("parroquia",             width=110,  anchor="w")
+        self.tabla.column("establecimiento_salud", width=120,  anchor="w")
+        self.tabla.column("nombre_establecimiento", width=170, anchor="w")
+        self.tabla.column("comites_salud",         width=120,  anchor="w")
+        self.tabla.column("lugar",                 width=140,  anchor="w")
+        self.tabla.column("participantes",         width=90,   anchor="center")
 
         style = ttk.Style()
         style.configure("Act.Treeview",
@@ -251,15 +260,17 @@ class ActividadView:
                     f_fin = f_fin.strftime("%d/%m/%Y")
 
                 self.tabla.insert("", "end", values=(
-                    act["id_actividad"],
                     act["asic_nombre"],
                     act["tipo_nombre"],
                     f_ini,
                     act.get("estado") or "",
                     act.get("municipio") or "",
+                    act.get("parroquia") or "",
+                    act.get("establecimiento_salud") or "",
+                    act.get("nombre_establecimiento") or "",
+                    act.get("comites_salud") or "",
                     act["lugar"] or "",
-                    act["participantes"],
-                    act["usuario_nombre"]
+                    act.get("participantes") or 0,
                 ))
         except Exception as e:
             messagebox.showerror("Error", f"Ocurrio un error al cargar las actividades: {str(e)}")
@@ -723,6 +734,14 @@ class ActividadView:
                       font=("Arial", 11, "bold"), fg_color=t["accent"],
                       hover_color=t["accent_dim"], corner_radius=8, command=guardar
                   ).pack(fill="x", ipady=8)
+
+    def _poner_placeholder_fecha(self, entry_widget):
+        """Compatibilidad para limpiar filtros con placeholder de fecha."""
+        placeholder = "AAAA-MM-DD"
+        if not entry_widget.get():
+            entry_widget.insert(0, placeholder)
+            entry_widget.configure(text_color=self.t["text_dim"])
+        entry_widget._placeholder_text = placeholder
 
     def _poner_placeholder_entry(self, entry_widget, placeholder):
         """Muestra un placeholder en un CTkEntry vacío."""
