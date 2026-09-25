@@ -91,6 +91,11 @@ APP_VERSION = "1.0.0"
 # (antes en db/connection.py)
 # ============================================================
 import mysql.connector
+import random
+import smtplib
+import os
+from email.message import EmailMessage
+
 def get_connection():
     """
     Crea y devuelve una conexión a la base de datos.
@@ -120,7 +125,7 @@ def get_connection():
 # (antes en models/)
 # ============================================================
 import bcrypt
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 class UsuarioDAO:
     """
     Maneja todas las operaciones de la tabla 'usuario'.
@@ -138,12 +143,27 @@ class UsuarioDAO:
         cursor.close()
         conn.close()
         return usuario
+
+    def obtener_por_email(self, email):
+        """Busca un usuario por correo. Retorna dict o None."""
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(
+            "SELECT * FROM usuario WHERE email = %s AND activo = TRUE",
+            (email.lower().strip(),)
+        )
+        usuario = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        return usuario
+
     def verificar_password(self, password_plano, password_hash):
         """Verifica si una contraseña en texto plano coincide con el hash guardado."""
         return bcrypt.checkpw(
             password_plano.encode("utf-8"),
             password_hash.encode("utf-8")
         )
+
     def obtener_todos(self):
         """Retorna una lista con todos los usuarios activos del sistema."""
         conn = get_connection()
@@ -156,6 +176,7 @@ class UsuarioDAO:
         cursor.close()
         conn.close()
         return usuarios
+
     def crear(self, username, password, nombre_completo, email=""):
         """Crea un nuevo usuario. La contraseña se cifra automáticamente con bcrypt."""
         hash_pw = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
@@ -171,6 +192,54 @@ class UsuarioDAO:
         cursor.close()
         conn.close()
         return nuevo_id
+
+    def crear_usuario(self, nombre, apellido, email, password, codigo_verificacion="", codigo_verificacion_expira=None):
+        """Crea un usuario nuevo para el flujo de registro con correo verificado."""
+        hash_pw = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+        username = email.lower().strip()
+        nombre_completo = f"{nombre.strip()} {apellido.strip()}".strip()
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO usuario (
+                username, password_hash, nombre_completo, email, nombre, apellido,
+                email_verificado, codigo_verificacion, codigo_verificacion_expira, activo
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, FALSE, %s, %s, TRUE)
+            """,
+            (username, hash_pw, nombre_completo, email.lower().strip(), nombre.strip(), apellido.strip(), codigo_verificacion, codigo_verificacion_expira)
+        )
+        conn.commit()
+        nuevo_id = cursor.lastrowid
+        cursor.close()
+        conn.close()
+        return nuevo_id
+
+    def guardar_codigo_verificacion(self, email, codigo, expiracion):
+        """Guarda el código de verificación en el usuario."""
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE usuario SET codigo_verificacion = %s, codigo_verificacion_expira = %s WHERE email = %s AND activo = TRUE",
+            (codigo, expiracion, email.lower().strip())
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+    def guardar_codigo_recuperacion(self, email, codigo, expiracion):
+        """Guarda el código de recuperación de contraseña."""
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE usuario SET codigo_recuperacion = %s, codigo_recuperacion_expira = %s WHERE email = %s AND activo = TRUE",
+            (codigo, expiracion, email.lower().strip())
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+
     def cambiar_password(self, id_usuario, nueva_password):
         """Cambia la contraseña de un usuario existente."""
         hash_pw = bcrypt.hashpw(nueva_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
@@ -183,6 +252,7 @@ class UsuarioDAO:
         conn.commit()
         cursor.close()
         conn.close()
+
     def desactivar(self, id_usuario):
         """Desactiva un usuario (no lo borra, solo lo marca como inactivo)."""
         conn = get_connection()
@@ -194,6 +264,35 @@ class UsuarioDAO:
         conn.commit()
         cursor.close()
         conn.close()
+
+
+def asegurar_esquema_autenticacion():
+    """Asegura que la tabla usuario tenga las columnas necesarias para registro por correo."""
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SHOW COLUMNS FROM usuario")
+    columnas = {columna["Field"] for columna in cursor.fetchall()}
+    cambios = {
+        "nombre": "ALTER TABLE usuario ADD COLUMN nombre VARCHAR(100) NULL",
+        "apellido": "ALTER TABLE usuario ADD COLUMN apellido VARCHAR(100) NULL",
+        "email_verificado": "ALTER TABLE usuario ADD COLUMN email_verificado BOOLEAN NOT NULL DEFAULT FALSE",
+        "codigo_verificacion": "ALTER TABLE usuario ADD COLUMN codigo_verificacion VARCHAR(20) NULL",
+        "codigo_verificacion_expira": "ALTER TABLE usuario ADD COLUMN codigo_verificacion_expira DATETIME NULL",
+        "codigo_recuperacion": "ALTER TABLE usuario ADD COLUMN codigo_recuperacion VARCHAR(20) NULL",
+        "codigo_recuperacion_expira": "ALTER TABLE usuario ADD COLUMN codigo_recuperacion_expira DATETIME NULL",
+    }
+    for nombre_columna, sentencia in cambios.items():
+        if nombre_columna not in columnas:
+            try:
+                cursor.execute(sentencia)
+            except Exception:
+                pass
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+
+asegurar_esquema_autenticacion()
 class ActividadDAO:
     """Maneja las consultas SQL para registrar, editar, listar y eliminar actividades."""
     def obtener_todas(self, filtros=None):
@@ -758,16 +857,109 @@ class AuthController:
     """Maneja el login y logout del sistema."""
     def __init__(self):
         self.usuario_dao = UsuarioDAO()
-    def login(self, username, password):
+
+    @staticmethod
+    def _generar_codigo(longitud=6):
+        return str(random.randint(10 ** (longitud - 1), (10 ** longitud) - 1))
+
+    def _enviar_codigo_por_email(self, email, codigo, tipo):
+        """Envía un código por correo usando SMTP. Si no hay configuración no falla el flujo."""
+        host = os.getenv("SMTP_HOST")
+        port = int(os.getenv("SMTP_PORT", "587"))
+        usuario = os.getenv("SMTP_USER")
+        password = os.getenv("SMTP_PASSWORD")
+        if not host or not usuario or not password:
+            return False
+
+        asunto = "Código de verificación" if tipo == "verificacion" else "Código para recuperar tu contraseña"
+        cuerpo = (
+            f"Tu código es: {codigo}\n\n"
+            f"Este código vence en 10 minutos."
+        )
+
+        try:
+            msg = EmailMessage()
+            msg["From"] = usuario
+            msg["To"] = email
+            msg["Subject"] = asunto
+            msg.set_content(cuerpo, charset="utf-8")
+
+            with smtplib.SMTP(host, port) as server:
+                server.starttls()
+                server.login(usuario, password)
+                server.send_message(msg)
+            return True
+        except Exception as exc:
+            print(f"[WARN] No se pudo enviar el correo: {exc}")
+            return False
+
+    def registrar_usuario(self, nombre, apellido, email, password):
+        """Crea un usuario nuevo y exige validación por correo."""
+        email = (email or "").strip().lower()
+        nombre = (nombre or "").strip()
+        apellido = (apellido or "").strip()
+        if not nombre or not apellido or not email or not password:
+            return {"success": False, "message": "Completa todos los campos."}
+        if "@" not in email or "." not in email.split("@")[-1]:
+            return {"success": False, "message": "Ingresa un correo válido."}
+        if len(password) < 6:
+            return {"success": False, "message": "La contraseña debe tener al menos 6 caracteres."}
+        if self.usuario_dao.obtener_por_email(email):
+            return {"success": False, "message": "Este correo ya está registrado."}
+
+        codigo = self._generar_codigo()
+        expiracion = datetime.now() + timedelta(minutes=10)
+        try:
+            self.usuario_dao.crear_usuario(nombre, apellido, email, password, codigo, expiracion)
+            enviado = self._enviar_codigo_por_email(email, codigo, "verificacion")
+            respuesta = {
+                "success": True,
+                "message": "Cuenta creada. Revisa tu correo para verificarla.",
+            }
+            if not enviado:
+                respuesta["message"] = (
+                    "Cuenta creada. No se pudo enviar el correo en este momento. "
+                    "Intenta nuevamente más tarde."
+                )
+            return respuesta
+        except Exception as exc:
+            print(f"[ERROR] Error al registrar usuario: {exc}")
+            return {"success": False, "message": "No se pudo crear la cuenta."}
+
+    def verificar_email(self, email, codigo):
+        """Valida el código de verificación enviado al correo."""
+        email = (email or "").strip().lower()
+        usuario = self.usuario_dao.obtener_por_email(email)
+        if usuario is None:
+            return False
+        if usuario.get("codigo_verificacion") != str(codigo).strip():
+            return False
+        if usuario.get("codigo_verificacion_expira") is None:
+            return False
+        if datetime.now() > usuario["codigo_verificacion_expira"]:
+            return False
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE usuario SET email_verificado = TRUE, codigo_verificacion = NULL, codigo_verificacion_expira = NULL WHERE id_usuario = %s",
+            (usuario["id_usuario"],)
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+
+    def login(self, credential, password):
         """
-        Intenta iniciar sesión con el username y password dados.
-        Retorna:
-            True  → login exitoso, sesion_actual queda guardada
-            False → credenciales incorrectas o usuario inactivo
+        Intenta iniciar sesión con correo o username y password.
+        Requiere que el correo haya sido verificado.
         """
         global sesion_actual
-        usuario = self.usuario_dao.obtener_por_username(username)
+        email = credential.strip().lower() if isinstance(credential, str) else ""
+        usuario = self.usuario_dao.obtener_por_email(email) if "@" in email else self.usuario_dao.obtener_por_username(email)
         if usuario is None:
+            return False
+        if usuario.get("email_verificado") in (False, 0, None):
             return False
         password_correcta = self.usuario_dao.verificar_password(
             password,
@@ -775,21 +967,64 @@ class AuthController:
         )
         if not password_correcta:
             return False
-        # Login exitoso: guardamos la sesión
         sesion_actual = {
             "id_usuario": usuario["id_usuario"],
-            "username": usuario["username"],
-            "nombre_completo": usuario["nombre_completo"],
-            "email": usuario["email"]
+            "username": usuario.get("username") or usuario.get("email"),
+            "nombre_completo": usuario.get("nombre_completo") or f"{usuario.get('nombre', '')} {usuario.get('apellido', '')}".strip(),
+            "email": usuario.get("email")
         }
         return True
+
+    def solicitar_recuperacion(self, email):
+        """Genera y envía un código para recuperar la contraseña."""
+        email = (email or "").strip().lower()
+        usuario = self.usuario_dao.obtener_por_email(email)
+        if usuario is None:
+            return {"success": False, "message": "No existe una cuenta con ese correo."}
+        codigo = self._generar_codigo()
+        expiracion = datetime.now() + timedelta(minutes=10)
+        self.usuario_dao.guardar_codigo_recuperacion(email, codigo, expiracion)
+        enviado = self._enviar_codigo_por_email(email, codigo, "recuperacion")
+        respuesta = {"success": True, "message": "Se envió un código a tu correo."}
+        if not enviado:
+            respuesta["message"] = (
+                "No se pudo enviar el correo en este momento. Intenta nuevamente más tarde."
+            )
+        return respuesta
+
+    def cambiar_password_con_codigo(self, email, codigo, nueva_password):
+        """Recupera contraseña usando el código enviado al correo."""
+        email = (email or "").strip().lower()
+        if len(nueva_password) < 6:
+            return {"success": False, "message": "La contraseña debe tener al menos 6 caracteres."}
+        usuario = self.usuario_dao.obtener_por_email(email)
+        if usuario is None:
+            return {"success": False, "message": "No existe una cuenta con ese correo."}
+        if usuario.get("codigo_recuperacion") != str(codigo).strip():
+            return {"success": False, "message": "Código incorrecto."}
+        if usuario.get("codigo_recuperacion_expira") is None or datetime.now() > usuario["codigo_recuperacion_expira"]:
+            return {"success": False, "message": "El código ha expirado."}
+        self.usuario_dao.cambiar_password(usuario["id_usuario"], nueva_password)
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE usuario SET codigo_recuperacion = NULL, codigo_recuperacion_expira = NULL WHERE id_usuario = %s",
+            (usuario["id_usuario"],)
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return {"success": True, "message": "Contraseña actualizada correctamente."}
+
     def logout(self):
         """Cierra la sesión actual."""
         global sesion_actual
         sesion_actual = None
+
     def obtener_usuario_actual(self):
         """Retorna los datos del usuario logueado, o None si no hay sesión."""
         return sesion_actual
+
     def hay_sesion_activa(self):
         """Retorna True si hay un usuario logueado."""
         return sesion_actual is not None

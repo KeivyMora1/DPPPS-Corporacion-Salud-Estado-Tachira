@@ -23,7 +23,14 @@ CREATE TABLE IF NOT EXISTS usuario (
     username      VARCHAR(50)  NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,         -- La contraseña se guarda cifrada (bcrypt)
     nombre_completo VARCHAR(100) NOT NULL,
+    nombre        VARCHAR(100) NULL,
+    apellido      VARCHAR(100) NULL,
     email         VARCHAR(100),
+    email_verificado BOOLEAN NOT NULL DEFAULT FALSE,
+    codigo_verificacion VARCHAR(20) NULL,
+    codigo_verificacion_expira DATETIME NULL,
+    codigo_recuperacion VARCHAR(20) NULL,
+    codigo_recuperacion_expira DATETIME NULL,
     activo        BOOLEAN NOT NULL DEFAULT TRUE,  -- FALSE = usuario desactivado
     created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
