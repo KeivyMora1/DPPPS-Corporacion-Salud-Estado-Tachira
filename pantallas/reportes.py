@@ -52,7 +52,7 @@ class ReporteView:
         label_title(header, "📊  Reportes y Consolidación", 17).pack(side="left")
 
         label_subtitle(self.parent,
-            "Genera informes consolidados por período, exporta en PDF o Excel "
+            "Genera informes consolidados por período, exporta el documento en Word "
             "y consulta el historial de informes previos.",
             wraplength=900, justify="left"
         ).pack(anchor="w", padx=30, pady=(0, 14))
@@ -223,8 +223,7 @@ class ReporteView:
 
         if total_act > 0:
             btn_primary(inner_act, "💾  Guardar informe en BD", self._guardar_informe).pack(side="left", padx=(0, 10))
-            btn_danger(inner_act, "📄  Exportar PDF", self._exportar_pdf).pack(side="left", padx=(0, 10))
-            btn_success(inner_act, "📊  Exportar Excel", self._exportar_excel).pack(side="left")
+            btn_success(inner_act, "📄  Exportar Word", self._exportar_word).pack(side="left")
 
     def _mini_tabla(self, parent: ctk.CTkFrame, titulo: str, filas: list, cabeceras: list):
         marco = frame_surface(parent, fg_color="gray20", corner_radius=10)
@@ -312,41 +311,22 @@ class ReporteView:
         except Exception as exc:
             messagebox.showerror("Error al guardar", str(exc))
 
-    def _exportar_pdf(self):
+    def _exportar_word(self):
         if not self._previo:
             return
         titulo = self._previo.get("titulo", "informe")
-        nombre_sugerido = f"{titulo.replace(' ', '_')[:40]}_{date.today()}.pdf"
-        ruta = filedialog.asksaveasfilename(title="Guardar PDF como…", defaultextension=".pdf", initialfile=nombre_sugerido, filetypes=[("PDF", "*.pdf")])
+        nombre_sugerido = f"{titulo.replace(' ', '_')[:40]}_{date.today()}.docx"
+        ruta = filedialog.asksaveasfilename(title="Guardar Word como…", defaultextension=".docx", initialfile=nombre_sugerido, filetypes=[("Word", "*.docx")])
         if not ruta:
             return
         self.parent.configure(cursor="wait")
 
         def _tarea():
             try:
-                PDFService().generar_pdf(self._previo, ruta)
-                self.parent.after(0, lambda: (self.parent.configure(cursor=""), messagebox.showinfo("PDF generado", f"PDF guardado en:\n{ruta}")))
+                PDFService().generar_word(self._previo, ruta)
+                self.parent.after(0, lambda: (self.parent.configure(cursor=""), messagebox.showinfo("Word generado", f"Documento Word guardado en:\n{ruta}")))
             except Exception as exc:
-                self.parent.after(0, lambda e=exc: (self.parent.configure(cursor=""), messagebox.showerror("Error al generar PDF", str(e))))
-
-        threading.Thread(target=_tarea, daemon=True).start()
-
-    def _exportar_excel(self):
-        if not self._previo:
-            return
-        titulo = self._previo.get("titulo", "informe")
-        nombre_sugerido = f"{titulo.replace(' ', '_')[:40]}_{date.today()}.xlsx"
-        ruta = filedialog.asksaveasfilename(title="Guardar Excel como…", defaultextension=".xlsx", initialfile=nombre_sugerido, filetypes=[("Excel", "*.xlsx")])
-        if not ruta:
-            return
-        self.parent.configure(cursor="wait")
-
-        def _tarea():
-            try:
-                PDFService().generar_excel(self._previo, ruta)
-                self.parent.after(0, lambda: (self.parent.configure(cursor=""), messagebox.showinfo("Excel generado", f"Excel guardado en:\n{ruta}")))
-            except Exception as exc:
-                self.parent.after(0, lambda e=exc: (self.parent.configure(cursor=""), messagebox.showerror("Error al generar Excel", str(e))))
+                self.parent.after(0, lambda e=exc: (self.parent.configure(cursor=""), messagebox.showerror("Error al generar Word", str(e))))
 
         threading.Thread(target=_tarea, daemon=True).start()
 
@@ -355,8 +335,7 @@ class ReporteView:
         barra.pack(fill="x", padx=10, pady=(10, 6))
 
         btn_secondary(barra, "🔄  Actualizar", self._cargar_historial).pack(side="left", padx=(0, 8))
-        btn_danger(barra, "📄  Exportar PDF", self._exportar_pdf_historial).pack(side="left", padx=(0, 8))
-        btn_success(barra, "📊  Exportar Excel", self._exportar_excel_historial).pack(side="left", padx=(0, 8))
+        btn_success(barra, "📄  Exportar Word", self._exportar_word_historial).pack(side="left", padx=(0, 8))
         btn_danger(barra, "🗑  Eliminar", self._eliminar_historial).pack(side="left")
 
         cols  = ("id", "titulo", "periodo", "asic", "actividades", "participantes", "generado")
@@ -406,12 +385,12 @@ class ReporteView:
             return None
         return int(sel[0])
 
-    def _exportar_pdf_historial(self):
+    def _exportar_word_historial(self):
         id_inf = self._informe_seleccionado()
         if not id_inf:
             return
-        nombre = f"informe_{id_inf}_{date.today()}.pdf"
-        ruta = filedialog.asksaveasfilename(title="Guardar PDF como…", defaultextension=".pdf", initialfile=nombre, filetypes=[("PDF", "*.pdf")])
+        nombre = f"informe_{id_inf}_{date.today()}.docx"
+        ruta = filedialog.asksaveasfilename(title="Guardar Word como…", defaultextension=".docx", initialfile=nombre, filetypes=[("Word", "*.docx")])
         if not ruta:
             return
         self.parent.configure(cursor="wait")
@@ -420,29 +399,8 @@ class ReporteView:
             try:
                 svc = ConsolidacionService(self.usuario["id_usuario"])
                 datos = svc.obtener_informe_completo(id_inf)
-                PDFService().generar_pdf(datos, ruta)
-                self.parent.after(0, lambda: (self.parent.configure(cursor=""), messagebox.showinfo("PDF generado", f"PDF guardado en:\n{ruta}")))
-            except Exception as exc:
-                self.parent.after(0, lambda e=exc: (self.parent.configure(cursor=""), messagebox.showerror("Error", str(e))))
-
-        threading.Thread(target=_tarea, daemon=True).start()
-
-    def _exportar_excel_historial(self):
-        id_inf = self._informe_seleccionado()
-        if not id_inf:
-            return
-        nombre = f"informe_{id_inf}_{date.today()}.xlsx"
-        ruta = filedialog.asksaveasfilename(title="Guardar Excel como…", defaultextension=".xlsx", initialfile=nombre, filetypes=[("Excel", "*.xlsx")])
-        if not ruta:
-            return
-        self.parent.configure(cursor="wait")
-
-        def _tarea():
-            try:
-                svc = ConsolidacionService(self.usuario["id_usuario"])
-                datos = svc.obtener_informe_completo(id_inf)
-                PDFService().generar_excel(datos, ruta)
-                self.parent.after(0, lambda: (self.parent.configure(cursor=""), messagebox.showinfo("Excel generado", f"Excel guardado en:\n{ruta}")))
+                PDFService().generar_word(datos, ruta)
+                self.parent.after(0, lambda: (self.parent.configure(cursor=""), messagebox.showinfo("Word generado", f"Documento Word guardado en:\n{ruta}")))
             except Exception as exc:
                 self.parent.after(0, lambda e=exc: (self.parent.configure(cursor=""), messagebox.showerror("Error", str(e))))
 

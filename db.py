@@ -94,7 +94,13 @@ import mysql.connector
 import random
 import smtplib
 import os
+import re
+import unicodedata
+import zipfile
+from copy import deepcopy
 from email.message import EmailMessage
+from xml.etree import ElementTree as ET
+from xml.sax.saxutils import escape
 
 def get_connection():
     """
@@ -1851,6 +1857,8 @@ class ExcelService:
         return None
 class PDFService:
     """Genera el PDF y Excel del informe consolidado usando ReportLab y openpyxl."""
+    TEMPLATE_WORD_OFICIO = os.path.join("assets", "templates", "Oficio de entrega de informe de FEBRERO 2026.docx")
+
     def generar_pdf(self, datos: dict, ruta_salida: str) -> str:
         """
         Genera el PDF del informe y lo guarda en ruta_salida.
@@ -1896,6 +1904,66 @@ class PDFService:
         ))
         doc.build(historia)
         return ruta_salida
+    def generar_word(self, datos: dict, ruta_salida: str) -> str:
+        """Genera el documento Word exportado usando la plantilla oficial del oficio."""
+        if not ruta_salida.lower().endswith(".docx"):
+            ruta_salida = f"{ruta_salida}.docx"
+
+        os.makedirs(os.path.dirname(ruta_salida) if os.path.dirname(ruta_salida) else ".", exist_ok=True)
+
+        template_path = os.path.join(os.path.dirname(__file__), self.TEMPLATE_WORD_OFICIO)
+        if os.path.exists(template_path):
+            with zipfile.ZipFile(template_path, "r") as src, zipfile.ZipFile(ruta_salida, "w", compression=zipfile.ZIP_DEFLATED) as dst:
+                for info in src.infolist():
+                    data = src.read(info.filename)
+                    if info.filename == "word/document.xml":
+                        data = self._word_template_con_numero_oficio(data)
+                        data = self._word_template_con_fecha_actual(data)
+                        data = self._word_template_con_datos(data, datos)
+                    dst.writestr(info, data)
+            return ruta_salida
+
+        document_xml = self._word_document_xml(datos)
+        content_types = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+  <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+  <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+</Types>'''
+        rels = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>'''
+        core = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <dc:title>{titulo}</dc:title>
+  <dc:creator>DPPPS</dc:creator>
+  <cp:lastModifiedBy>DPPPS</cp:lastModifiedBy>
+  <dcterms:created xsi:type="dcterms:W3CDTF">{fecha}</dcterms:created>
+  <dcterms:modified xsi:type="dcterms:W3CDTF">{fecha}</dcterms:modified>
+</cp:coreProperties>'''.format(
+            titulo=escape(datos.get("titulo", "Informe Consolidado").strip() or "Informe Consolidado"),
+            fecha=datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        )
+        app = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">
+  <Application>DPPPS</Application>
+</Properties>'''
+
+        with zipfile.ZipFile(ruta_salida, "w", compression=zipfile.ZIP_DEFLATED) as archivo:
+            archivo.writestr("[Content_Types].xml", content_types)
+            archivo.writestr("_rels/.rels", rels)
+            archivo.writestr("docProps/core.xml", core)
+            archivo.writestr("docProps/app.xml", app)
+            archivo.writestr("word/document.xml", document_xml)
+            archivo.writestr("word/styles.xml", self._word_styles_xml())
+
+        return ruta_salida
+
     def generar_excel(self, datos: dict, ruta_salida: str) -> str:
         """
         Genera un Excel con dos hojas: Resumen y Detalle de actividades.
@@ -1910,6 +1978,228 @@ class PDFService:
         self._excel_hoja_detalle(ws_det, datos)
         wb.save(ruta_salida)
         return ruta_salida
+
+    @staticmethod
+    def _normalizar_texto(valor: str) -> str:
+        if not valor:
+            return ""
+        valor = unicodedata.normalize("NFKD", valor)
+        valor = valor.encode("ascii", "ignore").decode("ascii")
+        valor = valor.lower().strip()
+        valor = re.sub(r"[^a-z0-9]+", " ", valor)
+        return " ".join(valor.split())
+
+    @staticmethod
+    def _texto_parrafo(parrafo, ns: dict) -> str:
+        return "".join((n.text or "") for n in parrafo.findall(".//w:t", ns))
+
+    @staticmethod
+    def _poner_texto_en_parrafo(parrafo, texto: str, ns: dict):
+        nodos = parrafo.findall(".//w:t", ns)
+        if not nodos:
+            run = ET.SubElement(parrafo, f"{{{ns['w']}}}r")
+            texto_node = ET.SubElement(run, f"{{{ns['w']}}}t")
+            texto_node.text = str(texto)
+            return
+        for idx, nodo in enumerate(nodos):
+            nodo.text = str(texto) if idx == 0 else ""
+
+    def _word_template_con_numero_oficio(self, xml_bytes: bytes) -> bytes:
+        """Reemplaza el número del oficio en la plantilla real sin romper el XML de Word."""
+        root = ET.fromstring(xml_bytes)
+        ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+
+        for parrafo in root.findall(".//w:p", ns):
+            textos = [n for n in parrafo.findall(".//w:t", ns)]
+            contenido = "".join((n.text or "") for n in textos)
+            if "DPPPS N°" not in contenido:
+                continue
+
+            for nodo in textos:
+                texto = nodo.text or ""
+                if "DPPPS N°" in texto:
+                    nodo.text = texto.replace("DPPPS N° ", "DPPPS N°___")
+                    break
+
+            for nodo in textos:
+                texto = nodo.text or ""
+                if texto.strip().isdigit() and nodo.text:
+                    nodo.text = ""
+
+            break
+
+        return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+    def _word_template_con_fecha_actual(self, xml_bytes: bytes) -> bytes:
+        """Actualiza la fecha visible en la cabecera del oficio con la fecha local actual del dispositivo."""
+        root = ET.fromstring(xml_bytes)
+        ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+
+        meses = [
+            "enero", "febrero", "marzo", "abril", "mayo", "junio",
+            "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+        ]
+        ahora = datetime.now()
+        fecha_hoy = f"{ahora.day} de {meses[ahora.month - 1]} de {ahora.year}"
+
+        for parrafo in root.findall(".//w:p", ns):
+            textos = [n for n in parrafo.findall(".//w:t", ns)]
+            contenido = "".join((n.text or "") for n in textos)
+            if "San Cristóbal, 6 de Marzo de 2026" not in contenido and "6 de Marzo de 2026" not in contenido:
+                continue
+
+            nuevo_contenido = contenido.replace("San Cristóbal, 6 de Marzo de 2026", f"San Cristóbal, {fecha_hoy}")
+            nuevo_contenido = nuevo_contenido.replace("6 de Marzo de 2026", fecha_hoy)
+
+            for nodo in textos:
+                nodo.text = ""
+            if textos:
+                textos[0].text = nuevo_contenido
+            break
+
+        return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+    def _word_template_con_datos(self, xml_bytes: bytes, datos: dict) -> bytes:
+        """Reemplaza los conteos reales en cada tipo de actividad de la plantilla del oficio."""
+        root = ET.fromstring(xml_bytes)
+        ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+
+        resumen_tipo = datos.get("resumen_por_tipo", []) or []
+        tipo_map = {}
+        for fila in resumen_tipo:
+            nombre = str(fila.get("nombre") or "").strip()
+            if not nombre:
+                continue
+            tipo_map[self._normalizar_texto(nombre)] = {
+                "total_actividades": int(fila.get("total_actividades", 0) or 0),
+                "total_participantes": int(fila.get("total_participantes", 0) or 0),
+            }
+
+        nombre_aliases = []
+        for _, nombre in TIPOS_ACTIVIDAD_PREDETERMINADOS:
+            if nombre:
+                nombre_aliases.append(nombre)
+        for fila in resumen_tipo:
+            nombre = str(fila.get("nombre") or "").strip()
+            if nombre and nombre not in nombre_aliases:
+                nombre_aliases.append(nombre)
+
+        filas = []
+        for fila in root.findall(".//w:tr", ns):
+            celdas = fila.findall("./w:tc", ns)
+            if len(celdas) < 2:
+                continue
+            cel1 = "".join((n.text or "") for n in celdas[0].findall(".//w:t", ns))
+            cel2 = "".join((n.text or "") for n in celdas[1].findall(".//w:t", ns))
+            filas.append((celdas[0], celdas[1], cel1, cel2))
+
+        filas_reemplazadas = set()
+        for idx, (cel1_elem, cel2_elem, cel1_texto, cel2_texto) in enumerate(filas):
+            if idx in filas_reemplazadas:
+                continue
+            cel1_norm = self._normalizar_texto(cel1_texto)
+            aliases_en_celda = []
+            for alias in nombre_aliases:
+                alias_norm = self._normalizar_texto(alias)
+                if alias_norm and alias_norm in cel1_norm:
+                    aliases_en_celda.append(alias)
+            if not aliases_en_celda:
+                continue
+
+            secuencia = []
+            for alias in aliases_en_celda:
+                alias_norm = self._normalizar_texto(alias)
+                valor_actividad = str(int(tipo_map.get(alias_norm, {}).get("total_actividades", 0) or 0))
+                secuencia.extend([valor_actividad, "0"])
+
+            for child in list(cel2_elem):
+                cel2_elem.remove(child)
+
+            primer_p = ET.SubElement(cel2_elem, f"{{{ns['w']}}}p")
+            primer_r = ET.SubElement(primer_p, f"{{{ns['w']}}}r")
+            primer_t = ET.SubElement(primer_r, f"{{{ns['w']}}}t")
+            primer_t.text = " ".join(secuencia)
+            filas_reemplazadas.add(idx)
+
+        return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+    def _word_document_xml(self, datos: dict) -> str:
+        def p(texto: str, negrita: bool = False) -> str:
+            texto_escapado = escape(texto)
+            estilo = '<w:pPr><w:rPr><w:b/></w:rPr></w:pPr>' if negrita else ''
+            return f'<w:p>{estilo}<w:r><w:t xml:space="preserve">{texto_escapado}</w:t></w:r></w:p>'
+
+        lineas = [
+            p("DPPPS N°___", True),
+            p(datos.get("titulo", "Informe Consolidado"), True),
+            p(self._subtitulo_periodo(datos) or "Período no definido"),
+            p(f"ASIC: {datos.get('asic_nombre') or 'Todos los ASIC'}"),
+            p(f"Total de actividades: {datos.get('total_actividades', 0)}"),
+            p(f"Total de participantes: {datos.get('total_participantes', 0)}"),
+        ]
+
+        if datos.get("resumen_por_asic"):
+            lineas.append(p("Resumen por ASIC:", True))
+            for fila in datos["resumen_por_asic"]:
+                nombre = fila.get("nombre") or fila.get("asic_nombre", "")
+                lineas.append(
+                    p(f"- {nombre}: {fila.get('total_actividades', 0)} actividades / {fila.get('total_participantes', 0)} participantes")
+                )
+
+        if datos.get("resumen_por_tipo"):
+            lineas.append(p("Resumen por tipo de actividad:", True))
+            for fila in datos["resumen_por_tipo"]:
+                nombre = fila.get("nombre") or ""
+                lineas.append(
+                    p(f"- {nombre}: {fila.get('total_actividades', 0)} actividades / {fila.get('total_participantes', 0)} participantes")
+                )
+
+        if datos.get("actividades"):
+            lineas.append(p("Detalle de actividades:", True))
+            for i, act in enumerate(datos["actividades"], start=1):
+                lineas.append(
+                    p(
+                        f"{i}. {act.get('asic_nombre', '')} - {act.get('tipo_nombre', '')} - "
+                        f"{act.get('fecha_inicio', '')} a {act.get('fecha_fin', '')} - "
+                        f"Lugar: {act.get('lugar', '')} - Participantes: {act.get('participantes', 0)} - "
+                        f"Descripción: {act.get('descripcion', '')}"
+                    )
+                )
+
+        obs = (datos.get("observaciones") or "").strip()
+        if obs:
+            lineas.append(p("Observaciones:", True))
+            lineas.append(p(obs))
+
+        return (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+            '<w:document xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas" '
+            'xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" '
+            'xmlns:o="urn:schemas-microsoft-com:office:office" '
+            'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" '
+            'xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" '
+            'xmlns:v="urn:schemas-microsoft-com:vml" '
+            'xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing" '
+            'xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" '
+            'xmlns:w10="urn:schemas-microsoft-com:office:word" '
+            'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
+            'xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" '
+            'xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml" '
+            'xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup" '
+            'xmlns:wpi="http://schemas.microsoft.com/office/word/2010/wordprocessingInk" '
+            'xmlns:wne="http://schemas.microsoft.com/office/word/2006/wordml" '
+            'xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape" '
+            'mc:Ignorable="w14 w15 wp14">'
+            '<w:body>' + ''.join(lineas) + '<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr></w:body></w:document>'
+        )
+
+    def _word_styles_xml(self) -> str:
+        return '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style>
+  <w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:qFormat/></w:style>
+</w:styles>'''
+
     # ── Bloques PDF ────────────────────────────────────────────────────
     def _encabezado(self, datos: dict, estilos: dict) -> list:
         titulo      = datos.get("titulo", "Informe Consolidado de Actividades")
