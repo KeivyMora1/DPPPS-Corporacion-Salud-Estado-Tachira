@@ -19,7 +19,7 @@ from db import AuthController, AsicDAO, ConsolidacionService, PDFService
 from ui_helpers import (
     frame, frame_transparent, frame_surface, label, label_title, label_subtitle,
     btn_primary, btn_secondary, btn_danger, btn_success, separator, treeview_style,
-    entry, combobox, textbox
+    entry, combobox
 )
 
 try:
@@ -58,8 +58,7 @@ class ReporteView:
         label_title(header, "📊  Reportes y Consolidación", 17).pack(side="left")
 
         label_subtitle(self.parent,
-            "Genera informes consolidados por período, exporta el documento en Word "
-            "y consulta el historial de informes previos.",
+            "Genera informes consolidados por período y exporta el documento en Word.",
             wraplength=900, justify="left"
         ).pack(anchor="w", padx=30, pady=(0, 14))
 
@@ -78,15 +77,6 @@ class ReporteView:
         self._tab_generar = frame(nb, fg_color="gray15")
         nb.add(self._tab_generar, text="  ✨ Generar Informe  ")
         self._construir_tab_generar()
-
-        self._tab_historial = frame(nb, fg_color="gray15")
-        nb.add(self._tab_historial, text="  📁 Historial  ")
-        nb.bind("<<NotebookTabChanged>>", lambda e: self._on_tab_change(nb))
-        self._construir_tab_historial()
-
-    def _on_tab_change(self, nb):
-        if nb.index("current") == 1:
-            self._cargar_historial()
 
     def _construir_tab_generar(self):
         self._frame_generar = frame_transparent(self._tab_generar)
@@ -114,31 +104,62 @@ class ReporteView:
         self._entry_f_fin = self._date_widget(inner)
         self._entry_f_fin.grid(row=1, column=3, sticky="w", padx=(8, 30))
 
-        label(inner, "ASIC (opcional):", font_size=10).grid(row=2, column=0, sticky="w", pady=4)
+        label(inner, "ASIC (opcional):\nCtrl+clic para\nseleccionar varios", font_size=10).grid(row=2, column=0, sticky="nw", pady=4)
 
-        self._asic_var = tk.StringVar(value="Todos los ASIC")
-        self._asic_map: dict = {"Todos los ASIC": None}
+        self._asic_map: dict = {}          # nombre → id_asic
+        self._asic_nombres: list = []      # orden de inserción para el Listbox
         try:
             for a in AsicDAO().obtener_todos():
                 self._asic_map[a["nombre"]] = a["id_asic"]
+                self._asic_nombres.append(a["nombre"])
         except Exception:
             pass
 
-        cb_asic = ttk.Combobox(inner, textvariable=self._asic_var,
-                               values=list(self._asic_map.keys()),
-                               state="readonly", width=35, font=("Arial", 10))
-        cb_asic.grid(row=2, column=1, columnspan=3, sticky="w", padx=8)
+        lb_frame = tk.Frame(inner, bg="gray20")
+        lb_frame.grid(row=2, column=1, columnspan=3, sticky="w", padx=8, pady=4)
 
-        label(inner, "Título del informe:", font_size=10).grid(row=3, column=0, sticky="w", pady=4)
+        self._lb_asic = tk.Listbox(
+            lb_frame,
+            selectmode=tk.MULTIPLE,
+            height=min(max(len(self._asic_nombres), 4), 8),
+            width=40,
+            font=("Arial", 10),
+            bg="gray25", fg="white",
+            selectbackground="#613BE3",
+            selectforeground="white",
+            relief="flat", borderwidth=0,
+            activestyle="none",
+        )
+        sb_asic = ttk.Scrollbar(lb_frame, orient="vertical", command=self._lb_asic.yview)
+        self._lb_asic.configure(yscrollcommand=sb_asic.set)
+        for nombre in self._asic_nombres:
+            self._lb_asic.insert(tk.END, nombre)
+        self._lb_asic.pack(side="left")
+        sb_asic.pack(side="left", fill="y")
+
+        label(inner, "(sin selección = todos)", font_size=9, text_color="gray60").grid(
+            row=3, column=1, columnspan=3, sticky="w", padx=8
+        )
+
+        label(inner, "Título del informe:", font_size=10).grid(row=4, column=0, sticky="w", pady=4)
         self._entry_titulo = entry(inner, width=440)
         self._entry_titulo.insert(0, "Informe Consolidado de Actividades")
-        self._entry_titulo.grid(row=3, column=1, columnspan=3, sticky="w", padx=8)
-
-        label(inner, "Observaciones:", font_size=10).grid(row=4, column=0, sticky="nw", pady=4)
-        self._txt_obs = textbox(inner, height=60, width=440)
-        self._txt_obs.grid(row=4, column=1, columnspan=3, sticky="w", padx=8, pady=4)
+        self._entry_titulo.grid(row=4, column=1, columnspan=3, sticky="w", padx=8)
 
         btn_secondary(inner, "▶  Generar Vista Previa", self._iniciar_previo).grid(row=5, column=0, columnspan=4, sticky="w", pady=(14, 0))
+
+    def _leer_asics_seleccionados(self):
+        """Retorna None (todos los ASIC) o una lista de IDs seleccionados."""
+        seleccion = self._lb_asic.curselection()
+        if not seleccion:
+            return None
+        ids = []
+        for idx in seleccion:
+            nombre = self._asic_nombres[idx]
+            id_asic = self._asic_map.get(nombre)
+            if id_asic is not None:
+                ids.append(id_asic)
+        return ids if ids else None
 
     def _date_widget(self, parent):
         if _TIENE_CALENDAR:
@@ -177,8 +198,7 @@ class ReporteView:
             return
 
         titulo  = self._entry_titulo.get().strip() or "Informe Consolidado"
-        obs     = self._txt_obs.get("1.0", "end").strip()
-        id_asic = self._asic_map.get(self._asic_var.get())
+        id_asic = self._leer_asics_seleccionados()
 
         self.parent.configure(cursor="wait")
 
@@ -187,7 +207,7 @@ class ReporteView:
                 svc = ConsolidacionService(self.usuario["id_usuario"])
                 previo = svc.generar_previo(f_ini, f_fin, id_asic)
                 previo["titulo"] = titulo
-                previo["observaciones"] = obs
+                previo["observaciones"] = ""
                 self.parent.after(0, lambda p=previo: self._mostrar_paso2(p))
             except Exception as exc:
                 self.parent.after(0, lambda e=exc: self._error(e))
@@ -215,7 +235,6 @@ class ReporteView:
         btn_secondary(inner_act, "← Volver", self._mostrar_paso1).pack(side="left", padx=(0, 10))
 
         if total_act > 0:
-            btn_primary(inner_act, "💾  Guardar informe en BD", self._guardar_informe).pack(side="left", padx=(0, 10))
             btn_success(inner_act, "📄  Exportar Word", self._exportar_word).pack(side="left")
 
         # Área de contenido con scroll
@@ -247,6 +266,13 @@ class ReporteView:
             self._mini_tabla(fila_resumenes, "Por ASIC", resumen_asic, ["ASIC", "Actividades", "Participantes"])
             self._mini_tabla(fila_resumenes, "Por Tipo", resumen_tipo, ["Tipo de Actividad", "Actividades", "Participantes"])
 
+        # Tabla de Vocerías CS
+        vocerias = previo.get("vocerias", [])
+        if vocerias:
+            self._mini_tabla_vocerias(scroll, vocerias)
+        elif total_act == 0:
+            label(scroll, "⚠  No hay vocerías CS para el período y filtros seleccionados.", font_size=11, text_color="#c45050").pack(pady=10)
+
     def _mini_tabla(self, parent: ctk.CTkFrame, titulo: str, filas: list, cabeceras: list):
         marco = frame_surface(parent, fg_color="gray20", corner_radius=10)
         marco.pack(side="left", fill="both", expand=True, padx=(0, 8))
@@ -273,27 +299,41 @@ class ReporteView:
         sy.pack(side="right", fill="y")
         tree.pack(fill="both", expand=True)
 
-    def _guardar_informe(self):
-        if self.usuario is None:
-            messagebox.showwarning("Sesión no activa", "Debes iniciar sesión antes de guardar reportes.")
-            return
-        if not self._previo:
-            return
-        titulo = self._previo.get("titulo", "Informe Consolidado")
-        try:
-            svc   = ConsolidacionService(self.usuario["id_usuario"])
-            f_ini = self._previo["fecha_inicio"]
-            f_fin = self._previo["fecha_fin"]
-            id_periodo = svc.crear_periodo(
-                tipo="mensual", anio=f_ini.year,
-                mes_inicio=f_ini.month, mes_fin=f_fin.month,
-                fecha_inicio=f_ini, fecha_fin=f_fin,
-            )
-            id_informe = svc.guardar(self._previo, id_periodo, titulo, self._previo.get("observaciones", ""))
-            self._id_informe_guardado = id_informe
-            messagebox.showinfo("Informe guardado", f"El informe se guardó correctamente (ID #{id_informe}).")
-        except Exception as exc:
-            messagebox.showerror("Error al guardar", str(exc))
+    def _mini_tabla_vocerias(self, parent: ctk.CTkFrame, vocerias: list):
+        marco = frame_surface(parent, fg_color="gray20", corner_radius=10)
+        marco.pack(fill="x", pady=(10, 0))
+
+        inner = frame_transparent(marco)
+        inner.pack(fill="both", expand=True, padx=12, pady=10)
+
+        label(inner, "Vocerías CS", font_size=10, bold=True).pack(anchor="w", pady=(0, 5))
+
+        cabeceras = ["Fecha", "ASIC", "Tipo", "Municipio", "Parroquia"]
+        cols = tuple(range(len(cabeceras)))
+        treeview_style("R", 22)
+
+        tree = ttk.Treeview(inner, columns=cols, show="headings", style="R.Treeview", height=min(len(vocerias), 8))
+        for i, cab in enumerate(cabeceras):
+            tree.heading(i, text=cab)
+        tree.column(0, width=100, anchor="center")
+        tree.column(1, width=180, anchor="w")
+        tree.column(2, width=150, anchor="w")
+        tree.column(3, width=120, anchor="w")
+        tree.column(4, width=120, anchor="w")
+
+        for voc in vocerias:
+            tree.insert("", "end", values=(
+                voc.get("fecha", ""),
+                voc.get("asic_nombre", ""),
+                voc.get("tipo_nombre", ""),
+                voc.get("municipio", ""),
+                voc.get("parroquia", ""),
+            ))
+
+        sy = ttk.Scrollbar(inner, orient="vertical", command=tree.yview)
+        tree.configure(yscrollcommand=sy.set)
+        sy.pack(side="right", fill="y")
+        tree.pack(fill="both", expand=True)
 
     def _exportar_word(self):
         if not self._previo:
@@ -313,107 +353,6 @@ class ReporteView:
                 self.parent.after(0, lambda e=exc: (self.parent.configure(cursor=""), messagebox.showerror("Error al generar Word", str(e))))
 
         threading.Thread(target=_tarea, daemon=True).start()
-
-    def _construir_tab_historial(self):
-        barra = frame_transparent(self._tab_historial)
-        barra.pack(fill="x", padx=10, pady=(10, 6))
-
-        btn_secondary(barra, "🔄  Actualizar", self._cargar_historial).pack(side="left", padx=(0, 8))
-        btn_success(barra, "📄  Exportar Word", self._exportar_word_historial).pack(side="left", padx=(0, 8))
-        btn_danger(barra, "🗑  Eliminar", self._eliminar_historial).pack(side="left")
-
-        cols  = ("id", "titulo", "periodo", "asic", "actividades", "participantes", "generado")
-        labs  = ("#", "Título", "Período", "ASIC", "Actividades", "Participantes", "Generado")
-        anchs = (50, 240, 130, 150, 90, 100, 130)
-
-        treeview_style("Hist", 24)
-
-        cont = frame_transparent(self._tab_historial)
-        cont.pack(fill="both", expand=True, padx=10, pady=(0, 10))
-
-        self._tree_hist = ttk.Treeview(cont, columns=cols, show="headings", style="Hist.Treeview")
-        for col, lab, ancho in zip(cols, labs, anchs):
-            self._tree_hist.heading(col, text=lab)
-            self._tree_hist.column(col, width=ancho, minwidth=40, anchor="center" if col != "titulo" else "w")
-
-        sy = ttk.Scrollbar(cont, orient="vertical",   command=self._tree_hist.yview)
-        sx = ttk.Scrollbar(cont, orient="horizontal", command=self._tree_hist.xview)
-        self._tree_hist.configure(yscrollcommand=sy.set, xscrollcommand=sx.set)
-        sy.pack(side="right",  fill="y")
-        sx.pack(side="bottom", fill="x")
-        self._tree_hist.pack(fill="both", expand=True)
-
-        self._cargar_historial()
-
-    def _cargar_historial(self):
-        if self.usuario is None:
-            if hasattr(self, "_tree_hist"):
-                for row in self._tree_hist.get_children():
-                    self._tree_hist.delete(row)
-            messagebox.showwarning("Sesión no activa", "Debes iniciar sesión antes de consultar el historial.")
-            return
-
-        for row in self._tree_hist.get_children():
-            self._tree_hist.delete(row)
-        try:
-            svc = ConsolidacionService(self.usuario["id_usuario"])
-            informes = svc.listar_informes()
-            for inf in informes:
-                periodo_txt = f"{inf.get('periodo_tipo','').capitalize()} {inf.get('periodo_anio','')}"
-                asic_txt = inf.get("asic_nombre") or "General"
-                gen_txt  = str(inf.get("fecha_generacion", ""))[:16]
-                self._tree_hist.insert("", "end", iid=str(inf["id_informe"]), values=(
-                    inf["id_informe"], inf["titulo"], periodo_txt,
-                    asic_txt, inf["total_actividades"], inf["total_participantes"], gen_txt,
-                ))
-        except Exception as exc:
-            messagebox.showerror("Error al cargar historial", str(exc))
-
-    def _informe_seleccionado(self) -> int | None:
-        sel = self._tree_hist.selection()
-        if not sel:
-            messagebox.showwarning("Sin selección", "Selecciona un informe de la lista.")
-            return None
-        return int(sel[0])
-
-    def _exportar_word_historial(self):
-        if self.usuario is None:
-            messagebox.showwarning("Sesión no activa", "Debes iniciar sesión antes de exportar reportes.")
-            return
-        id_inf = self._informe_seleccionado()
-        if not id_inf:
-            return
-        nombre = f"informe_{id_inf}_{date.today()}.docx"
-        ruta = filedialog.asksaveasfilename(title="Guardar Word como…", defaultextension=".docx", initialfile=nombre, filetypes=[("Word", "*.docx")])
-        if not ruta:
-            return
-        self.parent.configure(cursor="wait")
-
-        def _tarea():
-            try:
-                svc = ConsolidacionService(self.usuario["id_usuario"])
-                datos = svc.obtener_informe_completo(id_inf)
-                PDFService().generar_word(datos, ruta)
-                self.parent.after(0, lambda: (self.parent.configure(cursor=""), messagebox.showinfo("Word generado", f"Documento Word guardado en:\n{ruta}")))
-            except Exception as exc:
-                self.parent.after(0, lambda e=exc: (self.parent.configure(cursor=""), messagebox.showerror("Error", str(e))))
-
-        threading.Thread(target=_tarea, daemon=True).start()
-
-    def _eliminar_historial(self):
-        if self.usuario is None:
-            messagebox.showwarning("Sesión no activa", "Debes iniciar sesión antes de eliminar reportes.")
-            return
-        id_inf = self._informe_seleccionado()
-        if not id_inf:
-            return
-        if messagebox.askyesno("Confirmar eliminación", f"¿Eliminar el informe #{id_inf}?\nEsta acción no se puede deshacer."):
-            try:
-                ConsolidacionService(self.usuario["id_usuario"]).eliminar_informe(id_inf)
-                self._cargar_historial()
-                messagebox.showinfo("Eliminado", f"Informe #{id_inf} eliminado.")
-            except Exception as exc:
-                messagebox.showerror("Error al eliminar", str(exc))
 
     def _limpiar(self, frame: ctk.CTkFrame):
         for w in frame.winfo_children():

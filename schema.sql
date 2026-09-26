@@ -83,7 +83,6 @@ CREATE TABLE IF NOT EXISTS actividad (
     establecimiento_salud VARCHAR(100),
     nombre_establecimiento VARCHAR(150),
     comites_salud       VARCHAR(150),
-    lugar               VARCHAR(150),            -- Campo combinado/legacy
     descripcion         TEXT NOT NULL,           -- TEMA TRATADO
     -- Participantes por categoría (plantilla de importación)
     medicos             INT NOT NULL DEFAULT 0,
@@ -131,8 +130,6 @@ CREATE TABLE IF NOT EXISTS voceria (
     estado            VARCHAR(100) DEFAULT 'Táchira',
     municipio         VARCHAR(100),
     parroquia         VARCHAR(100),
-    tema              VARCHAR(200) NOT NULL,
-    descripcion       TEXT,
     eliminado         BOOLEAN NOT NULL DEFAULT FALSE,
     created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -184,81 +181,6 @@ CREATE TABLE IF NOT EXISTS evidencia (
     created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     FOREIGN KEY (id_actividad) REFERENCES actividad(id_actividad)
-);
-
--- ============================================================
--- TABLA: periodo
--- Representa un período de tiempo (mensual, trimestral, anual)
--- que el admin puede abrir o cerrar para consolidación.
--- ============================================================
-CREATE TABLE IF NOT EXISTS periodo (
-    id_periodo        INT AUTO_INCREMENT PRIMARY KEY,
-    tipo              ENUM('mensual', 'trimestral', 'anual') NOT NULL,
-    anio              INT NOT NULL,
-    mes_inicio        INT,                       -- Mes donde empieza (1-12)
-    mes_fin           INT,                       -- Mes donde termina (1-12)
-    fecha_inicio      DATE NOT NULL,
-    fecha_fin         DATE NOT NULL,
-    estado            ENUM('abierto', 'cerrado') NOT NULL DEFAULT 'abierto',
-    id_usuario_cierre INT,                       -- Admin que cerró el período
-    fecha_cierre      DATETIME,
-    motivo_reapertura TEXT,                      -- Si se reabrió, por qué
-    created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (id_usuario_cierre) REFERENCES usuario(id_usuario)
-);
-
--- ============================================================
--- TABLA: informe_consolidado
--- Cabecera del informe generado. Agrupa las actividades
--- de un período determinado (y opcionalmente de un ASIC).
--- ============================================================
-CREATE TABLE IF NOT EXISTS informe_consolidado (
-    id_informe          INT AUTO_INCREMENT PRIMARY KEY,
-    id_periodo          INT NOT NULL,
-    id_asic             INT,                     -- NULL = informe general de todos los ASIC
-    titulo              VARCHAR(200) NOT NULL,
-    total_actividades   INT NOT NULL DEFAULT 0,
-    total_participantes INT NOT NULL DEFAULT 0,
-    observaciones       TEXT,
-    id_usuario_generador INT NOT NULL,
-    fecha_generacion    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (id_periodo)           REFERENCES periodo(id_periodo),
-    FOREIGN KEY (id_asic)              REFERENCES asic(id_asic),
-    FOREIGN KEY (id_usuario_generador) REFERENCES usuario(id_usuario)
-);
-
--- ============================================================
--- TABLA: informe_detalle
--- Relaciona cada informe con las actividades que lo componen.
--- ============================================================
-CREATE TABLE IF NOT EXISTS informe_detalle (
-    id_detalle   INT AUTO_INCREMENT PRIMARY KEY,
-    id_informe   INT NOT NULL,
-    id_actividad INT NOT NULL,
-
-    FOREIGN KEY (id_informe)   REFERENCES informe_consolidado(id_informe),
-    FOREIGN KEY (id_actividad) REFERENCES actividad(id_actividad)
-);
-
--- ============================================================
--- TABLA: importacion_log
--- Registro de cada vez que se importó un archivo Excel.
--- Guarda cuántas filas fueron exitosas y cuáles fallaron.
--- ============================================================
-CREATE TABLE IF NOT EXISTS importacion_log (
-    id_importacion  INT AUTO_INCREMENT PRIMARY KEY,
-    id_usuario      INT NOT NULL,
-    nombre_archivo  VARCHAR(200) NOT NULL,
-    total_filas     INT NOT NULL DEFAULT 0,
-    filas_exitosas  INT NOT NULL DEFAULT 0,
-    filas_error     INT NOT NULL DEFAULT 0,
-    detalle_errores TEXT,                        -- JSON o texto con los errores por fila
-    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (id_usuario) REFERENCES usuario(id_usuario)
 );
 
 -- ============================================================

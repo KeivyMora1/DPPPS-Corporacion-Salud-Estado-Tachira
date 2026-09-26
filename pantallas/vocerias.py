@@ -13,7 +13,7 @@ from datetime import datetime, date
 import os
 import shutil
 
-from db import VoceriaController, ASIC_PREDETERMINADOS, VOCERIA_TEMPLATE_PATH, build_voceria_template
+from db import VoceriaController, ASIC_PREDETERMINADOS, VOCERIA_TEMPLATE_PATH, build_voceria_template, MUNICIPIOS_TACHIRA
 from themes import THEME
 from ui_helpers import (
     frame, frame_transparent, label, label_title, label_subtitle,
@@ -183,8 +183,7 @@ class VoceriaView:
                   foreground=[("selected", t["text_primary"])])
 
         columnas = (
-            "id", "asic", "tipo", "fecha", "estado", "municipio", "parroquia",
-            "tema", "descripcion"
+            "id", "asic", "tipo", "fecha", "estado", "municipio", "parroquia"
         )
         self.tabla = ttk.Treeview(marco_tabla, columns=columnas, show="headings", height=12, style="Voc.Treeview")
 
@@ -195,8 +194,6 @@ class VoceriaView:
         self.tabla.heading("estado",          text="Estado")
         self.tabla.heading("municipio",       text="Municipio")
         self.tabla.heading("parroquia",       text="Parroquia")
-        self.tabla.heading("tema",            text="Tema")
-        self.tabla.heading("descripcion",     text="Descripción")
 
         self.tabla.column("id",             width=40,  anchor="center")
         self.tabla.column("asic",           width=150, anchor="w")
@@ -205,8 +202,6 @@ class VoceriaView:
         self.tabla.column("estado",         width=90,  anchor="w")
         self.tabla.column("municipio",      width=110, anchor="w")
         self.tabla.column("parroquia",      width=110, anchor="w")
-        self.tabla.column("tema",           width=200, anchor="w")
-        self.tabla.column("descripcion",    width=250, anchor="w")
 
         scroll_y = ttk.Scrollbar(marco_tabla, orient="vertical", command=self.tabla.yview)
         self.tabla.configure(yscrollcommand=scroll_y.set)
@@ -277,8 +272,6 @@ class VoceriaView:
                     voc.get("estado", ""),
                     voc.get("municipio", ""),
                     voc.get("parroquia", ""),
-                    voc.get("tema", ""),
-                    voc.get("descripcion", ""),
                 ))
         except Exception as e:
             messagebox.showerror("Error", f"Ocurrió un error al cargar las vocerías: {str(e)}")
@@ -350,7 +343,7 @@ class VoceriaView:
         col_municipio = ctk.CTkFrame(fila1, fg_color="transparent")
         col_municipio.pack(side="left", fill="x", expand=True, padx=5)
         ctk.CTkLabel(col_municipio, text="Municipio *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        municipios = [nombre for _, nombre in ASIC_PREDETERMINADOS]
+        municipios = MUNICIPIOS_TACHIRA
         self.ent_municipio = ctk.CTkOptionMenu(col_municipio, values=municipios, fg_color=t["bg_base"], button_color=t["bg_card"], button_hover_color=t["bg_hover"], text_color=t["text_primary"], dropdown_fg_color=t["bg_base"], dropdown_text_color=t["text_primary"])
         if municipios:
             self.ent_municipio.set(municipios[0])
@@ -360,18 +353,17 @@ class VoceriaView:
         col_parroquia = ctk.CTkFrame(fila1, fg_color="transparent")
         col_parroquia.pack(side="left", fill="x", expand=True, padx=5)
         ctk.CTkLabel(col_parroquia, text="Parroquia *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        self.ent_parroquia = ctk.CTkEntry(col_parroquia, font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
+        self.ent_parroquia = ctk.CTkEntry(col_parroquia, placeholder_text="Parroquia", font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
         self.ent_parroquia.pack(fill="x", pady=(2, 0))
-        self._poner_placeholder_entry(self.ent_parroquia, "Parroquia")
-        self.ent_parroquia.bind("<FocusIn>", lambda e: self._limpiar_placeholder_entry(self.ent_parroquia, "Parroquia"))
-        self.ent_parroquia.bind("<FocusOut>", lambda e: self._poner_placeholder_entry(self.ent_parroquia, "Parroquia"))
+        self.ent_parroquia.bind("<KeyRelease>", lambda e: self._actualizar_estado_botones())
+        self.ent_parroquia.bind("<FocusOut>", lambda e: self._actualizar_estado_botones())
 
         # ASIC
         col_asic = ctk.CTkFrame(fila1, fg_color="transparent")
         col_asic.pack(side="left", fill="x", expand=True, padx=(5, 0))
         ctk.CTkLabel(col_asic, text="ASIC *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
         nombres_asics = sorted(list(self.asic_map.keys()))
-        self.ent_asic = ctk.CTkOptionMenu(col_asic, values=nombres_asics, fg_color=t["bg_base"], button_color=t["bg_card"], button_hover_color=t["bg_hover"], text_color=t["text_primary"], dropdown_fg_color=t["bg_base"], dropdown_text_color=t["text_primary"])
+        self.ent_asic = ctk.CTkOptionMenu(col_asic, values=nombres_asics, fg_color=t["bg_base"], button_color=t["bg_card"], button_hover_color=t["bg_hover"], text_color=t["text_primary"], dropdown_fg_color=t["bg_base"], dropdown_text_color=t["text_primary"], command=lambda c: self._actualizar_estado_botones())
         if nombres_asics:
             self.ent_asic.set(nombres_asics[0])
         self.ent_asic.pack(fill="x", pady=(2, 0))
@@ -385,6 +377,11 @@ class VoceriaView:
         ctk.CTkLabel(col_fecha, text="Fecha *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
         self.ent_fecha = date_picker(col_fecha, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
         self.ent_fecha.pack(fill="x", pady=(2, 0))
+        self.ent_fecha.bind("<KeyRelease>", lambda e: self._actualizar_estado_botones())
+        self.ent_fecha.bind("<FocusOut>", lambda e: self._actualizar_estado_botones())
+
+        self.ent_estado.configure(command=lambda c: self._actualizar_estado_botones())
+        self.ent_municipio.configure(command=lambda c: self._actualizar_estado_botones())
 
         # ===== VOCERÍAS (ACORDEÓN) =====
         ctk.CTkLabel(marco_form, text="Vocerías", font=("Arial", 12, "bold"), text_color=t["text_primary"]).pack(anchor="w", pady=(10, 5))
@@ -423,7 +420,7 @@ class VoceriaView:
         self.items_voceria = []  # lista de dicts con widgets de cada item
         self._actualizar_estado_botones()
 
-        # Crear primer item expandido
+        # Crear primer item expandido (si es nuevo registro)
         self._crear_item_voceria(expandido=True)
 
         # Botón para agregar más items (al final)
@@ -432,28 +429,76 @@ class VoceriaView:
         self.btn_agregar_item.pack(anchor="w", pady=(10, 15))
 
         def guardar():
+            lbl_error.configure(text="")
+            # Validar campos generales
+            estado = self.ent_estado.get().strip() if hasattr(self, "ent_estado") else ""
+            municipio = self.ent_municipio.get().strip() if hasattr(self, "ent_municipio") else ""
+            parroquia = self.ent_parroquia.get().strip() if hasattr(self, "ent_parroquia") else ""
+            asic = self.ent_asic.get().strip() if hasattr(self, "ent_asic") else ""
+            fecha = self.ent_fecha.get().strip() if hasattr(self, "ent_fecha") else ""
+
+            if not estado:
+                lbl_error.configure(text="⚠ Debe seleccionar el Estado")
+                return
+            if not municipio:
+                lbl_error.configure(text="⚠ Debe seleccionar el Municipio")
+                return
+            if not parroquia:
+                lbl_error.configure(text="⚠ Debe ingresar la Parroquia")
+                self.ent_parroquia.focus_set()
+                return
+            if not asic or asic not in self.asic_map:
+                lbl_error.configure(text="⚠ Debe seleccionar un ASIC válido")
+                return
+            if not fecha or fecha == "AAAA-MM-DD":
+                lbl_error.configure(text="⚠ Debe ingresar la Fecha (formato AAAA-MM-DD)")
+                self.ent_fecha.focus_set()
+                return
+
             # Validar al menos 1 item
             items_validos = [item for item in self.items_voceria if item["frame"].winfo_exists()]
             if len(items_validos) < 1:
-                lbl_error.configure(text="Debe agregar al menos 1 vocero")
+                lbl_error.configure(text="⚠ Debe agregar al menos 1 vocería")
                 return
-            # Validar todos los campos obligatorios
-            if not self._verificar_todos_campos_llenos():
-                lbl_error.configure(text="Complete todos los campos obligatorios y evite vocerías duplicadas")
-                return
+
+            # Validar todos los campos obligatorios de cada item
+            nombres_campos = {
+                "comite": "Nombre del Comité",
+                "centro": "Centro dispensador",
+                "nom_centro": "Nombre del Centro",
+                "nombres": "Nombres y Apellidos",
+                "ci": "C.I.",
+                "tel": "Teléfono",
+                "fnac": "Fecha de Nacimiento",
+                "edad": "Edad",
+                "voceria": "Tipo de Vocería",
+                "sexo": "Sexo",
+                "prof": "Profesión/Oficio",
+                "correo": "Correo Electrónico",
+                "felecc": "Fechas de Elección",
+            }
+
+            for idx, item in enumerate(items_validos, start=1):
+                w = item["widgets"]
+                for key, etiqueta in nombres_campos.items():
+                    val = w[key].get().strip() if hasattr(w[key], "get") else ""
+                    if not val or val in ("(Sin opciones disponibles)", "Seleccionar vocería...", "AAAA-MM-DD", "Edad"):
+                        lbl_error.configure(text=f"⚠ Vocería #{idx}: Complete el campo '{etiqueta} *'")
+                        if hasattr(w[key], "focus_set"):
+                            w[key].focus_set()
+                        return
+                    if key == "correo" and "@" not in val:
+                        lbl_error.configure(text=f"⚠ Vocería #{idx}: Ingrese un Correo Electrónico válido (con '@')")
+                        if hasattr(w[key], "focus_set"):
+                            w[key].focus_set()
+                        return
             
             # Recopilar datos generales
-            id_asic = self.asic_map.get(self.ent_asic.get())
-            fecha = self.ent_fecha.get().strip()
-            estado = self.ent_estado.get()
-            municipio = self.ent_municipio.get()
-            parroquia = self.ent_parroquia.get().strip()
+            id_asic = self.asic_map.get(asic)
             
             # Recopilar items
             items = []
-            for item in self.items_voceria:
-                if not item["frame"].winfo_exists():
-                    continue
+            for item in items_validos:
                 w = item["widgets"]
                 valor_voceria = (w["voceria"].get() or "").strip()
                 id_tipo_voceria = (
@@ -482,8 +527,7 @@ class VoceriaView:
             if items:
                 id_tipo = items[0].get("id_tipo_voceria") or next(iter(self.tipo_voceria_map.values()), None)
 
-            tema = "Vocería CS"
-            descripcion = f"Registro de vocería del municipio {municipio or 'N/A'} para {fecha}"
+            id_voceria_guardar = datos_edicion.get("id_voceria") if datos_edicion else None
 
             # Llamar al controller
             ok, msg = self.controller.guardar_voceria(
@@ -493,10 +537,8 @@ class VoceriaView:
                 estado=estado,
                 municipio=municipio,
                 parroquia=parroquia,
-                tema=tema,
-                descripcion=descripcion,
                 items=items,
-                id_voceria=None
+                id_voceria=id_voceria_guardar
             )
             if ok:
                 messagebox.showinfo("Éxito", msg)
@@ -508,8 +550,146 @@ class VoceriaView:
         self.btn_guardar = ctk.CTkButton(marco_pie_formulario,
                   text="Crear Vocería" if datos_edicion is None else "Guardar Cambios",
                       font=("Arial", 11, "bold"), fg_color=t["accent"],
-                      hover_color=t["accent_dim"], corner_radius=8, command=guardar, state="disabled")
+                      hover_color=t["accent_dim"], corner_radius=8, command=guardar, state="normal")
         self.btn_guardar.pack(fill="x", ipady=8)
+
+        # Poblar datos en caso de edición
+        if datos_edicion:
+            if datos_edicion.get("estado"):
+                self.ent_estado.set(datos_edicion["estado"])
+            if datos_edicion.get("municipio"):
+                self.ent_municipio.set(datos_edicion["municipio"])
+            if datos_edicion.get("parroquia"):
+                self.ent_parroquia.delete(0, tk.END)
+                self.ent_parroquia.insert(0, datos_edicion["parroquia"])
+                self.ent_parroquia.configure(text_color=t["text_primary"])
+            if datos_edicion.get("asic_nombre"):
+                self.ent_asic.set(datos_edicion["asic_nombre"])
+            elif datos_edicion.get("id_asic"):
+                for nom, id_a in self.asic_map.items():
+                    if id_a == datos_edicion["id_asic"]:
+                        self.ent_asic.set(nom)
+                        break
+            if datos_edicion.get("fecha"):
+                f = datos_edicion["fecha"]
+                if isinstance(f, (date, datetime)):
+                    f = f.strftime("%Y-%m-%d")
+                self.ent_fecha.delete(0, tk.END)
+                self.ent_fecha.insert(0, str(f))
+
+            # Limpiar items iniciales y cargar los existentes
+            for it in list(self.items_voceria):
+                it["frame"].destroy()
+            self.items_voceria.clear()
+
+            items_existentes = datos_edicion.get("items", [])
+            for idx, item_data_raw in enumerate(items_existentes):
+                self._crear_item_voceria(expandido=(idx == 0))
+                if self.items_voceria:
+                    nuevo_item = self.items_voceria[-1]
+                    w = nuevo_item["widgets"]
+                    if item_data_raw.get("nombre_comite"):
+                        w["comite"].delete(0, tk.END)
+                        w["comite"].insert(0, str(item_data_raw["nombre_comite"]))
+                    if item_data_raw.get("centro_dispensador"):
+                        w["centro"].set(str(item_data_raw["centro_dispensador"]))
+                    if item_data_raw.get("nombre_centro"):
+                        w["nom_centro"].delete(0, tk.END)
+                        w["nom_centro"].insert(0, str(item_data_raw["nombre_centro"]))
+                    if item_data_raw.get("nombres"):
+                        w["nombres"].delete(0, tk.END)
+                        w["nombres"].insert(0, str(item_data_raw["nombres"]))
+                    if item_data_raw.get("ci"):
+                        w["ci"].delete(0, tk.END)
+                        w["ci"].insert(0, str(item_data_raw["ci"]))
+                    if item_data_raw.get("telefono"):
+                        w["tel"].delete(0, tk.END)
+                        w["tel"].insert(0, str(item_data_raw["telefono"]))
+                    if item_data_raw.get("fecha_nacimiento"):
+                        fn = item_data_raw["fecha_nacimiento"]
+                        if isinstance(fn, (date, datetime)):
+                            fn = fn.strftime("%Y-%m-%d")
+                        w["fnac"].delete(0, tk.END)
+                        w["fnac"].insert(0, str(fn))
+                    if item_data_raw.get("edad") is not None:
+                        w["edad"].delete(0, tk.END)
+                        w["edad"].insert(0, str(item_data_raw["edad"]))
+                    if item_data_raw.get("tipo_voceria_nombre"):
+                        w["voceria"].set(str(item_data_raw["tipo_voceria_nombre"]))
+                    elif item_data_raw.get("id_tipo_voceria"):
+                        for nom_tipo, id_t in self.tipo_voceria_map.items():
+                            if id_t == item_data_raw["id_tipo_voceria"]:
+                                w["voceria"].set(nom_tipo)
+                                break
+                    if item_data_raw.get("sexo"):
+                        w["sexo"].set(str(item_data_raw["sexo"]))
+                    if item_data_raw.get("profesion"):
+                        w["prof"].delete(0, tk.END)
+                        w["prof"].insert(0, str(item_data_raw["profesion"]))
+                    if item_data_raw.get("correo"):
+                        w["correo"].delete(0, tk.END)
+                        w["correo"].insert(0, str(item_data_raw["correo"]))
+                    if item_data_raw.get("fechas_eleccion"):
+                        fe = item_data_raw["fechas_eleccion"]
+                        if isinstance(fe, (date, datetime)):
+                            fe = fe.strftime("%Y-%m-%d")
+                        w["felecc"].delete(0, tk.END)
+                        w["felecc"].insert(0, str(fe))
+
+                    self._actualizar_header_item(nuevo_item)
+
+            if not items_existentes:
+                self._crear_item_voceria(expandido=True)
+
+            self._actualizar_dropdowns_voceria()
+            self._actualizar_estado_botones()
+
+    def _bind_click_recursive(self, widget, callback):
+        """Vincula el evento click recursivamente a un widget y sus componentes internos."""
+        try:
+            widget.bind("<Button-1>", callback)
+        except Exception:
+            pass
+        if hasattr(widget, "_canvas") and widget._canvas:
+            try:
+                widget._canvas.bind("<Button-1>", callback)
+            except Exception:
+                pass
+        if hasattr(widget, "_label") and widget._label:
+            try:
+                widget._label.bind("<Button-1>", callback)
+            except Exception:
+                pass
+        if hasattr(widget, "_text_label") and widget._text_label:
+            try:
+                widget._text_label.bind("<Button-1>", callback)
+            except Exception:
+                pass
+        try:
+            for child in widget.winfo_children():
+                if isinstance(child, ctk.CTkButton):
+                    continue
+                self._bind_click_recursive(child, callback)
+        except Exception:
+            pass
+
+    def _actualizar_header_item(self, item_data):
+        """Actualiza el texto del header del acordeón con el tipo de vocería y nombre."""
+        if not item_data or not item_data.get("frame") or not item_data["frame"].winfo_exists():
+            return
+        w = item_data.get("widgets", {})
+        voc_widget = w.get("voceria")
+        nom_widget = w.get("nombres")
+        voc = voc_widget.get().strip() if (voc_widget and hasattr(voc_widget, "get")) else ""
+        nom = nom_widget.get().strip() if (nom_widget and hasattr(nom_widget, "get")) else ""
+
+        if voc and voc not in ("Seleccionar vocería...", "(Sin opciones disponibles)"):
+            texto = f"— {voc}" + (f" ({nom})" if nom else "")
+            item_data["lbl_voceria_seleccionada"].configure(text=texto)
+        elif nom:
+            item_data["lbl_voceria_seleccionada"].configure(text=f"— {nom}")
+        else:
+            item_data["lbl_voceria_seleccionada"].configure(text="")
 
     # ===== MÉTODOS PARA ITEMS DINÁMICOS DE VOCERÍA =====
     def _crear_item_voceria(self, expandido=False):
@@ -519,10 +699,9 @@ class VoceriaView:
 
         t = self.t
         item_index = len(self.items_voceria) + 1
-        item_id = f"voceria_{item_index}"
 
-        # Frame principal del item - color ligeramente más oscuro
-        item_frame = ctk.CTkFrame(self.frame_items, fg_color="#1e3a56", corner_radius=8, border_width=1, border_color=t["border"])
+        # Frame principal del item
+        item_frame = ctk.CTkFrame(self.frame_items, fg_color=t["bg_card"], corner_radius=8, border_width=1, border_color=t["border"])
         item_frame.pack(fill="x", pady=4)
 
         # Header del acordeón (siempre visible) - clickeable para expandir/contraer
@@ -530,17 +709,17 @@ class VoceriaView:
         header.pack(fill="x", padx=2, pady=2)
 
         header_left = ctk.CTkFrame(header, fg_color="transparent", cursor="hand2")
-        header_left.pack(side="left", fill="y", padx=12, pady=8)
+        header_left.pack(side="left", fill="both", expand=True, padx=12, pady=8)
 
         # Indicador expandir/contraer + título
-        self._chevron_label = ctk.CTkLabel(header_left, text="▼", font=("Arial", 10, "bold"), text_color=t["text_primary"], cursor="hand2")
-        self._chevron_label.pack(side="left", padx=(0, 8))
+        chevron = ctk.CTkLabel(header_left, text="▼" if expandido else "▶", font=("Arial", 10, "bold"), text_color=t["text_primary"], cursor="hand2")
+        chevron.pack(side="left", padx=(0, 8))
 
         lbl_titulo = ctk.CTkLabel(header_left, text=f"Vocería #{item_index}", font=("Arial", 11, "bold"), text_color=t["text_primary"], cursor="hand2")
         lbl_titulo.pack(side="left")
 
         # Mostrar vocería seleccionada en el header cuando esté seleccionada
-        lbl_voceria_seleccionada = ctk.CTkLabel(header_left, text="", font=("Arial", 9), text_color=t["text_muted"], cursor="hand2")
+        lbl_voceria_seleccionada = ctk.CTkLabel(header_left, text="", font=("Arial", 9), text_color=t["accent"], cursor="hand2")
         lbl_voceria_seleccionada.pack(side="left", padx=(10, 0))
 
         header_right = ctk.CTkFrame(header, fg_color="transparent")
@@ -551,35 +730,36 @@ class VoceriaView:
             fg_color=t["red_bg"], hover_color=t["red"], corner_radius=6)
         btn_eliminar.pack(side="left", padx=2)
 
-        # Contenido colapsable - con animación
-        # Contenedor mutable para item_data (necesario para closure)
-        def _validar_y_actualizar(e=None):
-            self._actualizar_estado_botones()
-
         item_data_container = {"data": None}
 
-        content_frame = ctk.CTkFrame(item_frame, fg_color="transparent", corner_radius=0, height=0)
-        content_frame.pack_propagate(False)  # Para poder controlar altura
+        content_frame = ctk.CTkFrame(item_frame, fg_color="transparent", corner_radius=0)
 
         inner = ctk.CTkFrame(content_frame, fg_color="transparent")
         inner.pack(fill="x", padx=15, pady=(0, 12))
 
-        # Función toggle SIN animación
-        def toggle_content():
+        # Función toggle
+        def toggle_content(event=None):
             item_data = item_data_container["data"]
+            if not item_data or not item_data["frame"].winfo_exists():
+                return
             if item_data["expandido"]:
-                # Contraer instantáneamente
+                # Contraer
                 content_frame.pack_forget()
                 chevron.configure(text="▶")
                 item_data["expandido"] = False
             else:
-                # Expandir instantáneamente
+                # Expandir
                 content_frame.pack(fill="x", padx=2, pady=(0, 2))
                 chevron.configure(text="▼")
                 item_data["expandido"] = True
-                self._verificar_auto_expandir()
 
-        chevron = self._chevron_label
+        # Vincular evento click al header completo
+        self._bind_click_recursive(header, toggle_content)
+
+        def _on_field_change(event=None):
+            if item_data_container.get("data"):
+                self._actualizar_header_item(item_data_container["data"])
+            self._actualizar_estado_botones()
 
         # Fila 1: Nombre Comité, Centro Salud, Nombre Centro
         fila1 = ctk.CTkFrame(inner, fg_color="transparent")
@@ -589,9 +769,8 @@ class VoceriaView:
         col_comite = ctk.CTkFrame(fila1, fg_color="transparent")
         col_comite.pack(side="left", fill="x", expand=True, padx=(0, 5))
         ctk.CTkLabel(col_comite, text="Nombre del Comité *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_comite = ctk.CTkEntry(col_comite, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
+        ent_comite = ctk.CTkEntry(col_comite, placeholder_text="Nombre del Comité", font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
         ent_comite.pack(fill="x", pady=(2, 0))
-        ent_comite.bind("<KeyRelease>", _validar_y_actualizar)
 
         # Centro dispensador
         col_centro = ctk.CTkFrame(fila1, fg_color="transparent")
@@ -605,7 +784,7 @@ class VoceriaView:
         col_nom_centro = ctk.CTkFrame(fila1, fg_color="transparent")
         col_nom_centro.pack(side="left", fill="x", expand=True, padx=(5, 0))
         ctk.CTkLabel(col_nom_centro, text="Nombre del Centro *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_nom_centro = ctk.CTkEntry(col_nom_centro, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
+        ent_nom_centro = ctk.CTkEntry(col_nom_centro, placeholder_text="Nombre del Centro", font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
         ent_nom_centro.pack(fill="x", pady=(2, 0))
 
         # Fila 2: Nombres y Apellidos, C.I., Teléfono
@@ -615,52 +794,43 @@ class VoceriaView:
         col_nombres = ctk.CTkFrame(fila2, fg_color="transparent")
         col_nombres.pack(side="left", fill="x", expand=True, padx=(0, 5))
         ctk.CTkLabel(col_nombres, text="Nombres y Apellidos *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_nombres = ctk.CTkEntry(col_nombres, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
+        ent_nombres = ctk.CTkEntry(col_nombres, placeholder_text="Nombres y Apellidos", font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
         ent_nombres.pack(fill="x", pady=(2, 0))
 
         col_ci = ctk.CTkFrame(fila2, fg_color="transparent")
         col_ci.pack(side="left", fill="x", expand=True, padx=5)
         ctk.CTkLabel(col_ci, text="C.I. *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_ci = ctk.CTkEntry(col_ci, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
+        ent_ci = ctk.CTkEntry(col_ci, placeholder_text="C.I.", font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
         ent_ci.pack(fill="x", pady=(2, 0))
 
         col_tel = ctk.CTkFrame(fila2, fg_color="transparent")
         col_tel.pack(side="left", fill="x", expand=True, padx=(5, 0))
         ctk.CTkLabel(col_tel, text="Teléfono *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_tel = ctk.CTkEntry(col_tel, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
+        ent_tel = ctk.CTkEntry(col_tel, placeholder_text="Teléfono", font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
         ent_tel.pack(fill="x", pady=(2, 0))
 
-        # Fila 3: Fecha Nacimiento, Edad
+        # Fila 3: Fecha Nacimiento, Edad, Vocería
         fila3 = ctk.CTkFrame(inner, fg_color="transparent")
         fila3.pack(fill="x", pady=3)
 
         col_fnac = ctk.CTkFrame(fila3, fg_color="transparent")
-        col_fnac.pack(side="left", fill="x", expand=True, padx=5)
+        col_fnac.pack(side="left", fill="x", expand=True, padx=(0, 5))
         ctk.CTkLabel(col_fnac, text="Fecha Nacimiento *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
         ent_fnac = date_picker(col_fnac, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
         ent_fnac.pack(fill="x", pady=(2, 0))
 
         col_edad = ctk.CTkFrame(fila3, fg_color="transparent")
-        col_edad.pack(side="left", fill="x", expand=True, padx=(5, 0))
+        col_edad.pack(side="left", fill="x", expand=True, padx=5)
         ctk.CTkLabel(col_edad, text="Edad *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_edad = entry_numeric(col_edad, placeholder="Edad", max_digits=3, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
+        ent_edad = ctk.CTkEntry(col_edad, placeholder_text="Edad", font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
         ent_edad.pack(fill="x", pady=(2, 0))
 
-        # Vocería (dropdown sin repetir)
         col_voceria = ctk.CTkFrame(fila3, fg_color="transparent")
-        col_voceria.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        col_voceria.pack(side="left", fill="x", expand=True, padx=(5, 0))
         ctk.CTkLabel(col_voceria, text="Vocería *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        vocs_disponibles = self.vocerias_disponibles
-        valores = ["Seleccionar vocería..."] + vocs_disponibles
-        ent_voceria = ctk.CTkOptionMenu(col_voceria, values=valores, fg_color=t["bg_base"], button_color=t["bg_card"], button_hover_color=t["bg_hover"], text_color=t["text_primary"], dropdown_fg_color=t["bg_base"], dropdown_text_color=t["text_primary"])
+        valores_iniciales = ["Seleccionar vocería..."] + self.vocerias_disponibles
+        ent_voceria = ctk.CTkOptionMenu(col_voceria, values=valores_iniciales, fg_color=t["bg_base"], button_color=t["bg_card"], button_hover_color=t["bg_hover"], text_color=t["text_primary"], dropdown_fg_color=t["bg_base"], dropdown_text_color=t["text_primary"])
         ent_voceria.set("Seleccionar vocería...")
-        
-        # Actualizar dropdowns cuando se selecciona una vocería
-        def on_voceria_change(choice):
-            if choice != "Seleccionar vocería...":
-                self._actualizar_dropdowns_voceria()
-        ent_voceria.configure(command=on_voceria_change)
-        
         ent_voceria.pack(fill="x", pady=(2, 0))
 
         # Fila 4: Sexo, Profesión/Oficio, Correo
@@ -676,14 +846,14 @@ class VoceriaView:
 
         col_prof = ctk.CTkFrame(fila4, fg_color="transparent")
         col_prof.pack(side="left", fill="x", expand=True, padx=5)
-        ctk.CTkLabel(col_prof, text="Profesión/Oficio", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_prof = ctk.CTkEntry(col_prof, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
+        ctk.CTkLabel(col_prof, text="Profesión/Oficio *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        ent_prof = ctk.CTkEntry(col_prof, placeholder_text="Profesión/Oficio", font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
         ent_prof.pack(fill="x", pady=(2, 0))
 
         col_correo = ctk.CTkFrame(fila4, fg_color="transparent")
         col_correo.pack(side="left", fill="x", expand=True, padx=(5, 0))
-        ctk.CTkLabel(col_correo, text="Correo", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_correo = ctk.CTkEntry(col_correo, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
+        ctk.CTkLabel(col_correo, text="Correo *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        ent_correo = ctk.CTkEntry(col_correo, placeholder_text="ejemplo@correo.com", font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
         ent_correo.pack(fill="x", pady=(2, 0))
 
         # Fila 5: Fechas de Elección
@@ -695,6 +865,20 @@ class VoceriaView:
         ctk.CTkLabel(col_felecc, text="Fechas de Elección *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
         ent_felecc = date_picker(col_felecc, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
         ent_felecc.pack(fill="x", pady=(2, 0))
+
+        # Conectar eventos de cambios en campos
+        for ent in (ent_comite, ent_nom_centro, ent_nombres, ent_ci, ent_tel, ent_fnac, ent_edad, ent_prof, ent_correo, ent_felecc):
+            ent.bind("<KeyRelease>", _on_field_change)
+            ent.bind("<FocusOut>", _on_field_change)
+
+        ent_centro.configure(command=lambda choice: _on_field_change())
+        ent_sexo.configure(command=lambda choice: _on_field_change())
+
+        def on_voceria_cambiada(choice):
+            self._actualizar_dropdowns_voceria()
+            _on_field_change()
+
+        ent_voceria.configure(command=on_voceria_cambiada)
 
         # Guardar referencias
         item_data = {
@@ -726,118 +910,135 @@ class VoceriaView:
         item_data_container["data"] = item_data
         self.items_voceria.append(item_data)
 
-        # Configurar comando del botón eliminar ahora que item_data existe
+        # Configurar comando del botón eliminar
         btn_eliminar.configure(command=lambda: self._eliminar_item_voceria(item_data))
 
         # Estado inicial
         if expandido:
             content_frame.pack(fill="x", padx=2, pady=(0, 2))
-            # Forzar actualización para obtener altura real
-            content_frame.update_idletasks()
-            inner.update_idletasks()
-            target_height = inner.winfo_reqheight()
-            content_frame.configure(height=target_height)
             chevron.configure(text="▼")
             item_data["expandido"] = True
         else:
+            content_frame.pack_forget()
             chevron.configure(text="▶")
             item_data["expandido"] = False
 
-        # Actualizar botones
+        # Actualizar botones y dropdowns
+        self._actualizar_dropdowns_voceria()
         self._actualizar_estado_botones()
         self._renumerar_items()
 
     def _agregar_siguiente_voceria(self):
-        """Agrega la siguiente vocería (llamado desde botón + en header)."""
-        # Crear el nuevo item primero (con valores actuales)
+        """Agrega la siguiente vocería al acordeón expandiéndola."""
         self._crear_item_voceria(expandido=True)
-        # Luego actualizar TODOS los dropdowns para excluir opciones ya seleccionadas
         self._actualizar_dropdowns_voceria()
+        self._actualizar_estado_botones()
 
     def _eliminar_item_voceria(self, item_data):
         """Elimina un item de vocería."""
-        item_data["frame"].destroy()
-        self.items_voceria.remove(item_data)
-        self._actualizar_dropdowns_voceria()
-        self._actualizar_estado_botones()
-        self._renumerar_items()
+        if item_data in self.items_voceria:
+            item_data["frame"].destroy()
+            self.items_voceria.remove(item_data)
+            self._actualizar_dropdowns_voceria()
+            self._actualizar_estado_botones()
+            self._renumerar_items()
 
-    def _obtener_vocerias_disponibles(self):
-        """Retorna lista de vocerías no usadas en otros items."""
+    def _obtener_vocerias_usadas_por_otros(self, item_actual):
+        """Retorna conjunto de vocerías usadas por otros items."""
         usadas = set()
         for item in self.items_voceria:
-            if item["frame"].winfo_exists():
+            if item != item_actual and item["frame"].winfo_exists():
                 val = item["widgets"]["voceria"].get()
                 if val and val not in ("(Sin opciones disponibles)", "Seleccionar vocería..."):
                     usadas.add(val)
-        return [v for v in self.vocerias_disponibles if v not in usadas]
+        return usadas
 
     def _actualizar_dropdowns_voceria(self):
-        """Actualiza los dropdowns de vocería en todos los items."""
-        disponibles = self._obtener_vocerias_disponibles()
+        """Actualiza los dropdowns de vocería en todos los items sin inhabilitarlos."""
         for item in self.items_voceria:
             if not item["frame"].winfo_exists():
                 continue
             widget = item["widgets"]["voceria"]
             val_actual = widget.get()
-            # Reconfigurar valores con placeholder
-            valores = ["Seleccionar vocería..."] + (disponibles if disponibles else [])
-            widget.configure(values=valores)
-            if val_actual == "Seleccionar vocería..." or val_actual == "(Sin opciones disponibles)":
+            otras_usadas = self._obtener_vocerias_usadas_por_otros(item)
+            disponibles_para_este_item = [v for v in self.vocerias_disponibles if v not in otras_usadas]
+            
+            valores = ["Seleccionar vocería..."] + disponibles_para_este_item
+            widget.configure(values=valores, state="normal")
+            if val_actual in valores:
+                widget.set(val_actual)
+            else:
                 widget.set("Seleccionar vocería...")
-            elif val_actual in disponibles:
-                widget.set(val_actual)
-            else:
-                # val_actual no está en disponibles (ya usado por OTRO item o por este mismo)
-                # Si es una selección válida, la mantenemos
-                widget.set(val_actual)
-            if disponibles:
-                widget.configure(state="normal")
-            else:
-                widget.configure(state="disabled")
 
     def _actualizar_estado_botones(self):
         """Habilita/deshabilita botones según cantidad de items y validación de campos."""
-        count = len([i for i in self.items_voceria if i["frame"].winfo_exists()])
+        items_activos = [i for i in self.items_voceria if i["frame"].winfo_exists()]
+        count = len(items_activos)
         
-        # Verificar si todos los items tienen todos los campos obligatorios llenos
-        todos_llenos = self._verificar_todos_campos_llenos()
+        # Verificar si todos los campos (generales e items) están completos
+        generales_llenos = self._verificar_generales_llenos()
+        todos_items_llenos = items_activos and all(self._verificar_item_completo(i) for i in items_activos)
         
-        # Actualizar borde de cada item según su estado
+        # Actualizar borde de cada item
         self._actualizar_bordes_items()
         
-        # Botón eliminar siempre habilitado
-        for item in self.items_voceria:
-            if item["frame"].winfo_exists():
-                item["btn_eliminar"].configure(state="normal")
+        # Botón eliminar
+        for item in items_activos:
+            item["btn_eliminar"].configure(state="normal")
         
-        # Botón agregar al final - verificar que el widget aún existe
+        # Botón agregar al final
         if hasattr(self, 'btn_agregar_item') and self.btn_agregar_item.winfo_exists():
             self.btn_agregar_item.configure(state="normal" if count < 10 else "disabled")
         
-        # Botón guardar: habilitado solo si >=1 items Y todos los campos llenos
+        # Botón guardar siempre activo para que al hacer clic informe al usuario si algo falta
         if hasattr(self, 'btn_guardar') and self.btn_guardar.winfo_exists():
-            if count >= 1 and todos_llenos:
-                self.btn_guardar.configure(state="normal")
-                self.lbl_nota_min.configure(text="✓ Vocerías completas", text_color=self.t["success"])
-            elif count >= 1:
-                self.btn_guardar.configure(state="disabled")
-                self.lbl_nota_min.configure(text="⚠ Complete todos los campos obligatorios", text_color=self.t["amber"])
+            self.btn_guardar.configure(state="normal")
+            if count >= 1 and generales_llenos and todos_items_llenos:
+                self.lbl_nota_min.configure(text="✓ Todos los campos obligatorios están completos", text_color=self.t["success"])
+            elif count >= 1 and not generales_llenos:
+                self.lbl_nota_min.configure(text="⚠ Complete los datos generales obligatorios (*)", text_color=self.t["amber"])
+            elif count >= 1 and not todos_items_llenos:
+                self.lbl_nota_min.configure(text="⚠ Complete todos los campos de cada vocería (*)", text_color=self.t["amber"])
             else:
-                self.btn_guardar.configure(state="disabled")
-                self.lbl_nota_min.configure(text=f"⚠ Debe agregar al menos 1 vocero (actual: {count}/1)", text_color=self.t["text_muted"])
-    
+                self.lbl_nota_min.configure(text="⚠ Debe agregar al menos 1 vocería", text_color=self.t["text_muted"])
+
+    def _verificar_generales_llenos(self):
+        """Verifica que todos los campos generales obligatorios estén completos y válidos."""
+        estado = self.ent_estado.get().strip() if hasattr(self, "ent_estado") else ""
+        municipio = self.ent_municipio.get().strip() if hasattr(self, "ent_municipio") else ""
+        parroquia = self.ent_parroquia.get().strip() if hasattr(self, "ent_parroquia") else ""
+        asic = self.ent_asic.get().strip() if hasattr(self, "ent_asic") else ""
+        fecha = self.ent_fecha.get().strip() if hasattr(self, "ent_fecha") else ""
+
+        if not estado or estado in ("Seleccionar...", ""):
+            return False
+        if not municipio or municipio in ("Seleccionar...", ""):
+            return False
+        if not parroquia or parroquia == "Parroquia":
+            return False
+        if not asic or asic not in self.asic_map:
+            return False
+        if not fecha or fecha in ("", "AAAA-MM-DD"):
+            return False
+        return True
+
     def _verificar_item_completo(self, item):
-        """Verifica si un item individual tiene todos sus campos obligatorios llenos."""
+        """Verifica si un item individual tiene absolutamente todos sus campos obligatorios llenos."""
         if not item["frame"].winfo_exists():
             return False
-        widgets = item["widgets"]
-        for key, widget in widgets.items():
-            # Todos los campos son obligatorios
-            val = ""
-            if hasattr(widget, "get"):
-                val = widget.get().strip()
-            if not val or val in ("(Sin opciones disponibles)", "Seleccionar vocería..."):
+        w = item["widgets"]
+        campos_obligatorios = [
+            "comite", "centro", "nom_centro", "nombres", "ci",
+            "tel", "fnac", "edad", "voceria", "sexo", "prof", "correo", "felecc"
+        ]
+        for key in campos_obligatorios:
+            widget = w.get(key)
+            if not widget:
+                return False
+            val = widget.get().strip() if hasattr(widget, "get") else ""
+            if not val or val in ("(Sin opciones disponibles)", "Seleccionar vocería...", "AAAA-MM-DD", "Edad"):
+                return False
+            if key == "correo" and "@" not in val:
                 return False
         return True
     
@@ -847,22 +1048,19 @@ class VoceriaView:
             if not item["frame"].winfo_exists():
                 continue
             completo = self._verificar_item_completo(item)
-            color = "#317E87" if completo else "#c45050"  # Verde si completo, rojo si incompleto
+            color = "#317E87" if completo else self.t["border"]
             item["frame"].configure(border_color=color)
     
     def _verificar_todos_campos_llenos(self):
-        """Verifica que todos los items tengan todos los campos obligatorios llenos."""
-        for item in self.items_voceria:
-            if not item["frame"].winfo_exists():
-                continue
-            widgets = item["widgets"]
-            # Verificar cada campo obligatorio
-            for key, widget in widgets.items():
-                val = ""
-                if hasattr(widget, "get"):
-                    val = widget.get().strip()
-                if not val or val in ("(Sin opciones disponibles)", "Seleccionar vocería..."):
-                    return False
+        """Verifica que tanto los datos generales como todos los items tengan todos los campos obligatorios llenos."""
+        if not self._verificar_generales_llenos():
+            return False
+        items_activos = [i for i in self.items_voceria if i["frame"].winfo_exists()]
+        if not items_activos:
+            return False
+        for item in items_activos:
+            if not self._verificar_item_completo(item):
+                return False
         return True
 
     def _renumerar_items(self):
@@ -871,8 +1069,8 @@ class VoceriaView:
             if item["frame"].winfo_exists():
                 item["index"] = idx + 1
                 item["lbl_titulo"].configure(text=f"Vocería #{idx + 1}")
-                # Botón eliminar siempre habilitado
                 item["btn_eliminar"].configure(state="normal")
+                self._actualizar_header_item(item)
 
     def _verificar_auto_expandir(self):
         """Si el último item expandido se llena, sugiere el siguiente."""
@@ -1024,8 +1222,6 @@ class VoceriaView:
             ("Estado:", voc.get("estado", "")),
             ("Municipio:", voc.get("municipio", "")),
             ("Parroquia:", voc.get("parroquia", "")),
-            ("Tema:", voc.get("tema", "")),
-            ("Descripción:", voc.get("descripcion", "")),
         ]
 
         for i, (label, value) in enumerate(info_general):

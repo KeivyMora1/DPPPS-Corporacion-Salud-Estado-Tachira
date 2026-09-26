@@ -205,22 +205,38 @@ def date_picker(parent, placeholder="AAAA-MM-DD", font=None, **kwargs):
         return e
 
 
-def entry_numeric(parent, placeholder="", max_digits=3, **kwargs):
-    """Entry que solo acepta números, con validación de longitud máxima."""
-    e = ctk.CTkEntry(parent, font=("Arial", 11), corner_radius=6, **kwargs)
+def entry_numeric(parent, label_text="", placeholder="", max_digits=3, on_change=None, fg_color=None, text_color=None, border_color=None, **kwargs):
+    """Entry numérico con label opcional, estilo consistente con CTkEntry."""
+    if label_text:
+        lbl = ctk.CTkLabel(parent, text=label_text, font=("Segoe UI", 10, "bold"))
+        lbl.pack(anchor="w")
+    
+    e = ctk.CTkEntry(
+        parent,
+        font=("Arial", 11),
+        corner_radius=6,
+        fg_color=fg_color,
+        text_color=text_color,
+        border_color=border_color,
+        **kwargs
+    )
+    e.pack(fill="x", pady=(2, 0))
+    
     if placeholder:
         e.insert(0, placeholder)
         e.configure(text_color="gray50")
     
-    def _validar(e):
-        texto = e.get()
+    def _validar(entry):
+        texto = entry.get()
         # Solo permitir dígitos
         if texto and not texto.isdigit():
-            e.delete(0, tk.END)
-            e.insert(0, ''.join(filter(str.isdigit, texto)))
+            entry.delete(0, tk.END)
+            entry.insert(0, ''.join(filter(str.isdigit, texto)))
         # Limitar longitud
-        if len(e.get()) > max_digits:
-            e.delete(max_digits, tk.END)
+        if len(entry.get()) > max_digits:
+            entry.delete(max_digits, tk.END)
+        if on_change:
+            on_change()
     
     e.bind("<KeyRelease>", lambda ev: _validar(e))
     return e

@@ -91,7 +91,6 @@ def test_generar_word_crea_archivo_docx_con_contenido(tmp_path):
                 "tipo_nombre": "Salud toca tu puerta",
                 "fecha_inicio": "2026-09-05",
                 "fecha_fin": "2026-09-05",
-                "lugar": "San Cristóbal",
                 "participantes": 8,
                 "descripcion": "Visita domiciliaria y charlas educativas.",
             }

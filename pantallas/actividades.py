@@ -9,7 +9,7 @@ import customtkinter as ctk
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from datetime import datetime, date
-from db import ActividadController, ALLOWED_EXTENSIONS, MAX_FILE_SIZE_MB, ExcelService, TEMPLATE_PATH, ASIC_PREDETERMINADOS
+from db import ActividadController, ALLOWED_EXTENSIONS, MAX_FILE_SIZE_MB, ExcelService, TEMPLATE_PATH, ASIC_PREDETERMINADOS, MUNICIPIOS_TACHIRA
 from themes import THEME
 import os
 import threading
@@ -24,7 +24,7 @@ from ui_helpers import (
     frame, frame_transparent, label, label_title, label_subtitle,
     btn_primary, btn_secondary, btn_danger, btn_success,
     separator, treeview_style, scrollable_frame, entry_with_placeholder,
-    spinbox_numeric, combobox
+    spinbox_numeric, combobox, entry_numeric
 )
 
 
@@ -76,11 +76,33 @@ class ActividadView:
         marco_filtros.pack(fill="x", padx=30, pady=(0, 10))
 
         ctk.CTkLabel(marco_filtros, text="ASIC:", font=("Arial", 9, "bold"), text_color=t["text_muted"]).grid(row=0, column=0, padx=5, pady=5, sticky="w")
-        self.combo_filtro_asic = ttk.Combobox(marco_filtros, state="readonly", width=22, font=("Arial", 10))
+        self.combo_filtro_asic = ctk.CTkOptionMenu(
+            marco_filtros,
+            values=["Todos"],
+            fg_color=t["bg_base"],
+            button_color=t["bg_card"],
+            button_hover_color=t["bg_hover"],
+            text_color=t["text_primary"],
+            dropdown_fg_color=t["bg_base"],
+            dropdown_text_color=t["text_primary"],
+            font=("Arial", 10),
+            width=180
+        )
         self.combo_filtro_asic.grid(row=0, column=1, padx=5, pady=5)
 
         ctk.CTkLabel(marco_filtros, text="Tipo:", font=("Arial", 9, "bold"), text_color=t["text_muted"]).grid(row=0, column=2, padx=5, pady=5, sticky="w")
-        self.combo_filtro_tipo = ttk.Combobox(marco_filtros, state="readonly", width=22, font=("Arial", 10))
+        self.combo_filtro_tipo = ctk.CTkOptionMenu(
+            marco_filtros,
+            values=["Todos"],
+            fg_color=t["bg_base"],
+            button_color=t["bg_card"],
+            button_hover_color=t["bg_hover"],
+            text_color=t["text_primary"],
+            dropdown_fg_color=t["bg_base"],
+            dropdown_text_color=t["text_primary"],
+            font=("Arial", 10),
+            width=180
+        )
         self.combo_filtro_tipo.grid(row=0, column=3, padx=5, pady=5)
 
         ctk.CTkLabel(marco_filtros, text="Desde:", font=("Arial", 9, "bold"), text_color=t["text_muted"]).grid(row=0, column=4, padx=5, pady=5, sticky="w")
@@ -93,10 +115,10 @@ class ActividadView:
 
         nombres_asic = ["Todos"] + sorted(list(self.asic_map.keys()))
         nombres_tipo = ["Todos"] + sorted(list(self.tipo_map.keys()))
-        self.combo_filtro_asic["values"] = nombres_asic
-        self.combo_filtro_asic.current(0)
-        self.combo_filtro_tipo["values"] = nombres_tipo
-        self.combo_filtro_tipo.current(0)
+        self.combo_filtro_asic.configure(values=nombres_asic)
+        self.combo_filtro_asic.set("Todos")
+        self.combo_filtro_tipo.configure(values=nombres_tipo)
+        self.combo_filtro_tipo.set("Todos")
 
         ctk.CTkButton(marco_filtros, text="Buscar", font=("Arial", 9, "bold"),
                       fg_color=t["accent"], hover_color=t["accent_dim"],
@@ -172,7 +194,7 @@ class ActividadView:
         columnas = (
             "asic", "tipo", "fecha", "estado",
             "municipio", "parroquia", "establecimiento_salud",
-            "nombre_establecimiento", "comites_salud", "lugar",
+            "nombre_establecimiento", "comites_salud",
             "participantes"
         )
         self.tabla = ttk.Treeview(marco_tabla, columns=columnas, show="headings", height=12, style="Act.Treeview")
@@ -186,7 +208,6 @@ class ActividadView:
         self.tabla.heading("establecimiento_salud",    text="Establecimiento")
         self.tabla.heading("nombre_establecimiento",   text="Nombre Establecimiento")
         self.tabla.heading("comites_salud",            text="Comités")
-        self.tabla.heading("lugar",                    text="Lugar")
         self.tabla.heading("participantes",            text="Participantes")
 
         self.tabla.column("asic",                  width=150,  anchor="w")
@@ -198,7 +219,6 @@ class ActividadView:
         self.tabla.column("establecimiento_salud", width=120,  anchor="w")
         self.tabla.column("nombre_establecimiento", width=170, anchor="w")
         self.tabla.column("comites_salud",         width=120,  anchor="w")
-        self.tabla.column("lugar",                 width=140,  anchor="w")
         self.tabla.column("participantes",         width=90,   anchor="center")
 
         scroll_y = ttk.Scrollbar(marco_tabla, orient="vertical", command=self.tabla.yview)
@@ -242,8 +262,8 @@ class ActividadView:
         self._cargar_datos_tabla(filtros)
 
     def _limpiar_filtros(self):
-        self.combo_filtro_asic.current(0)
-        self.combo_filtro_tipo.current(0)
+        self.combo_filtro_asic.set("Todos")
+        self.combo_filtro_tipo.set("Todos")
         self.ent_filtro_desde.delete(0, tk.END)
         self._poner_placeholder_fecha(self.ent_filtro_desde)
         self.ent_filtro_hasta.delete(0, tk.END)
@@ -264,7 +284,7 @@ class ActividadView:
                 if isinstance(f_fin, (date, datetime)):
                     f_fin = f_fin.strftime("%d/%m/%Y")
 
-                self.tabla.insert("", "end", values=(
+                self.tabla.insert("", "end", iid=str(act["id_actividad"]), values=(
                     act["asic_nombre"],
                     act["tipo_nombre"],
                     f_ini,
@@ -274,7 +294,6 @@ class ActividadView:
                     act.get("establecimiento_salud") or "",
                     act.get("nombre_establecimiento") or "",
                     act.get("comites_salud") or "",
-                    act["lugar"] or "",
                     act.get("participantes") or 0,
                 ))
         except Exception as e:
@@ -376,7 +395,7 @@ class ActividadView:
         col_municipio = ctk.CTkFrame(fila_ubi1, fg_color="transparent")
         col_municipio.pack(side="left", fill="x", expand=True, padx=5)
         ctk.CTkLabel(col_municipio, text="Municipio", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        municipios = [nombre for _, nombre in ASIC_PREDETERMINADOS]
+        municipios = MUNICIPIOS_TACHIRA
         ent_municipio = ctk.CTkOptionMenu(col_municipio, values=municipios, fg_color=t["bg_base"], button_color=t["bg_card"], button_hover_color=t["bg_hover"], text_color=t["text_primary"], dropdown_fg_color=t["bg_base"], dropdown_text_color=t["text_primary"])
         if municipios:
             try:
@@ -489,25 +508,25 @@ class ActividadView:
         fila_p1 = ctk.CTkFrame(inner_part, fg_color="transparent")
         fila_p1.pack(fill="x", pady=2)
 
-        self.ent_medicos = spinbox_numeric(fila_p1, "Médicos", 0, self._actualizar_total_participantes)
-        self.ent_promotores = spinbox_numeric(fila_p1, "Promotores en Salud", 0, self._actualizar_total_participantes)
-        self.ent_voceros_comite = spinbox_numeric(fila_p1, "Voceros Comité Salud", 0, self._actualizar_total_participantes)
+        self.ent_medicos = entry_numeric(fila_p1, "Médicos", on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
+        self.ent_promotores = entry_numeric(fila_p1, "Promotores en Salud", on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
+        self.ent_voceros_comite = entry_numeric(fila_p1, "Voceros Comité Salud", on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
 
         # Fila 2: Vocero Consejo, Coordinador Docencia, Autoridades
         fila_p2 = ctk.CTkFrame(inner_part, fg_color="transparent")
         fila_p2.pack(fill="x", pady=2)
 
-        self.ent_vocero_consejo = spinbox_numeric(fila_p2, "Vocero Consejo Dir. ASIC", 0, self._actualizar_total_participantes)
-        self.ent_coordinador = spinbox_numeric(fila_p2, "Coordinador Docencia ASIC", 0, self._actualizar_total_participantes)
-        self.ent_autoridades = spinbox_numeric(fila_p2, "Autoridades Presentes", 0, self._actualizar_total_participantes)
+        self.ent_vocero_consejo = entry_numeric(fila_p2, "Vocero Consejo Dir. ASIC", on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
+        self.ent_coordinador = entry_numeric(fila_p2, "Coordinador Docencia ASIC", on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
+        self.ent_autoridades = entry_numeric(fila_p2, "Autoridades Presentes", on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
 
         # Fila 3: Otros Actores, Personas Comunidad, Estudiantes Aspirantes
         fila_p3 = ctk.CTkFrame(inner_part, fg_color="transparent")
         fila_p3.pack(fill="x", pady=2)
 
-        self.ent_otros_actores = spinbox_numeric(fila_p3, "Otros Actores", 0, self._actualizar_total_participantes)
-        self.ent_personas_comunidad = spinbox_numeric(fila_p3, "Personas Comunidad", 0, self._actualizar_total_participantes)
-        self.ent_estudiantes = spinbox_numeric(fila_p3, "Estudiantes Aspirantes", 0, self._actualizar_total_participantes)
+        self.ent_otros_actores = entry_numeric(fila_p3, "Otros Actores", on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
+        self.ent_personas_comunidad = entry_numeric(fila_p3, "Personas Comunidad", on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
+        self.ent_estudiantes = entry_numeric(fila_p3, "Estudiantes Aspirantes", on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
 
         # Total Participantes (mostrar contador calculado)
         # Registrar nombres de campos de participantes para sumar automáticamente
@@ -531,19 +550,27 @@ class ActividadView:
         id_actividad_edicion = datos_edicion["id_actividad"] if datos_edicion else None
 
         if datos_edicion:
-            if datos_edicion["asic_nombre"] in nombres_asics:
+            if datos_edicion.get("asic_nombre") in nombres_asics:
                 combo_asic.set(datos_edicion["asic_nombre"])
-            if datos_edicion["tipo_nombre"] in nombres_tipos:
+            if datos_edicion.get("tipo_nombre") in nombres_tipos:
                 try:
                     combo_tipo.set(datos_edicion["tipo_nombre"])
                 except Exception:
                     pass
-            ent_fecha_inicio.delete(0, tk.END)
-            ent_fecha_inicio.insert(0, datos_edicion["fecha_inicio"])
 
-            # Cargar campos de ubicación (limpiando placeholders previos)
-            ent_estado.delete(0, tk.END)
-            ent_estado.insert(0, datos_edicion.get("estado", "") or "")
+            f_ini_val = datos_edicion.get("fecha_inicio")
+            if isinstance(f_ini_val, (date, datetime)):
+                f_ini_val = f_ini_val.strftime("%Y-%m-%d")
+            ent_fecha_inicio.delete(0, tk.END)
+            ent_fecha_inicio.insert(0, str(f_ini_val or ""))
+
+            # Cargar campos de ubicación
+            estado_valor = datos_edicion.get("estado", "") or "Táchira"
+            try:
+                ent_estado.set(estado_valor)
+            except Exception:
+                pass
+
             municipio_valor = datos_edicion.get("municipio", "") or ""
             if municipio_valor in municipios:
                 ent_municipio.set(municipio_valor)
@@ -552,8 +579,14 @@ class ActividadView:
                     ent_municipio.set(municipio_valor)
                 except Exception:
                     pass
+
             ent_parroquia.delete(0, tk.END)
-            ent_parroquia.insert(0, datos_edicion.get("parroquia", "") or "")
+            if datos_edicion.get("parroquia"):
+                ent_parroquia.insert(0, str(datos_edicion["parroquia"]))
+                ent_parroquia.configure(text_color=t["text_primary"])
+            else:
+                self._poner_placeholder_entry(ent_parroquia, "Parroquia")
+
             estab_valor = datos_edicion.get("establecimiento_salud", "") or ""
             if estab_valor in establecimientos:
                 ent_establecimiento.set(estab_valor)
@@ -562,10 +595,20 @@ class ActividadView:
                     ent_establecimiento.set(estab_valor)
                 except Exception:
                     pass
+
             ent_nombre_establecimiento.delete(0, tk.END)
-            ent_nombre_establecimiento.insert(0, datos_edicion.get("nombre_establecimiento", "") or "")
+            if datos_edicion.get("nombre_establecimiento"):
+                ent_nombre_establecimiento.insert(0, str(datos_edicion["nombre_establecimiento"]))
+                ent_nombre_establecimiento.configure(text_color=t["text_primary"])
+            else:
+                self._poner_placeholder_entry(ent_nombre_establecimiento, "Nombre del establecimiento")
+
             ent_comites.delete(0, tk.END)
-            ent_comites.insert(0, datos_edicion.get("comites_salud", "") or "")
+            if datos_edicion.get("comites_salud"):
+                ent_comites.insert(0, str(datos_edicion["comites_salud"]))
+                ent_comites.configure(text_color=t["text_primary"])
+            else:
+                self._poner_placeholder_entry(ent_comites, "Comités (ej: Comité A, Comité B)")
 
             # Cargar participantes por categoría (reemplazando valores por defecto)
             self.ent_medicos.delete(0, tk.END)
@@ -587,18 +630,30 @@ class ActividadView:
             self.ent_estudiantes.delete(0, tk.END)
             self.ent_estudiantes.insert(0, str(datos_edicion.get("estudiantes_aspirantes", 0) or 0))
 
-            # Mostrar total en el label (no es un input editable)
             # Recalcular total a partir de los campos por categoría
             try:
                 self._actualizar_total_participantes()
             except Exception:
                 pass
+
             # Reemplazar contenido del textarea (limpiando placeholder si existe)
             try:
                 txt_desc.delete("1.0", "end")
             except Exception:
                 pass
-            txt_desc.insert("1.0", datos_edicion.get("descripcion", "") or "")
+            desc_val = datos_edicion.get("descripcion", "") or ""
+            if desc_val:
+                txt_desc.insert("1.0", desc_val)
+                try:
+                    txt_desc.configure(fg=t["text_primary"])
+                except Exception:
+                    pass
+            else:
+                txt_desc.insert("1.0", placeholder_desc)
+                try:
+                    txt_desc.configure(fg=t["text_dim"])
+                except Exception:
+                    pass
 
         def guardar():
             id_asic = self.asic_map.get(combo_asic.get())
@@ -629,7 +684,7 @@ class ActividadView:
                 estudiantes_aspirantes=self.ent_estudiantes.get(),
                 participantes=str(self._actualizar_total_participantes()),
                 id_actividad=id_actividad_edicion,
-                evidencias_temporales=evidencias_locales_nuevas if id_actividad_edicion is None else None
+                evidencias_temporales=None
             )
             if ok:
                 messagebox.showinfo("Exito", msg, parent=ventana)
@@ -699,40 +754,40 @@ class ActividadView:
     def _editar_seleccionada(self):
         seleccion = self.tabla.selection()
         if not seleccion:
-            messagebox.showwarning("Atencion", "Selecciona una actividad de la tabla para editar.")
+            messagebox.showwarning("Atención", "Selecciona una actividad de la tabla para editar.")
             return
-        valores = self.tabla.item(seleccion[0])["values"]
-        id_actividad = valores[0]
         try:
+            id_actividad = int(seleccion[0])
             act = self.controller.actividad_dao.obtener_por_id(id_actividad)
             if not act:
-                messagebox.showerror("Error", "No se pudo recuperar la informacion de la actividad.")
+                messagebox.showerror("Error", "No se pudo recuperar la información de la actividad.")
                 return
             self._abrir_formulario(act)
         except Exception as e:
-            messagebox.showerror("Error", f"Ocurrio un error al obtener la actividad: {str(e)}")
+            messagebox.showerror("Error", f"Ocurrió un error al obtener la actividad: {str(e)}")
 
     def _eliminar_seleccionada(self):
         seleccion = self.tabla.selection()
         if not seleccion:
-            messagebox.showwarning("Atencion", "Selecciona una actividad de la tabla para eliminar.")
+            messagebox.showwarning("Atención", "Selecciona una actividad de la tabla para eliminar.")
             return
-        valores     = self.tabla.item(seleccion[0])["values"]
-        id_actividad = valores[0]
-        tipo_act     = valores[2]
-        fecha_act    = valores[3]
+        try:
+            id_actividad = int(seleccion[0])
+            valores = self.tabla.item(seleccion[0])["values"]
+            asic_act  = valores[0] if len(valores) > 0 else ""
+            tipo_act  = valores[1] if len(valores) > 1 else ""
+            fecha_act = valores[2] if len(valores) > 2 else ""
 
-        if messagebox.askyesno("Confirmar eliminacion",
-                               f"¿Deseas eliminar la actividad '{tipo_act}' del dia {fecha_act}?\nEsta accion no se puede deshacer de forma directa."):
-            try:
+            if messagebox.askyesno("Confirmar eliminación",
+                                   f"¿Deseas eliminar la actividad '{tipo_act}' del día {fecha_act} ({asic_act})?\nEsta acción no se puede deshacer."):
                 ok, msg = self.controller.eliminar_actividad(id_actividad)
                 if ok:
-                    messagebox.showinfo("Exito", msg)
+                    messagebox.showinfo("Éxito", msg)
                     self._cargar_datos_tabla()
                 else:
                     messagebox.showerror("Error", msg)
-            except Exception as e:
-                messagebox.showerror("Error", f"No se pudo eliminar la actividad: {str(e)}")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo eliminar la actividad: {str(e)}")
 
     def _on_seleccion_cambio(self, event=None):
         seleccion = self.tabla.selection()
@@ -973,7 +1028,7 @@ class ActividadView:
                          text_color=color_titulo).pack(anchor="w", pady=(0, 4))
 
             if modo == "validas":
-                columnas = ("fila", "asic", "tipo", "fecha_inicio", "fecha_fin", "lugar", "participantes")
+                columnas = ("fila", "asic", "tipo", "fecha_inicio", "fecha_fin", "participantes")
             else:
                 columnas = ("fila", "asic", "tipo", "fecha_inicio", "errores")
 
@@ -996,10 +1051,10 @@ class ActividadView:
                                 style="ImportModal.Treeview", height=min(len(filas), 8))
 
             col_ancho = {"fila": 40, "asic": 150, "tipo": 130, "fecha_inicio": 90,
-                         "fecha_fin": 90, "lugar": 150, "participantes": 80, "errores": 320}
+                         "fecha_fin": 90, "participantes": 80, "errores": 320}
             col_labels = {"fila": "#", "asic": "ASIC", "tipo": "Tipo Actividad",
                           "fecha_inicio": "Fecha Inicio", "fecha_fin": "Fecha Fin",
-                          "lugar": "Lugar", "participantes": "Partic.", "errores": "Errores detectados"}
+                          "participantes": "Partic.", "errores": "Errores detectados"}
 
             for col in columnas:
                 tree.heading(col, text=col_labels[col])
@@ -1014,7 +1069,6 @@ class ActividadView:
                         dc.get("tipo_actividad", ""),
                         str(fila["fecha_inicio"]) if fila["fecha_inicio"] else dc.get("fecha_inicio", ""),
                         str(fila["fecha_fin"]) if fila["fecha_fin"] else dc.get("fecha_fin", ""),
-                        fila["lugar"],
                         fila["participantes"],
                     )
                 else:

@@ -77,111 +77,178 @@ ASIC_PREDETERMINADOS = [
 ]
 
 VOCERIA_ESTADO_OPCIONES = ["Táchira"]
-VOCERIA_MUNICIPIO_OPCIONES = [nombre for _, nombre in ASIC_PREDETERMINADOS]
-VOCERIA_ASIC_OPCIONES = VOCERIA_MUNICIPIO_OPCIONES
+
+MUNICIPIOS_TACHIRA = [
+    "Andrés Bello",
+    "Antonio Rómulo Costa",
+    "Ayacucho",
+    "Bolívar",
+    "Cárdenas",
+    "Córdoba",
+    "Fernández Feo",
+    "Francisco de Miranda",
+    "García de Hevia",
+    "Guásimos",
+    "Independencia",
+    "Jáuregui",
+    "José María Vargas",
+    "Junín",
+    "Libertad",
+    "Libertador",
+    "Lobatera",
+    "Michelena",
+    "Panamericano",
+    "Pedro María Ureña",
+    "Rafael Urdaneta",
+    "Samuel Darío Maldonado",
+    "San Cristóbal",
+    "San Judas Tadeo",
+    "Seboruco",
+    "Simón Rodríguez",
+    "Sucre",
+    "Torbes",
+    "Uribante",
+]
+
+VOCERIA_MUNICIPIO_OPCIONES = MUNICIPIOS_TACHIRA
+VOCERIA_ASIC_OPCIONES = [nombre for _, nombre in ASIC_PREDETERMINADOS]
 
 
 def build_voceria_template(output_path=None):
-    """Genera la plantilla Excel para vocerías CS con listas desplegables para Estado, Municipio y ASIC."""
+    """Genera la plantilla Excel para vocerías CS con listas desplegables para Estado, Municipio y ASIC.
+
+    El formato replica exactamente el archivo de referencia 'FORMATO DE DATA COMITES 2026 N.xlsx':
+    - Fila 1: título fusionado A1:R1 con fondo rojo C00000 y texto blanco, altura 36.75
+    - Fila 2: encabezados con fondo rojo C00000, texto blanco, bordes thin, wrap habilitado, altura 69.75
+    - Filas 3+: datos con numeración correlativa en columna A, altura 25.5
+    - Listas desplegables en columnas B (Estado), C (Municipio) y E (ASIC)
+    """
     if output_path is None:
         output_path = VOCERIA_TEMPLATE_PATH
 
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
 
     from openpyxl import Workbook
-    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.styles import Alignment, Font, PatternFill, Border, Side
     from openpyxl.worksheet.datavalidation import DataValidation
 
     wb = Workbook()
     ws = wb.active
-    ws.title = "COMITES"
+    ws.title = "hoja1"
 
-    title_fill = PatternFill("solid", fgColor="D9EAF7")
-    title_font = Font(bold=True, color="1F1F1F", size=12)
-    header_fill = PatternFill("solid", fgColor="EAF2F8")
-    header_font = Font(bold=True, color="1F1F1F")
+    # ── Colores y estilos del archivo de referencia ──────────────────────────
+    RED_FILL    = "C00000"   # Rojo oscuro idéntico al original (FFC00000)
+    WHITE_FONT  = "FFFFFFFF" # Blanco puro
+    thin_side   = Side(border_style="thin", color="000000")
+    thin_border = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
 
-    ws.merge_cells("A1:K1")
-    ws["A1"] = "FORMATO DE DATOS DE VOCERÍAS CS"
-    ws["A1"].fill = title_fill
-    ws["A1"].font = title_font
-    ws["A1"].alignment = Alignment(horizontal="center")
+    title_fill  = PatternFill("solid", fgColor=RED_FILL)
+    title_font  = Font(bold=True, color=WHITE_FONT, size=12, name="Calibri")
+    title_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
+    header_fill  = PatternFill("solid", fgColor=RED_FILL)
+    header_font  = Font(bold=True, color=WHITE_FONT, size=12, name="Calibri")
+    header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    # ── Fila 1: Título fusionado A1:R1 ───────────────────────────────────────
+    ws.merge_cells("A1:R1")
+    ws["A1"] = "DATAS DE LOS VOCEROS Y VOCERAS DE LOS COMITES DE SALUD  2026"
+    ws["A1"].fill      = title_fill
+    ws["A1"].font      = title_font
+    ws["A1"].alignment = title_align
+    ws.row_dimensions[1].height = 36.75
+
+    # ── Fila 2: Encabezados de columnas (idénticos al original) ──────────────
     headers = [
-        "FECHA",
+        "Nro",
         "ESTADO",
         "MUNICIPIO",
         "PARROQUIA",
         "ASIC",
-        "TEMA TRATADO",
-        "DESCRIPCIÓN",
-        "COMITÉ",
-        "CENTRO DISPENSADOR",
-        "NOMBRE CENTRO",
-        "NOMBRES Y APELLIDOS",
-        "C.I.",
+        "NOMBRE DEL COMITÉ",
+        "INDIQUE QUE CENTRO DISPENSADOR DE SALUD ES  ( SRI, HOSPITAL, CAT, CDI, CLINICA POPULAR, CONSULTORIO MEDICO POPULAR, AMBULATORIO U OTRO )",
+        "NOMBRE DEL CENTRO DISPENSADOR DE SALUD",
+        "NOMBRES Y APELLIDO  ",
+        "C.I:",
         "TELÉFONO",
-        "FECHA NACIMIENTO",
+        "VOCERIA",
+        "FECHA DE NACIMIENTO",
         "EDAD",
         "SEXO",
-        "PROFESIÓN",
+        "PROFESION/OFICIO",
         "CORREO",
-        "FECHA ELECCIÓN",
-        "VOCERÍA",
+        "FECHAS DE ELECCION",
     ]
 
-    ws.append(headers)
-    for cell in ws[3]:
-        cell.fill = header_fill
-        cell.font = header_font
-        cell.alignment = Alignment(horizontal="center", vertical="center")
+    for col_idx, header in enumerate(headers, start=1):
+        cell = ws.cell(row=2, column=col_idx, value=header)
+        cell.fill      = header_fill
+        cell.font      = header_font
+        cell.alignment = header_align
+        cell.border    = thin_border
+    ws.row_dimensions[2].height = 69.75
 
-    for col in ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T"]:
-        ws.column_dimensions[col].width = 18
+    # ── Filas de datos vacías (3 en adelante) con altura y numeración ─────────
+    data_align = Alignment(horizontal="center", vertical="center")
+    data_font  = Font(size=11, name="Calibri")
+    for row_idx in range(3, 33):
+        ws.row_dimensions[row_idx].height = 25.5
+        # Columna A: número de fila correlativo (igual que el original)
+        cell_a = ws.cell(row=row_idx, column=1, value=row_idx - 2)
+        cell_a.alignment = data_align
+        cell_a.font      = data_font
+        # Celdas restantes con alineación centrada
+        for col_idx in range(2, len(headers) + 1):
+            cell = ws.cell(row=row_idx, column=col_idx)
+            cell.alignment = data_align
+            cell.font      = data_font
 
-    ws.column_dimensions["A"].width = 14
-    ws.column_dimensions["F"].width = 24
-    ws.column_dimensions["G"].width = 28
-    ws.column_dimensions["H"].width = 20
-    ws.column_dimensions["I"].width = 20
-    ws.column_dimensions["J"].width = 22
-    ws.column_dimensions["K"].width = 24
-    ws.column_dimensions["L"].width = 16
-    ws.column_dimensions["M"].width = 16
-    ws.column_dimensions["N"].width = 16
-    ws.column_dimensions["O"].width = 12
-    ws.column_dimensions["P"].width = 18
-    ws.column_dimensions["Q"].width = 22
-    ws.column_dimensions["R"].width = 18
-    ws.column_dimensions["S"].width = 18
-    ws.column_dimensions["T"].width = 18
+    # ── Anchos de columna exactos del archivo de referencia ───────────────────
+    col_widths = {
+        "A": 8.28515625,
+        "B": 14.5703125,
+        "C": 14.0,
+        "D": 16.85546875,
+        "E": 15.7109375,
+        "F": 26.85546875,
+        "G": 45.42578125,
+        "H": 25.7109375,
+        "I": 26.7109375,
+        "J": 17.0,
+        "K": 17.5703125,
+        "L": 18.140625,
+        "M": 20.7109375,
+        "N": 20.7109375,
+        "O": 8.0,
+        "P": 22.85546875,
+        "Q": 20.42578125,
+        "R": 23.7109375,
+    }
+    for col_letter, width in col_widths.items():
+        ws.column_dimensions[col_letter].width = width
 
-    ws.freeze_panes = "A4"
-
-    estado_options = ",".join(VOCERIA_ESTADO_OPCIONES)
+    # ── Listas desplegables en B (Estado), C (Municipio), E (ASIC) ───────────
+    estado_options    = ",".join(VOCERIA_ESTADO_OPCIONES)
     municipio_options = ",".join(VOCERIA_MUNICIPIO_OPCIONES)
-    asic_options = ",".join(VOCERIA_ASIC_OPCIONES)
+    asic_options      = ",".join(VOCERIA_ASIC_OPCIONES)
 
     dv_estado = DataValidation(type="list", formula1=f'"{estado_options}"', allow_blank=True)
     dv_estado.promptTitle = "Estado"
     dv_estado.prompt = "Seleccione una opción válida."
-    dv_estado.add("B4:B1000")
+    dv_estado.add("B3:B1000")
     ws.add_data_validation(dv_estado)
 
     dv_municipio = DataValidation(type="list", formula1=f'"{municipio_options}"', allow_blank=True)
     dv_municipio.promptTitle = "Municipio"
     dv_municipio.prompt = "Seleccione un municipio válido."
-    dv_municipio.add("C4:C1000")
+    dv_municipio.add("C3:C1000")
     ws.add_data_validation(dv_municipio)
 
     dv_asic = DataValidation(type="list", formula1=f'"{asic_options}"', allow_blank=True)
     dv_asic.promptTitle = "ASIC"
     dv_asic.prompt = "Seleccione un ASIC válido."
-    dv_asic.add("E4:E1000")
+    dv_asic.add("E3:E1000")
     ws.add_data_validation(dv_asic)
-
-    ws["A2"] = "FORMATO CON LISTAS DESPLEGABLES PARA ESTADO, MUNICIPIO Y ASIC"
-    ws["A2"].font = Font(italic=True, color="666666")
 
     wb.save(output_path)
     return output_path
@@ -426,7 +493,7 @@ class ActividadDAO:
             SELECT a.id_actividad, a.id_asic, a.id_tipo, a.id_usuario_registro,
                    a.fecha_inicio, a.fecha_fin,
                    a.estado, a.municipio, a.parroquia, a.establecimiento_salud,
-                   a.nombre_establecimiento, a.comites_salud, a.lugar,
+                   a.nombre_establecimiento, a.comites_salud,
                    a.descripcion,
                    a.medicos, a.promotores_salud, a.voceros_comite_salud,
                    a.vocero_consejo_direccion, a.coordinador_docencia,
@@ -484,7 +551,7 @@ class ActividadDAO:
         return actividad
     def crear(self, id_asic, id_tipo, id_usuario_registro, fecha_inicio, fecha_fin,
                estado, municipio, parroquia, establecimiento_salud, nombre_establecimiento,
-               comites_salud, lugar, descripcion,
+               comites_salud, descripcion,
                medicos, promotores_salud, voceros_comite_salud, vocero_consejo_direccion,
                coordinador_docencia, autoridades_presentes, otros_actores,
                personas_comunidad, estudiantes_aspirantes, participantes):
@@ -494,16 +561,16 @@ class ActividadDAO:
         sql = """
             INSERT INTO actividad (id_asic, id_tipo, id_usuario_registro, fecha_inicio, fecha_fin,
                                    estado, municipio, parroquia, establecimiento_salud,
-                                   nombre_establecimiento, comites_salud, lugar, descripcion,
+                                   nombre_establecimiento, comites_salud, descripcion,
                                    medicos, promotores_salud, voceros_comite_salud,
                                    vocero_consejo_direccion, coordinador_docencia,
                                    autoridades_presentes, otros_actores,
                                    personas_comunidad, estudiantes_aspirantes, participantes)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         cursor.execute(sql, (id_asic, id_tipo, id_usuario_registro, fecha_inicio, fecha_fin,
                              estado, municipio, parroquia, establecimiento_salud, nombre_establecimiento,
-                             comites_salud, lugar, descripcion,
+                             comites_salud, descripcion,
                              medicos, promotores_salud, voceros_comite_salud, vocero_consejo_direccion,
                              coordinador_docencia, autoridades_presentes, otros_actores,
                              personas_comunidad, estudiantes_aspirantes, participantes))
@@ -514,7 +581,7 @@ class ActividadDAO:
         return nuevo_id
     def actualizar(self, id_actividad, id_asic, id_tipo, fecha_inicio, fecha_fin,
                      estado, municipio, parroquia, establecimiento_salud,
-                     nombre_establecimiento, comites_salud, lugar, descripcion,
+                     nombre_establecimiento, comites_salud, descripcion,
                      medicos, promotores_salud, voceros_comite_salud,
                      vocero_consejo_direccion, coordinador_docencia,
                      autoridades_presentes, otros_actores,
@@ -526,7 +593,7 @@ class ActividadDAO:
             UPDATE actividad
             SET id_asic = %s, id_tipo = %s, fecha_inicio = %s, fecha_fin = %s,
                 estado = %s, municipio = %s, parroquia = %s, establecimiento_salud = %s,
-                nombre_establecimiento = %s, comites_salud = %s, lugar = %s, descripcion = %s,
+                nombre_establecimiento = %s, comites_salud = %s, descripcion = %s,
                 medicos = %s, promotores_salud = %s, voceros_comite_salud = %s,
                 vocero_consejo_direccion = %s, coordinador_docencia = %s,
                 autoridades_presentes = %s, otros_actores = %s,
@@ -535,7 +602,7 @@ class ActividadDAO:
         """
         cursor.execute(sql, (id_asic, id_tipo, fecha_inicio, fecha_fin,
                              estado, municipio, parroquia, establecimiento_salud,
-                             nombre_establecimiento, comites_salud, lugar, descripcion,
+                             nombre_establecimiento, comites_salud, descripcion,
                              medicos, promotores_salud, voceros_comite_salud,
                              vocero_consejo_direccion, coordinador_docencia,
                              autoridades_presentes, otros_actores,
@@ -708,7 +775,7 @@ class VoceriaDAO:
         cursor = conn.cursor(dictionary=True)
         sql = """
             SELECT v.id_voceria, v.id_asic, v.id_tipo, v.id_usuario_registro,
-                   v.fecha, v.estado, v.municipio, v.parroquia, v.tema, v.descripcion,
+                   v.fecha, v.estado, v.municipio, v.parroquia,
                    v.created_at,
                    a.nombre AS asic_nombre,
                    tv.nombre AS tipo_nombre,
@@ -744,7 +811,12 @@ class VoceriaDAO:
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
         sql = """
-            SELECT v.*, a.nombre AS asic_nombre, tv.nombre AS tipo_nombre, u.nombre_completo AS usuario_nombre
+            SELECT v.id_voceria, v.id_asic, v.id_tipo, v.id_usuario_registro,
+                   v.fecha, v.estado, v.municipio, v.parroquia,
+                   v.created_at,
+                   a.nombre AS asic_nombre,
+                   tv.nombre AS tipo_nombre,
+                   u.nombre_completo AS usuario_nombre
             FROM voceria v
             JOIN asic a ON v.id_asic = a.id_asic
             JOIN tipo_voceria tv ON v.id_tipo = tv.id_tipo
@@ -763,7 +835,12 @@ class VoceriaDAO:
         cursor = conn.cursor(dictionary=True)
         # Cabecera
         sql = """
-            SELECT v.*, a.nombre AS asic_nombre, tv.nombre AS tipo_nombre, u.nombre_completo AS usuario_nombre
+            SELECT v.id_voceria, v.id_asic, v.id_tipo, v.id_usuario_registro,
+                   v.fecha, v.estado, v.municipio, v.parroquia,
+                   v.created_at,
+                   a.nombre AS asic_nombre,
+                   tv.nombre AS tipo_nombre,
+                   u.nombre_completo AS usuario_nombre
             FROM voceria v
             JOIN asic a ON v.id_asic = a.id_asic
             JOIN tipo_voceria tv ON v.id_tipo = tv.id_tipo
@@ -792,7 +869,7 @@ class VoceriaDAO:
         return voc
 
     def crear(self, id_asic, id_tipo, id_usuario_registro, fecha, estado, municipio, parroquia,
-              tema, descripcion, items):
+              items):
         """
         Crea vocería cabecera + items en una transacción.
         items: lista de dicts con los campos de voceria_item
@@ -802,12 +879,10 @@ class VoceriaDAO:
         try:
             # 1. Crear cabecera
             sql = """
-                INSERT INTO voceria (id_asic, id_tipo, id_usuario_registro, fecha, estado, municipio, parroquia,
-                                     tema, descripcion)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO voceria (id_asic, id_tipo, id_usuario_registro, fecha, estado, municipio, parroquia)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
             """
-            cursor.execute(sql, (id_asic, id_tipo, id_usuario_registro, fecha, estado, municipio, parroquia,
-                                 tema, descripcion))
+            cursor.execute(sql, (id_asic, id_tipo, id_usuario_registro, fecha, estado, municipio, parroquia))
             id_voceria = cursor.lastrowid
 
             # 2. Crear items
@@ -846,19 +921,18 @@ class VoceriaDAO:
             conn.close()
 
     def actualizar(self, id_voceria, id_asic, id_tipo, fecha, estado, municipio, parroquia,
-                   tema, descripcion, items):
+                   items):
         conn = get_connection()
         cursor = conn.cursor()
         try:
             # 1. Actualizar cabecera
             sql = """
                 UPDATE voceria
-                SET id_asic = %s, id_tipo = %s, fecha = %s, estado = %s, municipio = %s, parroquia = %s,
-                    tema = %s, descripcion = %s
+                SET id_asic = %s, id_tipo = %s, fecha = %s, estado = %s, municipio = %s, parroquia = %s
                 WHERE id_voceria = %s
             """
             cursor.execute(sql, (id_asic, id_tipo, fecha, estado, municipio, parroquia,
-                                 tema, descripcion, id_voceria))
+                                 id_voceria))
 
             # 2. Soft delete items existentes
             cursor.execute("UPDATE voceria_item SET eliminado = TRUE WHERE id_voceria = %s", (id_voceria,))
@@ -1026,211 +1100,6 @@ class EvidenciaDAO:
         conn.commit()
         cursor.close()
         conn.close()
-class PeriodoDAO:
-    """Gestión de períodos de consolidación."""
-    def obtener_todos(self):
-        """Retorna todos los períodos ordenados por fecha descendente."""
-        conn = get_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("""
-            SELECT p.*,
-                   u.nombre_completo AS usuario_cierre_nombre
-            FROM periodo p
-            LEFT JOIN usuario u ON p.id_usuario_cierre = u.id_usuario
-            ORDER BY p.fecha_inicio DESC
-        """)
-        lista = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        return lista
-    def obtener_por_id(self, id_periodo):
-        """Retorna un período por su ID."""
-        conn = get_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("""
-            SELECT p.*, u.nombre_completo AS usuario_cierre_nombre
-            FROM periodo p
-            LEFT JOIN usuario u ON p.id_usuario_cierre = u.id_usuario
-            WHERE p.id_periodo = %s
-        """, (id_periodo,))
-        periodo = cursor.fetchone()
-        cursor.close()
-        conn.close()
-        return periodo
-    def crear(self, tipo, anio, mes_inicio, mes_fin, fecha_inicio, fecha_fin):
-        """Crea un nuevo período. Retorna el ID generado."""
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO periodo (tipo, anio, mes_inicio, mes_fin, fecha_inicio, fecha_fin)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (tipo, anio, mes_inicio, mes_fin, fecha_inicio, fecha_fin))
-        conn.commit()
-        nuevo_id = cursor.lastrowid
-        cursor.close()
-        conn.close()
-        return nuevo_id
-    def cerrar(self, id_periodo, id_usuario_cierre):
-        """Marca el período como cerrado."""
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute("""
-            UPDATE periodo
-            SET estado = 'cerrado',
-                id_usuario_cierre = %s,
-                fecha_cierre = NOW()
-            WHERE id_periodo = %s
-        """, (id_usuario_cierre, id_periodo))
-        conn.commit()
-        cursor.close()
-        conn.close()
-    def reabrir(self, id_periodo, motivo):
-        """Reabre un período cerrado, registrando el motivo."""
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute("""
-            UPDATE periodo
-            SET estado = 'abierto',
-                id_usuario_cierre = NULL,
-                fecha_cierre = NULL,
-                motivo_reapertura = %s
-            WHERE id_periodo = %s
-        """, (motivo, id_periodo))
-        conn.commit()
-        cursor.close()
-        conn.close()
-    def eliminar(self, id_periodo):
-        """Elimina un período (solo si no tiene informes asociados)."""
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM periodo WHERE id_periodo = %s", (id_periodo,))
-        conn.commit()
-        cursor.close()
-        conn.close()
-class InformeDAO:
-    """Gestión de informes consolidados."""
-    def obtener_todos(self):
-        """Retorna todos los informes generados, ordenados por fecha desc."""
-        conn = get_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("""
-            SELECT ic.*,
-                   p.tipo  AS periodo_tipo,
-                   p.anio  AS periodo_anio,
-                   p.mes_inicio, p.mes_fin,
-                   a.nombre AS asic_nombre,
-                   u.nombre_completo AS generador_nombre
-            FROM informe_consolidado ic
-            JOIN periodo p ON ic.id_periodo = p.id_periodo
-            LEFT JOIN asic a ON ic.id_asic = a.id_asic
-            JOIN usuario u ON ic.id_usuario_generador = u.id_usuario
-            ORDER BY ic.fecha_generacion DESC
-        """)
-        lista = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        return lista
-    def obtener_por_id(self, id_informe):
-        """Retorna la cabecera de un informe por su ID."""
-        conn = get_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("""
-            SELECT ic.*,
-                   p.tipo AS periodo_tipo, p.anio AS periodo_anio,
-                   p.fecha_inicio AS periodo_fecha_inicio,
-                   p.fecha_fin   AS periodo_fecha_fin,
-                   p.mes_inicio, p.mes_fin,
-                   a.nombre AS asic_nombre,
-                   u.nombre_completo AS generador_nombre
-            FROM informe_consolidado ic
-            JOIN periodo p ON ic.id_periodo = p.id_periodo
-            LEFT JOIN asic a ON ic.id_asic = a.id_asic
-            JOIN usuario u ON ic.id_usuario_generador = u.id_usuario
-            WHERE ic.id_informe = %s
-        """, (id_informe,))
-        informe = cursor.fetchone()
-        cursor.close()
-        conn.close()
-        return informe
-    def obtener_detalle(self, id_informe):
-        """Retorna las actividades incluidas en un informe para exportación/PDF."""
-        conn = get_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("""
-            SELECT a.id_actividad, a.fecha_inicio, a.fecha_fin,
-                   a.lugar, a.descripcion, a.participantes,
-                   asic.nombre  AS asic_nombre,
-                   ta.nombre    AS tipo_nombre
-            FROM informe_detalle id2
-            JOIN actividad a    ON id2.id_actividad = a.id_actividad
-            JOIN asic           ON a.id_asic = asic.id_asic
-            JOIN tipo_actividad ta ON a.id_tipo = ta.id_tipo
-            WHERE id2.id_informe = %s
-            ORDER BY asic.nombre, a.fecha_inicio
-        """, (id_informe,))
-        detalle = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        return detalle
-    def crear(self, id_periodo, id_asic, titulo, total_actividades,
-              total_participantes, observaciones, id_usuario_generador):
-        """Inserta la cabecera de un informe. Retorna el ID generado."""
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO informe_consolidado
-                (id_periodo, id_asic, titulo, total_actividades,
-                 total_participantes, observaciones, id_usuario_generador)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """, (id_periodo, id_asic, titulo, total_actividades,
-              total_participantes, observaciones, id_usuario_generador))
-        conn.commit()
-        nuevo_id = cursor.lastrowid
-        cursor.close()
-        conn.close()
-        return nuevo_id
-    def insertar_detalle(self, id_informe, ids_actividades):
-        """Inserta en bloque los registros de informe_detalle."""
-        if not ids_actividades:
-            return
-        conn = get_connection()
-        cursor = conn.cursor()
-        valores = [(id_informe, id_act) for id_act in ids_actividades]
-        cursor.executemany(
-            "INSERT INTO informe_detalle (id_informe, id_actividad) VALUES (%s, %s)",
-            valores
-        )
-        conn.commit()
-        cursor.close()
-        conn.close()
-    def eliminar(self, id_informe):
-        """Elimina el informe y sus detalles."""
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM informe_detalle WHERE id_informe = %s", (id_informe,))
-        cursor.execute("DELETE FROM informe_consolidado WHERE id_informe = %s", (id_informe,))
-        conn.commit()
-        cursor.close()
-        conn.close()
-    def obtener_resumen_por_asic(self, id_informe):
-        """Retorna un resumen agrupado por ASIC para un informe dado."""
-        conn = get_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("""
-            SELECT asic.nombre AS asic_nombre,
-                   COUNT(a.id_actividad)  AS total_actividades,
-                   SUM(a.participantes)   AS total_participantes
-            FROM informe_detalle id2
-            JOIN actividad a ON id2.id_actividad = a.id_actividad
-            JOIN asic       ON a.id_asic = asic.id_asic
-            WHERE id2.id_informe = %s
-            GROUP BY asic.id_asic, asic.nombre
-            ORDER BY asic.nombre
-        """, (id_informe,))
-        resumen = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        return resumen
 # ============================================================
 # SECCIÓN 4 — CONTROLADORES
 # Lógica de negocio y validaciones.
@@ -1483,164 +1352,160 @@ class ActividadController:
         nombres_permitidos = {normalizar(nombre) for _, nombre in tipos_predeterminados}
         return [t for t in tipos if normalizar(t["nombre"]) in nombres_permitidos]
     def guardar_actividad(self, id_asic, id_tipo, fecha_inicio, fecha_fin,
-                               estado, municipio, parroquia, establecimiento_salud,
-                               nombre_establecimiento, comites_salud, lugar, descripcion,
-                               medicos, promotores_salud, voceros_comite_salud,
-                               vocero_consejo_direccion, coordinador_docencia,
-                               autoridades_presentes, otros_actores,
-                               personas_comunidad, estudiantes_aspirantes, participantes,
-                               id_actividad=None,
-                               evidencias_temporales=None):
-            """
-            Registra una nueva actividad o actualiza una existente.
-            Valida que los datos cumplan con las reglas de negocio.
-            Retorna: (True, "mensaje exito") o (False, "mensaje error")
-            """
-            # 1. Validar ASIC y tipo
-            if not id_asic:
-                return False, "Debes seleccionar un ASIC."
-            if not id_tipo:
-                return False, "Debes seleccionar un tipo de actividad."
-            # 2. Validar descripción (tema tratado)
-            descripcion = descripcion.strip() if descripcion else ""
-            if not descripcion:
-                return False, "La descripcion de la actividad (Tema Tratado) es obligatoria."
-            # 3. Validar lugar
-            lugar = lugar.strip() if lugar else ""
-            # 4. Validar participantes (total asistencia)
+                           estado, municipio, parroquia, establecimiento_salud,
+                           nombre_establecimiento, comites_salud, descripcion,
+                           medicos, promotores_salud, voceros_comite_salud,
+                           vocero_consejo_direccion, coordinador_docencia,
+                           autoridades_presentes, otros_actores,
+                           personas_comunidad, estudiantes_aspirantes, participantes,
+                           id_actividad=None,
+                           evidencias_temporales=None):
+        """
+        Registra una nueva actividad o actualiza una existente.
+        Valida que los datos cumplan con las reglas de negocio.
+        Retorna: (True, "mensaje exito") o (False, "mensaje error")
+        """
+        # 1. Validar ASIC y tipo
+        if not id_asic:
+            return False, "Debes seleccionar un ASIC."
+        if not id_tipo:
+            return False, "Debes seleccionar un tipo de actividad."
+        # 2. Validar descripción (tema tratado)
+        descripcion = descripcion.strip() if descripcion else ""
+        if not descripcion:
+            return False, "La descripcion de la actividad (Tema Tratado) es obligatoria."
+        # 3. Validar participantes (total asistencia)
+        try:
+            cant_participantes = int(participantes)
+            if cant_participantes < 0:
+                return False, "La cantidad de participantes no puede ser menor a 0."
+        except (ValueError, TypeError):
+            return False, "La cantidad de participantes debe ser un numero entero valido."
+        # 4. Validar campos numéricos de participantes por categoría
+        for campo, valor in [
+            ("medicos", medicos), ("promotores_salud", promotores_salud),
+            ("voceros_comite_salud", voceros_comite_salud),
+            ("vocero_consejo_direccion", vocero_consejo_direccion),
+            ("coordinador_docencia", coordinador_docencia),
+            ("autoridades_presentes", autoridades_presentes),
+            ("otros_actores", otros_actores),
+            ("personas_comunidad", personas_comunidad),
+            ("estudiantes_aspirantes", estudiantes_aspirantes)
+        ]:
             try:
-                cant_participantes = int(participantes)
-                if cant_participantes < 0:
-                    return False, "La cantidad de participantes no puede ser menor a 0."
+                v = int(valor) if valor is not None else 0
+                if v < 0:
+                    return False, f"El campo {campo} no puede ser menor a 0."
             except (ValueError, TypeError):
-                return False, "La cantidad de participantes debe ser un numero entero valido."
-            # 5. Validar campos numéricos de participantes por categoría
-            for campo, valor in [
-                ("medicos", medicos), ("promotores_salud", promotores_salud),
-                ("voceros_comite_salud", voceros_comite_salud),
-                ("vocero_consejo_direccion", vocero_consejo_direccion),
-                ("coordinador_docencia", coordinador_docencia),
-                ("autoridades_presentes", autoridades_presentes),
-                ("otros_actores", otros_actores),
-                ("personas_comunidad", personas_comunidad),
-                ("estudiantes_aspirantes", estudiantes_aspirantes)
-            ]:
-                try:
-                    v = int(valor) if valor is not None else 0
-                    if v < 0:
-                        return False, f"El campo {campo} no puede ser menor a 0."
-                except (ValueError, TypeError):
-                    return False, f"El campo {campo} debe ser un numero entero valido."
-            # 6. Convertir y validar fechas
-            f_ini = None
-            f_fin = None
-            if isinstance(fecha_inicio, str):
-                try:
-                    if "/" in fecha_inicio:
-                        f_ini = datetime.strptime(fecha_inicio, "%d/%m/%Y").date()
-                    else:
-                        f_ini = datetime.strptime(fecha_inicio, "%Y-%m-%d").date()
-                except ValueError:
-                    return False, "El formato de la fecha es inválido."
-            elif isinstance(fecha_inicio, (datetime, date)):
-                f_ini = fecha_inicio if isinstance(fecha_inicio, date) else fecha_inicio.date()
-            else:
-                return False, "La fecha es inválida."
-            if isinstance(fecha_fin, str):
-                try:
-                    if "/" in fecha_fin:
-                        f_fin = datetime.strptime(fecha_fin, "%d/%m/%Y").date()
-                    else:
-                        f_fin = datetime.strptime(fecha_fin, "%Y-%m-%d").date()
-                except ValueError:
-                    return False, "El formato de la fecha es inválido."
-            elif isinstance(fecha_fin, (datetime, date)):
-                f_fin = fecha_fin if isinstance(fecha_fin, date) else fecha_fin.date()
-            else:
-                return False, "La fecha es inválida."
-            if f_ini > f_fin:
-                return False, "La fecha no puede ser posterior a la fecha final."
-            fecha_inicio_bd = f_ini.strftime("%Y-%m-%d")
-            fecha_fin_bd    = f_fin.strftime("%Y-%m-%d")
-            # 7. Validar duplicidad
-            es_duplicado = self.actividad_dao.verificar_duplicado(
+                return False, f"El campo {campo} debe ser un numero entero valido."
+        # 5. Convertir y validar fechas
+        f_ini = None
+        f_fin = None
+        if isinstance(fecha_inicio, str):
+            try:
+                if "/" in fecha_inicio:
+                    f_ini = datetime.strptime(fecha_inicio, "%d/%m/%Y").date()
+                else:
+                    f_ini = datetime.strptime(fecha_inicio, "%Y-%m-%d").date()
+            except ValueError:
+                return False, "El formato de la fecha es inválido."
+        elif isinstance(fecha_inicio, (datetime, date)):
+            f_ini = fecha_inicio if isinstance(fecha_inicio, date) else fecha_inicio.date()
+        else:
+            return False, "La fecha es inválida."
+        if isinstance(fecha_fin, str):
+            try:
+                if "/" in fecha_fin:
+                    f_fin = datetime.strptime(fecha_fin, "%d/%m/%Y").date()
+                else:
+                    f_fin = datetime.strptime(fecha_fin, "%Y-%m-%d").date()
+            except ValueError:
+                return False, "El formato de la fecha es inválido."
+        elif isinstance(fecha_fin, (datetime, date)):
+            f_fin = fecha_fin if isinstance(fecha_fin, date) else fecha_fin.date()
+        else:
+            return False, "La fecha es inválida."
+        if f_ini > f_fin:
+            return False, "La fecha no puede ser posterior a la fecha final."
+        fecha_inicio_bd = f_ini.strftime("%Y-%m-%d")
+        fecha_fin_bd    = f_fin.strftime("%Y-%m-%d")
+        # 6. Validar duplicidad
+        es_duplicado = self.actividad_dao.verificar_duplicado(
+            id_asic=id_asic,
+            id_tipo=id_tipo,
+            fecha_inicio=fecha_inicio_bd,
+            descripcion=descripcion,
+            excluir_id=id_actividad
+        )
+        if es_duplicado:
+            return False, "Ya existe una actividad registrada para este ASIC, tipo, fecha y descripción similar."
+        # 7. Obtener usuario actual
+        usuario = self.auth.obtener_usuario_actual()
+        if not usuario:
+            return False, "No hay una sesion de usuario activa."
+        id_usuario = usuario["id_usuario"]
+        # 8. Guardar en base de datos
+        if id_actividad is None:
+            nuevo_id = self.actividad_dao.crear(
+                id_asic=id_asic,
+                id_tipo=id_tipo,
+                id_usuario_registro=id_usuario,
+                fecha_inicio=fecha_inicio_bd,
+                fecha_fin=fecha_fin_bd,
+                estado=estado or "",
+                municipio=municipio or "",
+                parroquia=parroquia or "",
+                establecimiento_salud=establecimiento_salud or "",
+                nombre_establecimiento=nombre_establecimiento or "",
+                comites_salud=comites_salud or "",
+                descripcion=descripcion,
+                medicos=int(medicos) if medicos else 0,
+                promotores_salud=int(promotores_salud) if promotores_salud else 0,
+                voceros_comite_salud=int(voceros_comite_salud) if voceros_comite_salud else 0,
+                vocero_consejo_direccion=int(vocero_consejo_direccion) if vocero_consejo_direccion else 0,
+                coordinador_docencia=int(coordinador_docencia) if coordinador_docencia else 0,
+                autoridades_presentes=int(autoridades_presentes) if autoridades_presentes else 0,
+                otros_actores=int(otros_actores) if otros_actores else 0,
+                personas_comunidad=int(personas_comunidad) if personas_comunidad else 0,
+                estudiantes_aspirantes=int(estudiantes_aspirantes) if estudiantes_aspirantes else 0,
+                participantes=cant_participantes
+            )
+            errores_adjuntos = []
+            if evidencias_temporales:
+                for ruta in evidencias_temporales:
+                    ok_ev, msg_ev = self.procesar_y_guardar_evidencia(nuevo_id, ruta)
+                    if not ok_ev:
+                        errores_adjuntos.append(f"{os.path.basename(ruta)} ({msg_ev})")
+            if errores_adjuntos:
+                errores_str = ", ".join(errores_adjuntos)
+                return True, f"Actividad registrada, pero no se pudieron subir algunos archivos: {errores_str}"
+            return True, "Actividad registrada exitosamente."
+        else:
+            self.actividad_dao.actualizar(
+                id_actividad=id_actividad,
                 id_asic=id_asic,
                 id_tipo=id_tipo,
                 fecha_inicio=fecha_inicio_bd,
+                fecha_fin=fecha_fin_bd,
+                estado=estado or "",
+                municipio=municipio or "",
+                parroquia=parroquia or "",
+                establecimiento_salud=establecimiento_salud or "",
+                nombre_establecimiento=nombre_establecimiento or "",
+                comites_salud=comites_salud or "",
                 descripcion=descripcion,
-                excluir_id=id_actividad
+                medicos=int(medicos) if medicos else 0,
+                promotores_salud=int(promotores_salud) if promotores_salud else 0,
+                voceros_comite_salud=int(voceros_comite_salud) if voceros_comite_salud else 0,
+                vocero_consejo_direccion=int(vocero_consejo_direccion) if vocero_consejo_direccion else 0,
+                coordinador_docencia=int(coordinador_docencia) if coordinador_docencia else 0,
+                autoridades_presentes=int(autoridades_presentes) if autoridades_presentes else 0,
+                otros_actores=int(otros_actores) if otros_actores else 0,
+                personas_comunidad=int(personas_comunidad) if personas_comunidad else 0,
+                estudiantes_aspirantes=int(estudiantes_aspirantes) if estudiantes_aspirantes else 0,
+                participantes=cant_participantes
             )
-            if es_duplicado:
-                return False, "Ya existe una actividad registrada para este ASIC, tipo, fecha y descripción similar."
-            # 8. Obtener usuario actual
-            usuario = self.auth.obtener_usuario_actual()
-            if not usuario:
-                return False, "No hay una sesion de usuario activa."
-            id_usuario = usuario["id_usuario"]
-            # 9. Guardar en base de datos
-            if id_actividad is None:
-                nuevo_id = self.actividad_dao.crear(
-                    id_asic=id_asic,
-                    id_tipo=id_tipo,
-                    id_usuario_registro=id_usuario,
-                    fecha_inicio=fecha_inicio_bd,
-                    fecha_fin=fecha_fin_bd,
-                    estado=estado or "",
-                    municipio=municipio or "",
-                    parroquia=parroquia or "",
-                    establecimiento_salud=establecimiento_salud or "",
-                    nombre_establecimiento=nombre_establecimiento or "",
-                    comites_salud=comites_salud or "",
-                    lugar=lugar,
-                    descripcion=descripcion,
-                    medicos=int(medicos) if medicos else 0,
-                    promotores_salud=int(promotores_salud) if promotores_salud else 0,
-                    voceros_comite_salud=int(voceros_comite_salud) if voceros_comite_salud else 0,
-                    vocero_consejo_direccion=int(vocero_consejo_direccion) if vocero_consejo_direccion else 0,
-                    coordinador_docencia=int(coordinador_docencia) if coordinador_docencia else 0,
-                    autoridades_presentes=int(autoridades_presentes) if autoridades_presentes else 0,
-                    otros_actores=int(otros_actores) if otros_actores else 0,
-                    personas_comunidad=int(personas_comunidad) if personas_comunidad else 0,
-                    estudiantes_aspirantes=int(estudiantes_aspirantes) if estudiantes_aspirantes else 0,
-                    participantes=cant_participantes
-                )
-                errores_adjuntos = []
-                if evidencias_temporales:
-                    for ruta in evidencias_temporales:
-                        ok_ev, msg_ev = self.procesar_y_guardar_evidencia(nuevo_id, ruta)
-                        if not ok_ev:
-                            errores_adjuntos.append(f"{os.path.basename(ruta)} ({msg_ev})")
-                if errores_adjuntos:
-                    errores_str = ", ".join(errores_adjuntos)
-                    return True, f"Actividad registrada, pero no se pudieron subir algunos archivos: {errores_str}"
-                return True, "Actividad registrada exitosamente."
-            else:
-                self.actividad_dao.actualizar(
-                    id_actividad=id_actividad,
-                    id_asic=id_asic,
-                    id_tipo=id_tipo,
-                    fecha_inicio=fecha_inicio_bd,
-                    fecha_fin=fecha_fin_bd,
-                    estado=estado or "",
-                    municipio=municipio or "",
-                    parroquia=parroquia or "",
-                    establecimiento_salud=establecimiento_salud or "",
-                    nombre_establecimiento=nombre_establecimiento or "",
-                    comites_salud=comites_salud or "",
-                    lugar=lugar,
-                    descripcion=descripcion,
-                    medicos=int(medicos) if medicos else 0,
-                    promotores_salud=int(promotores_salud) if promotores_salud else 0,
-                    voceros_comite_salud=int(voceros_comite_salud) if voceros_comite_salud else 0,
-                    vocero_consejo_direccion=int(vocero_consejo_direccion) if vocero_consejo_direccion else 0,
-                    coordinador_docencia=int(coordinador_docencia) if coordinador_docencia else 0,
-                    autoridades_presentes=int(autoridades_presentes) if autoridades_presentes else 0,
-                    otros_actores=int(otros_actores) if otros_actores else 0,
-                    personas_comunidad=int(personas_comunidad) if personas_comunidad else 0,
-                    estudiantes_aspirantes=int(estudiantes_aspirantes) if estudiantes_aspirantes else 0,
-                    participantes=cant_participantes
-                )
-                return True, "Actividad actualizada exitosamente."
+            return True, "Actividad actualizada exitosamente."
             _ = None
     def eliminar_actividad(self, id_actividad):
         """Elimina de forma lógica una actividad."""
@@ -1798,7 +1663,7 @@ class VoceriaController:
         return self.voceria_dao.obtener_con_items(id_voceria)
 
     def guardar_voceria(self, id_asic, id_tipo=None, fecha=None, estado=None, municipio=None, parroquia=None,
-                         tema=None, descripcion=None, items=None, id_voceria=None):
+                         items=None, id_voceria=None):
         """
         Guarda vocería con sus items (voceros).
         items: lista de dicts con los campos de cada vocero
@@ -1808,10 +1673,16 @@ class VoceriaController:
 
         if not id_asic:
             return False, "Debes seleccionar un ASIC."
-        if not fecha:
+        if not fecha or str(fecha).strip() in ("", "AAAA-MM-DD"):
             return False, "La fecha es obligatoria."
+        if not estado or not str(estado).strip():
+            return False, "El estado es obligatorio."
+        if not municipio or not str(municipio).strip():
+            return False, "El municipio es obligatorio."
+        if not parroquia or not str(parroquia).strip() or str(parroquia).strip() == "Parroquia":
+            return False, "La parroquia es obligatoria."
         if not items:
-            return False, "Debe agregar al menos 1 vocero."
+            return False, "Debe agregar al menos 1 vocería."
 
         tipos_voceria = self.tipo_voceria_dao.obtener_todos()
         if not id_tipo and tipos_voceria:
@@ -1819,33 +1690,36 @@ class VoceriaController:
         if not id_tipo:
             return False, "Debes seleccionar un tipo de vocería."
 
-        if not tema:
-            tema = "Vocería CS"
-        if not descripcion:
-            descripcion = f"Registro de vocería del municipio {municipio or 'N/A'} para {fecha}"
-
-        # Validar items
-        for item in items:
-            if not item.get("nombre_comite"):
-                return False, "Nombre del Comité es obligatorio en todos los items."
-            if not item.get("centro_dispensador"):
-                return False, "Centro dispensador es obligatorio en todos los items."
-            if not item.get("nombre_centro"):
-                return False, "Nombre del Centro es obligatorio en todos los items."
-            if not item.get("nombres"):
-                return False, "Nombres y Apellidos es obligatorio en todos los items."
-            if not item.get("ci"):
-                return False, "C.I. es obligatorio en todos los items."
-            if not item.get("telefono"):
-                return False, "Teléfono es obligatorio en todos los items."
-            if not item.get("fecha_nacimiento"):
-                return False, "Fecha Nacimiento es obligatorio en todos los items."
-            if not item.get("edad"):
-                return False, "Edad es obligatorio en todos los items."
-            if not item.get("sexo"):
-                return False, "Sexo es obligatorio en todos los items."
+        # Validar TODOS los campos en cada item
+        for idx, item in enumerate(items, start=1):
+            if not item.get("nombre_comite") or not str(item.get("nombre_comite")).strip():
+                return False, f"Vocería #{idx}: Nombre del Comité es obligatorio."
+            if not item.get("centro_dispensador") or not str(item.get("centro_dispensador")).strip():
+                return False, f"Vocería #{idx}: Centro dispensador es obligatorio."
+            if not item.get("nombre_centro") or not str(item.get("nombre_centro")).strip():
+                return False, f"Vocería #{idx}: Nombre del Centro es obligatorio."
+            if not item.get("nombres") or not str(item.get("nombres")).strip():
+                return False, f"Vocería #{idx}: Nombres y Apellidos son obligatorios."
+            if not item.get("ci") or not str(item.get("ci")).strip():
+                return False, f"Vocería #{idx}: C.I. es obligatoria."
+            if not item.get("telefono") or not str(item.get("telefono")).strip():
+                return False, f"Vocería #{idx}: Teléfono es obligatorio."
+            if not item.get("fecha_nacimiento") or not str(item.get("fecha_nacimiento")).strip() or str(item.get("fecha_nacimiento")).strip() == "AAAA-MM-DD":
+                return False, f"Vocería #{idx}: Fecha de Nacimiento es obligatoria."
+            if not item.get("edad") or not str(item.get("edad")).strip() or str(item.get("edad")).strip() == "Edad":
+                return False, f"Vocería #{idx}: Edad es obligatoria."
             if not item.get("id_tipo_voceria"):
-                return False, "Vocería es obligatorio en todos los items."
+                return False, f"Vocería #{idx}: Debe seleccionar una vocería."
+            if not item.get("sexo") or not str(item.get("sexo")).strip():
+                return False, f"Vocería #{idx}: Sexo es obligatorio."
+            if not item.get("profesion") or not str(item.get("profesion")).strip():
+                return False, f"Vocería #{idx}: Profesión/Oficio es obligatoria."
+            if not item.get("correo") or not str(item.get("correo")).strip():
+                return False, f"Vocería #{idx}: Correo electrónico es obligatorio."
+            if "@" not in str(item.get("correo")):
+                return False, f"Vocería #{idx}: Correo electrónico no válido (debe incluir '@')."
+            if not item.get("fechas_eleccion") or not str(item.get("fechas_eleccion")).strip() or str(item.get("fechas_eleccion")).strip() == "AAAA-MM-DD":
+                return False, f"Vocería #{idx}: Fechas de Elección es obligatoria."
 
         id_usuario = self.auth.obtener_usuario_actual()
         id_usuario_registro = id_usuario["id_usuario"] if id_usuario else 1
@@ -1853,11 +1727,11 @@ class VoceriaController:
         try:
             if id_voceria is None:
                 self.voceria_dao.crear(id_asic, id_tipo, id_usuario_registro, fecha, estado, municipio, parroquia,
-                                       tema, descripcion, items)
+                                       items)
                 return True, "Vocería registrada correctamente."
             else:
                 self.voceria_dao.actualizar(id_voceria, id_asic, id_tipo, fecha, estado, municipio, parroquia,
-                                           tema, descripcion, items)
+                                           items)
                 return True, "Vocería actualizada correctamente."
         except Exception as e:
             return False, f"Error al guardar: {str(e)}"
@@ -1908,11 +1782,11 @@ class ConsolidacionService:
         self.id_usuario = id_usuario
         self._actividad_dao = ActividadDAO()
         self._asic_dao = AsicDAO()
-        self._informe_dao = InformeDAO()
-        self._periodo_dao = PeriodoDAO()
+        self._voceria_dao = VoceriaDAO()
     def generar_previo(self, fecha_inicio, fecha_fin, id_asic=None) -> dict:
         """
         Calcula el resumen SIN guardar en BD.
+        id_asic puede ser None (todos), un entero (un ASIC) o una lista de enteros (varios ASIC).
         Retorna un dict listo para mostrar en la UI y luego pasarlo a guardar().
         """
         actividades = self._obtener_actividades(fecha_inicio, fecha_fin, id_asic)
@@ -1920,10 +1794,21 @@ class ConsolidacionService:
         total_part = sum(a["participantes"] for a in actividades)
         resumen_tipo = self._agrupar(actividades, "tipo_nombre")
         resumen_asic = self._agrupar(actividades, "asic_nombre")
+        
+        # Obtener vocerías CS con los mismos filtros
+        vocerias = self._obtener_vocerias(fecha_inicio, fecha_fin, id_asic)
+
+        # Nombre(s) de ASIC para mostrar en la UI
         asic_nombre = None
         if id_asic:
-            asic = self._asic_dao.obtener_por_id(id_asic)
-            asic_nombre = asic["nombre"] if asic else str(id_asic)
+            ids = id_asic if isinstance(id_asic, list) else [id_asic]
+            nombres = []
+            for aid in ids:
+                asic = self._asic_dao.obtener_por_id(aid)
+                if asic:
+                    nombres.append(asic["nombre"])
+            asic_nombre = ", ".join(nombres) if nombres else str(ids)
+
         return {
             "actividades":         actividades,
             "resumen_por_tipo":    resumen_tipo,
@@ -1934,65 +1819,60 @@ class ConsolidacionService:
             "fecha_fin":           fecha_fin,
             "id_asic":             id_asic,
             "asic_nombre":         asic_nombre,
+            "vocerias":            vocerias,
         }
-    def guardar(self, previo: dict, id_periodo: int, titulo: str, observaciones: str = "") -> int:
-        """
-        Persiste el informe en BD a partir de los datos del previo.
-        Retorna el id_informe generado.
-        """
-        actividades    = previo["actividades"]
-        id_asic        = previo["id_asic"]
-        total_act      = previo["total_actividades"]
-        total_part     = previo["total_participantes"]
-        id_informe = self._informe_dao.crear(
-            id_periodo=id_periodo,
-            id_asic=id_asic,
-            titulo=titulo,
-            total_actividades=total_act,
-            total_participantes=total_part,
-            observaciones=observaciones,
-            id_usuario_generador=self.id_usuario,
-        )
-        ids_actividades = [a["id_actividad"] for a in actividades]
-        self._informe_dao.insertar_detalle(id_informe, ids_actividades)
-        return id_informe
-    def listar_informes(self) -> list:
-        """Retorna todos los informes generados (para el historial)."""
-        return self._informe_dao.obtener_todos()
-    def obtener_informe_completo(self, id_informe: int) -> dict:
-        """Retorna la cabecera + detalle + resúmenes de un informe guardado."""
-        cabecera     = self._informe_dao.obtener_por_id(id_informe)
-        detalle      = self._informe_dao.obtener_detalle(id_informe)
-        resumen_asic = self._informe_dao.obtener_resumen_por_asic(id_informe)
-        resumen_tipo = self._agrupar(detalle, "tipo_nombre")
-        return {
-            "cabecera":           cabecera,
-            "actividades":        detalle,
-            "resumen_por_asic":   resumen_asic,
-            "resumen_por_tipo":   resumen_tipo,
-            "total_actividades":  cabecera["total_actividades"],
-            "total_participantes":cabecera["total_participantes"],
-        }
-    def listar_periodos(self) -> list:
-        """Retorna todos los períodos registrados."""
-        return self._periodo_dao.obtener_todos()
-    def crear_periodo(self, tipo: str, anio: int, mes_inicio: int,
-                      mes_fin: int, fecha_inicio, fecha_fin) -> int:
-        """Crea un nuevo período de consolidación."""
-        return self._periodo_dao.crear(tipo, anio, mes_inicio, mes_fin,
-                                       fecha_inicio, fecha_fin)
-    def eliminar_informe(self, id_informe: int):
-        """Elimina un informe y su detalle de la BD."""
-        self._informe_dao.eliminar(id_informe)
     def _obtener_actividades(self, fecha_inicio, fecha_fin, id_asic) -> list:
-        """Usa ActividadDAO con filtros de fecha y ASIC."""
-        filtros = {
+        """Usa ActividadDAO con filtros de fecha y ASIC.
+        id_asic puede ser None, un entero o una lista de enteros.
+        """
+        filtros_base = {
             "fecha_desde": fecha_inicio.strftime("%Y-%m-%d"),
             "fecha_hasta": fecha_fin.strftime("%Y-%m-%d"),
         }
-        if id_asic:
-            filtros["id_asic"] = id_asic
-        return self._actividad_dao.obtener_todas(filtros)
+        if not id_asic:
+            # Sin filtro de ASIC → traer todo
+            return self._actividad_dao.obtener_todas(filtros_base)
+
+        ids = id_asic if isinstance(id_asic, list) else [id_asic]
+        if len(ids) == 1:
+            filtros = dict(filtros_base)
+            filtros["id_asic"] = ids[0]
+            return self._actividad_dao.obtener_todas(filtros)
+
+        # Varios ASIC: consultar uno por uno y combinar sin duplicados
+        vistas: dict = {}  # id_actividad → registro
+        for aid in ids:
+            filtros = dict(filtros_base)
+            filtros["id_asic"] = aid
+            for act in self._actividad_dao.obtener_todas(filtros):
+                vistas[act["id_actividad"]] = act
+        return sorted(vistas.values(), key=lambda a: (str(a.get("fecha_inicio", "")), a["id_actividad"]), reverse=True)
+    def _obtener_vocerias(self, fecha_inicio, fecha_fin, id_asic) -> list:
+        """Obtiene vocerías CS con filtros de fecha y ASIC.
+        id_asic puede ser None, un entero o una lista de enteros.
+        """
+        filtros_base = {
+            "fecha_desde": fecha_inicio.strftime("%Y-%m-%d"),
+            "fecha_hasta": fecha_fin.strftime("%Y-%m-%d"),
+        }
+        if not id_asic:
+            return self._voceria_dao.obtener_todas(filtros_base)
+
+        ids = id_asic if isinstance(id_asic, list) else [id_asic]
+        if len(ids) == 1:
+            filtros = dict(filtros_base)
+            filtros["id_asic"] = ids[0]
+            return self._voceria_dao.obtener_todas(filtros)
+
+        # Varios ASIC: consultar uno por uno y combinar sin duplicados
+        vistas: dict = {}  # id_voceria → registro
+        for aid in ids:
+            filtros = dict(filtros_base)
+            filtros["id_asic"] = aid
+            for voc in self._voceria_dao.obtener_todas(filtros):
+                vistas[voc["id_voceria"]] = voc
+        return sorted(vistas.values(), key=lambda v: (str(v.get("fecha", "")), v["id_voceria"]), reverse=True)
+
     @staticmethod
     def _agrupar(actividades: list, campo_grupo: str) -> list:
         """Agrupa actividades por un campo y calcula totales."""
@@ -2005,12 +1885,11 @@ class ConsolidacionService:
             grupos[clave]["total_participantes"] += act.get("participantes", 0)
         return sorted(grupos.values(), key=lambda x: x["nombre"])
 # Columnas requeridas en el Excel de importación
-# NOTA: Usamos detección flexible — "lugar" puede venir como columna única
-# O componerse desde LOCATION_FIELDS; "participantes" puede venir como columna
-# única, como "total_asistencia", o sumarse desde PARTICIPANTES_CATEGORIAS.
+# NOTA: "participantes" puede venir como columna única, como "total_asistencia",
+# o sumarse desde PARTICIPANTES_CATEGORIAS.
 COLUMNAS_REQUERIDAS = [
     "asic", "tipo_actividad", "fecha_inicio", "descripcion",
-    "lugar", "participantes",
+    "participantes",
 ]
 HEADER_ALIASES = {
     # Fecha
@@ -2109,13 +1988,10 @@ class ExcelService:
             idx = {cab: i for i, cab in enumerate(cabecera_normalizada) if cab}
             data_start = 2
         # Chequea que existan las columnas mínimas necesarias para la importación.
-        # "lugar" puede ser una columna única o componerse desde LOCATION_FIELDS.
         # "participantes" puede ser columna única, "total_asistencia" o varias categorías.
         faltantes = []
         for col in COLUMNAS_REQUERIDAS:
             if col in idx:
-                continue
-            if col == "lugar" and any(cf in idx for cf in LOCATION_FIELDS):
                 continue
             if col == "participantes" and ("total_asistencia" in idx or any(cf in idx for cf in PARTICIPANTES_CATEGORIAS)):
                 continue
@@ -2134,7 +2010,6 @@ class ExcelService:
             errores = []
             asic_nombre  = str(datos_crudos["asic"]).strip()          if datos_crudos["asic"]          else ""
             tipo_nombre  = str(datos_crudos["tipo_actividad"]).strip() if datos_crudos["tipo_actividad"] else ""
-            lugar        = self._combinar_ubicacion(fila, idx) or (str(datos_crudos.get("lugar")).strip() if datos_crudos.get("lugar") else "")
             descripcion  = str(datos_crudos["descripcion"]).strip()    if datos_crudos["descripcion"]    else ""
             try:
                 participantes = self._calcular_total_asistencia(fila, idx, datos_crudos)
@@ -2150,8 +2025,6 @@ class ExcelService:
                 errores.append("El campo 'ASIC' está vacío.")
             if not tipo_nombre:
                 errores.append("El campo 'ACTIVIDAD DESARROLLADA' está vacío.")
-            if not lugar:
-                errores.append("Los campos de ubicación no están completos.")
             if not descripcion:
                 errores.append("El campo 'TEMA TRATADO' está vacío.")
             id_asic = None
@@ -2182,7 +2055,6 @@ class ExcelService:
                 "establecimiento_salud": self._obtener_valor_columna(fila, idx, "establecimiento_salud"),
                 "nombre_establecimiento": self._obtener_valor_columna(fila, idx, "nombre_establecimiento_salud"),
                 "comites_salud": self._obtener_valor_columna(fila, idx, "comites_de_salud"),
-                "lugar": lugar,
                 "descripcion": descripcion,
                 "medicos": self._parse_int(self._obtener_valor_columna(fila, idx, "medicos")),
                 "promotores_salud": self._parse_int(self._obtener_valor_columna(fila, idx, "promotores_en_salud")),
@@ -2227,7 +2099,6 @@ class ExcelService:
                     establecimiento_salud=fila.get("establecimiento_salud") or "",
                     nombre_establecimiento=fila.get("nombre_establecimiento") or "",
                     comites_salud=fila.get("comites_salud") or "",
-                    lugar=fila["lugar"],
                     descripcion=fila["descripcion"],
                     medicos=fila.get("medicos") or 0,
                     promotores_salud=fila.get("promotores_salud") or 0,
@@ -2399,7 +2270,6 @@ class PDFService:
                 for info in src.infolist():
                     data = src.read(info.filename)
                     if info.filename == "word/document.xml":
-                        data = self._word_template_con_numero_oficio(data)
                         data = self._word_template_con_fecha_actual(data)
                         data = self._word_template_con_datos(data, datos)
                     dst.writestr(info, data)
@@ -2486,32 +2356,6 @@ class PDFService:
         for idx, nodo in enumerate(nodos):
             nodo.text = str(texto) if idx == 0 else ""
 
-    def _word_template_con_numero_oficio(self, xml_bytes: bytes) -> bytes:
-        """Reemplaza el número del oficio en la plantilla real sin romper el XML de Word."""
-        root = ET.fromstring(xml_bytes)
-        ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
-
-        for parrafo in root.findall(".//w:p", ns):
-            textos = [n for n in parrafo.findall(".//w:t", ns)]
-            contenido = "".join((n.text or "") for n in textos)
-            if "DPPPS N°" not in contenido:
-                continue
-
-            for nodo in textos:
-                texto = nodo.text or ""
-                if "DPPPS N°" in texto:
-                    nodo.text = texto.replace("DPPPS N° ", "DPPPS N°___")
-                    break
-
-            for nodo in textos:
-                texto = nodo.text or ""
-                if texto.strip().isdigit() and nodo.text:
-                    nodo.text = ""
-
-            break
-
-        return ET.tostring(root, encoding="utf-8", xml_declaration=True)
-
     def _word_template_con_fecha_actual(self, xml_bytes: bytes) -> bytes:
         """Actualiza la fecha visible en la cabecera del oficio con la fecha local actual del dispositivo."""
         root = ET.fromstring(xml_bytes)
@@ -2542,9 +2386,16 @@ class PDFService:
         return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
     def _word_template_con_datos(self, xml_bytes: bytes, datos: dict) -> bytes:
-        """Reemplaza los conteos reales en cada tipo de actividad de la plantilla del oficio."""
+        """Reemplaza los conteos reales en cada tipo de actividad de la plantilla del oficio.
+
+        La tabla tiene 2 celdas por fila:
+        - Celda 1: párrafos con el nombre de la actividad, luego 'Participantes', etc.
+        - Celda 2: párrafos con números alineados a las líneas de la celda 1.
+        Se preserva un párrafo por línea para que los números queden frente a su texto.
+        """
         root = ET.fromstring(xml_bytes)
         ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+        w_ns = ns["w"]
 
         resumen_tipo = datos.get("resumen_por_tipo", []) or []
         tipo_map = {}
@@ -2553,55 +2404,151 @@ class PDFService:
             if not nombre:
                 continue
             tipo_map[self._normalizar_texto(nombre)] = {
-                "total_actividades": int(fila.get("total_actividades", 0) or 0),
+                "total_actividades":   int(fila.get("total_actividades",  0) or 0),
                 "total_participantes": int(fila.get("total_participantes", 0) or 0),
             }
+
+        # Agregar conteo de vocerías a "Actualización de los comités de salud"
+        vocerias = datos.get("vocerias", []) or []
+        vocerias_count = len(vocerias)
+        if vocerias_count > 0:
+            # Buscar la clave normalizada que coincida con esta actividad
+            target_norm = self._normalizar_texto("Actualización de los comités de salud")
+            if target_norm not in tipo_map:
+                tipo_map[target_norm] = {"total_actividades": 0, "total_participantes": 0}
+            tipo_map[target_norm]["total_actividades"] += vocerias_count
 
         nombre_aliases = []
         for _, nombre in TIPOS_ACTIVIDAD_PREDETERMINADOS:
             if nombre:
                 nombre_aliases.append(nombre)
+        # Asegurar que "Actualización de los comités de salud" esté en los aliases
+        # para que la plantilla lo reconozca aunque no haya actividades de ese tipo
+        nombre_aliases.append("Actualización de los comités de salud")
         for fila in resumen_tipo:
             nombre = str(fila.get("nombre") or "").strip()
             if nombre and nombre not in nombre_aliases:
                 nombre_aliases.append(nombre)
 
-        filas = []
-        for fila in root.findall(".//w:tr", ns):
-            celdas = fila.findall("./w:tc", ns)
+        for fila_elem in root.findall(".//w:tr", ns):
+            celdas = fila_elem.findall("./w:tc", ns)
             if len(celdas) < 2:
                 continue
-            cel1 = "".join((n.text or "") for n in celdas[0].findall(".//w:t", ns))
-            cel2 = "".join((n.text or "") for n in celdas[1].findall(".//w:t", ns))
-            filas.append((celdas[0], celdas[1], cel1, cel2))
 
-        filas_reemplazadas = set()
-        for idx, (cel1_elem, cel2_elem, cel1_texto, cel2_texto) in enumerate(filas):
-            if idx in filas_reemplazadas:
-                continue
-            cel1_norm = self._normalizar_texto(cel1_texto)
-            aliases_en_celda = []
-            for alias in nombre_aliases:
-                alias_norm = self._normalizar_texto(alias)
-                if alias_norm and alias_norm in cel1_norm:
-                    aliases_en_celda.append(alias)
-            if not aliases_en_celda:
+            cel1_elem = celdas[0]
+            cel2_elem = celdas[1]
+
+            # Analizar cada párrafo de la celda 1 para determinar qué valor
+            # va en el párrafo correspondiente de la celda 2.
+            parrafos_cel1 = cel1_elem.findall("w:p", ns)
+            if not parrafos_cel1:
                 continue
 
-            secuencia = []
-            for alias in aliases_en_celda:
-                alias_norm = self._normalizar_texto(alias)
-                valor_actividad = str(int(tipo_map.get(alias_norm, {}).get("total_actividades", 0) or 0))
-                secuencia.extend([valor_actividad, "0"])
+            # Primero verificamos si esta fila contiene algún tipo reconocible
+            texto_total_cel1 = "".join(
+                (n.text or "") for n in cel1_elem.findall(".//w:t", ns)
+            )
+            contiene_tipo = any(
+                self._normalizar_texto(alias) in self._normalizar_texto(texto_total_cel1)
+                for alias in nombre_aliases
+                if self._normalizar_texto(alias)
+            )
+            if not contiene_tipo:
+                continue
 
+            # Si la fila contiene 'Entrevista servicio social', asegurar que la línea siguiente sea 'Participantes'
+            if "entrevista servicio social" in self._normalizar_texto(texto_total_cel1):
+                tiene_part = any(
+                    self._normalizar_texto("".join((n.text or "") for n in p.findall(".//w:t", ns))) in ("participantes", "particiantes")
+                    for p in parrafos_cel1
+                )
+                if not tiene_part:
+                    for pi, p in enumerate(parrafos_cel1):
+                        txt_p = self._normalizar_texto("".join((n.text or "") for n in p.findall(".//w:t", ns)))
+                        if "entrevista servicio social" in txt_p:
+                            for p_sig in parrafos_cel1[pi+1:]:
+                                txt_sig = "".join((n.text or "") for n in p_sig.findall(".//w:t", ns)).strip()
+                                if txt_sig:
+                                    t_nodes = p_sig.findall(".//w:t", ns)
+                                    for tidx, tn in enumerate(t_nodes):
+                                        tn.text = "Participantes" if tidx == 0 else ""
+                                    break
+
+            # Extraer estilo de un párrafo con número en cel2 para reutilizarlo
+            rpr_xml_orig = None
+            ppr_xml_orig = None
+            for p_ref in cel2_elem.findall("w:p", ns):
+                t_nodes = p_ref.findall(".//w:t", ns)
+                texto_p = "".join((n.text or "") for n in t_nodes).strip()
+                if texto_p:  # párrafo que tiene contenido → tomar su estilo
+                    rpr_e = p_ref.find(".//w:rPr", ns)
+                    ppr_e = p_ref.find("w:pPr",  ns)
+                    if rpr_e is not None:
+                        rpr_xml_orig = ET.tostring(rpr_e, encoding="unicode")
+                    if ppr_e is not None:
+                        ppr_xml_orig = ET.tostring(ppr_e, encoding="unicode")
+                    break
+
+            # Preservar tcPr (propiedades de celda) antes de limpiar
+            tcpr_elem = cel2_elem.find("w:tcPr", ns)
+            tcpr_xml = ET.tostring(tcpr_elem, encoding="unicode") if tcpr_elem is not None else None
+
+            # Limpiar celda 2
             for child in list(cel2_elem):
                 cel2_elem.remove(child)
 
-            primer_p = ET.SubElement(cel2_elem, f"{{{ns['w']}}}p")
-            primer_r = ET.SubElement(primer_p, f"{{{ns['w']}}}r")
-            primer_t = ET.SubElement(primer_r, f"{{{ns['w']}}}t")
-            primer_t.text = " ".join(secuencia)
-            filas_reemplazadas.add(idx)
+            # Restaurar tcPr
+            if tcpr_xml:
+                try:
+                    cel2_elem.append(ET.fromstring(tcpr_xml))
+                except Exception:
+                    pass
+
+            # Reconstruir celda 2: un párrafo por cada párrafo de celda 1
+            ultimo_tipo_norm = None
+            for p1 in parrafos_cel1:
+                texto_p1 = "".join((n.text or "") for n in p1.findall(".//w:t", ns)).strip()
+                linea_norm = self._normalizar_texto(texto_p1)
+
+                # Determinar qué número poner en este párrafo
+                valor: str | None = None
+
+                if not texto_p1:
+                    # Párrafo vacío → dejar vacío en cel2 (preserva espaciado)
+                    valor = None
+                elif linea_norm in ("participantes", "particiantes", "participantes "):
+                    # Línea "Participantes" → conteo de participantes del tipo previo
+                    if ultimo_tipo_norm is not None:
+                        valor = str(tipo_map.get(ultimo_tipo_norm, {}).get("total_participantes", 0))
+                    else:
+                        valor = "0"
+                else:
+                    # Buscar si esta línea contiene algún tipo de actividad
+                    for alias in nombre_aliases:
+                        alias_norm = self._normalizar_texto(alias)
+                        if alias_norm and alias_norm in linea_norm:
+                            valor = str(tipo_map.get(alias_norm, {}).get("total_actividades", 0))
+                            ultimo_tipo_norm = alias_norm
+                            break
+                    if valor is None and texto_p1:
+                        valor = "0"
+
+                # Crear el párrafo en cel2
+                nuevo_p = ET.SubElement(cel2_elem, f"{{{w_ns}}}p")
+                if ppr_xml_orig:
+                    try:
+                        nuevo_p.insert(0, ET.fromstring(ppr_xml_orig))
+                    except Exception:
+                        pass
+                if valor is not None:
+                    nuevo_r = ET.SubElement(nuevo_p, f"{{{w_ns}}}r")
+                    if rpr_xml_orig:
+                        try:
+                            nuevo_r.insert(0, ET.fromstring(rpr_xml_orig))
+                        except Exception:
+                            pass
+                    nuevo_t = ET.SubElement(nuevo_r, f"{{{w_ns}}}t")
+                    nuevo_t.text = valor
 
         return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
@@ -2643,7 +2590,7 @@ class PDFService:
                     p(
                         f"{i}. {act.get('asic_nombre', '')} - {act.get('tipo_nombre', '')} - "
                         f"{act.get('fecha_inicio', '')} a {act.get('fecha_fin', '')} - "
-                        f"Lugar: {act.get('lugar', '')} - Participantes: {act.get('participantes', 0)} - "
+                        f"Participantes: {act.get('participantes', 0)} - "
                         f"Descripción: {act.get('descripcion', '')}"
                     )
                 )
@@ -2746,7 +2693,7 @@ class PDFService:
     def _tabla_detalle(self, actividades: list, estilos: dict) -> list:
         elems = [Paragraph("Detalle de Actividades", estilos["subtitulo"])]
         cab = [Paragraph(h, estilos["th"]) for h in
-               ["#", "ASIC", "Tipo", "Fecha Inicio", "Fecha Fin", "Lugar", "Participantes", "Descripción"]]
+               ["#", "ASIC", "Tipo", "Fecha Inicio", "Fecha Fin", "Participantes", "Descripción"]]
         filas = [cab]
         for i, act in enumerate(actividades, start=1):
             filas.append([
@@ -2755,11 +2702,10 @@ class PDFService:
                 Paragraph(act.get("tipo_nombre", ""),      estilos["td_pequeño"]),
                 Paragraph(str(act.get("fecha_inicio", "")), estilos["td_centro"]),
                 Paragraph(str(act.get("fecha_fin",   "")), estilos["td_centro"]),
-                Paragraph(act.get("lugar", ""),            estilos["td_pequeño"]),
                 Paragraph(str(act.get("participantes", 0)), estilos["td_centro"]),
                 Paragraph(act.get("descripcion", "")[:120], estilos["td_pequeño"]),
             ])
-        tabla = Table(filas, colWidths=["4%","13%","12%","9%","9%","13%","8%","32%"], repeatRows=1)
+        tabla = Table(filas, colWidths=["4%","13%","12%","9%","9%","8%","45%"], repeatRows=1)
         tabla.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), _AZUL_OSCURO),
             ("TEXTCOLOR",  (0, 0), (-1, 0), _BLANCO),
@@ -2854,7 +2800,7 @@ class PDFService:
             bottom=Side(style="thin", color="FFCCCCCC"),
         )
         cabeceras = ["#", "ASIC", "Tipo", "Fecha Inicio", "Fecha Fin",
-                     "Lugar", "Participantes", "Descripción"]
+                     "Participantes", "Descripción"]
         for col, cab in enumerate(cabeceras, 1):
             c = ws.cell(1, col, cab)
             c.fill = h_fill; c.font = h_font
@@ -2869,17 +2815,16 @@ class PDFService:
                 act.get("tipo_nombre", ""),
                 str(act.get("fecha_inicio", "")),
                 str(act.get("fecha_fin", "")),
-                act.get("lugar", ""),
                 act.get("participantes", 0),
                 act.get("descripcion", ""),
             ]
             for col, val in enumerate(valores, 1):
                 c = ws.cell(fila_idx, col, val)
                 c.border = border
-                c.alignment = Alignment(vertical="top", wrap_text=(col == 8))
+                c.alignment = Alignment(vertical="top", wrap_text=(col == 7))
                 if i % 2 == 0:
                     c.fill = r_fill
-        anchos = [5, 25, 22, 13, 13, 25, 13, 60]
+        anchos = [5, 25, 22, 13, 13, 13, 60]
         for col_idx, w in enumerate(anchos, 1):
             ws.column_dimensions[get_column_letter(col_idx)].width = w
     # ── Helpers ────────────────────────────────────────────────────────

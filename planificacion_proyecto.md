@@ -219,7 +219,6 @@ erDiagram
         int id_usuario_registro FK
         date fecha_inicio
         date fecha_fin
-        varchar lugar
         text descripcion
         int participantes
         boolean eliminado

@@ -34,28 +34,20 @@ def _set_favicon(ventana):
 def iniciar_app():
     """
     Función principal que inicia la aplicación.
-    Salta el login y va directo a la ventana principal.
+    Muestra el login y tras autenticar abre la ventana principal.
     """
-    # Modo sin login (temporal)
-    ventana_principal = ctk.CTk()
-    _set_favicon(ventana_principal)
+    root = ctk.CTk()
+    _set_favicon(root)
+    from pantallas.login import LoginView
     from pantallas.principal import MainView
-    MainView(ventana_principal)
-    ventana_principal.mainloop()
-
-    # --- Código original con login (comentado) ---
-    # root = ctk.CTk()
-    # _set_favicon(root)
-    # from pantallas.login     import LoginView
-    # from pantallas.principal import MainView
-    # def al_hacer_login():
-    #     root.destroy()
-    #     ventana_principal = ctk.CTk()
-    #     _set_favicon(ventana_principal)
-    #     MainView(ventana_principal)
-    #     ventana_principal.mainloop()
-    # LoginView(root, al_hacer_login)
-    # root.mainloop()
+    def al_hacer_login():
+        root.destroy()
+        ventana_principal = ctk.CTk()
+        _set_favicon(ventana_principal)
+        MainView(ventana_principal)
+        ventana_principal.mainloop()
+    LoginView(root, al_hacer_login)
+    root.mainloop()
 
 
 # ============================================================
