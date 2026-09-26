@@ -123,6 +123,20 @@ class ActividadView:
                       command=self._cargar_datos_tabla
                       ).pack(side="left", padx=10)
 
+        self.btn_editar = ctk.CTkButton(marco_acciones_top, text="Editar",
+                      font=("Arial", 9), fg_color=t["accent_dim"],
+                      hover_color=t["accent"], corner_radius=8,
+                      command=self._editar_seleccionada,
+                      state="disabled")
+        self.btn_editar.pack(side="left", padx=5)
+
+        self.btn_eliminar = ctk.CTkButton(marco_acciones_top, text="Eliminar",
+                      font=("Arial", 9), fg_color=t["red_bg"],
+                      hover_color=t["red"], corner_radius=8,
+                      command=self._eliminar_seleccionada,
+                      state="disabled")
+        self.btn_eliminar.pack(side="left", padx=5)
+
         ctk.CTkButton(marco_acciones_top, text="⬇ Descargar Plantilla",
                       font=("Arial", 9), fg_color=t["bg_card"],
                       hover_color=t["bg_hover"], corner_radius=8,
@@ -138,13 +152,30 @@ class ActividadView:
         marco_tabla = ctk.CTkFrame(self.parent, fg_color="transparent", corner_radius=10)
         marco_tabla.pack(fill="both", expand=True, padx=30, pady=(5, 10))
 
+        # Configurar estilo ANTES de crear el Treeview
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure("Act.Treeview",
+                        background=t["bg_base"], foreground=t["text_primary"],
+                        fieldbackground=t["bg_base"], rowheight=28,
+                        borderwidth=0)
+        style.configure("Act.Treeview.Heading",
+                        background=t["bg_card"], foreground=t["text_primary"],
+                        font=("Arial", 10, "bold"), relief="flat", borderwidth=0)
+        style.map("Act.Treeview.Heading",
+                  background=[("active", t["bg_card"])],
+                  foreground=[("active", t["text_primary"])])
+        style.map("Act.Treeview",
+                  background=[("selected", t["accent"])],
+                  foreground=[("selected", t["text_primary"])])
+
         columnas = (
             "asic", "tipo", "fecha", "estado",
             "municipio", "parroquia", "establecimiento_salud",
             "nombre_establecimiento", "comites_salud", "lugar",
             "participantes"
         )
-        self.tabla = ttk.Treeview(marco_tabla, columns=columnas, show="headings", height=12)
+        self.tabla = ttk.Treeview(marco_tabla, columns=columnas, show="headings", height=12, style="Act.Treeview")
 
         self.tabla.heading("asic",                     text="ASIC")
         self.tabla.heading("tipo",                     text="Tipo de Actividad")
@@ -170,38 +201,12 @@ class ActividadView:
         self.tabla.column("lugar",                 width=140,  anchor="w")
         self.tabla.column("participantes",         width=90,   anchor="center")
 
-        style = ttk.Style()
-        style.configure("Act.Treeview",
-                        background=t["bg_base"], foreground=t["text_primary"],
-                        fieldbackground=t["bg_base"], rowheight=28)
-        style.configure("Act.Treeview.Heading",
-                        background=t["bg_card"], foreground=t["text_primary"],
-                        font=("Arial", 10, "bold"), relief="flat")
-        style.map("Act.Treeview",
-                  background=[("selected", t["accent"])],
-                  foreground=[("selected", t["text_primary"])])
-
-        self.tabla.configure(style="Act.Treeview")
-
         scroll_y = ttk.Scrollbar(marco_tabla, orient="vertical", command=self.tabla.yview)
         self.tabla.configure(yscrollcommand=scroll_y.set)
         self.tabla.pack(side="left", fill="both", expand=True)
         scroll_y.pack(side="right", fill="y")
 
-        marco_acciones_bottom = ctk.CTkFrame(self.parent, fg_color="transparent")
-        marco_acciones_bottom.pack(fill="x", padx=30, pady=(0, 20))
-
-        ctk.CTkButton(marco_acciones_bottom, text="Editar Seleccionada",
-                      font=("Arial", 10), fg_color=t["accent_dim"],
-                      hover_color=t["accent"], corner_radius=8,
-                      command=self._editar_seleccionada
-                      ).pack(side="left")
-
-        ctk.CTkButton(marco_acciones_bottom, text="Eliminar Seleccionada",
-                      font=("Arial", 10), fg_color=t["red_bg"],
-                      hover_color=t["red"], corner_radius=8,
-                      command=self._eliminar_seleccionada
-                      ).pack(side="left", padx=10)
+        self.tabla.bind("<<TreeviewSelect>>", self._on_seleccion_cambio)
 
         self._cargar_datos_tabla()
 
@@ -279,7 +284,7 @@ class ActividadView:
         t = self.t
         ventana = ctk.CTkToplevel(self.parent)
         ventana.title("Registrar Actividad" if datos_edicion is None else "Editar Actividad")
-        ventana.resizable(False, False)
+        ventana.resizable(True, True)
         ventana.configure(fg_color=t["bg_surface"])
         ventana.grab_set()
 
@@ -288,7 +293,7 @@ class ActividadView:
         screen_h = ventana.winfo_screenheight()
         
         # Altura al 100% de la pantalla (restando un margen para evitar que se oculte bajo la barra de tareas)
-        ancho = 600
+        ancho = 900
         alto = screen_h - 80
         
         x = (screen_w // 2) - (ancho // 2)
@@ -397,12 +402,27 @@ class ActividadView:
         col_estab = ctk.CTkFrame(fila_ubi2, fg_color="transparent")
         col_estab.pack(side="left", fill="x", expand=True, padx=(0, 5))
         ctk.CTkLabel(col_estab, text="Establecimiento de Salud", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_establecimiento = ctk.CTkEntry(col_estab, font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"],
-                                           border_color=t["border"], corner_radius=6)
+        establecimientos = [
+            "Consultorio Popular TIPO I",
+            "Consultorio Popular TIPO II",
+            "Consultorio Popular TIPO III",
+            "Clinica Popular TIPO I",
+            "Clinica Popular TIPO II",
+            "CDI",
+            "SRI",
+            "CAT",
+            "Hospitales TIPO I",
+            "Hospitales TIPO II",
+            "Hospitales TIPO III",
+            "Hospitales TIPO IV",
+        ]
+        ent_establecimiento = ctk.CTkOptionMenu(col_estab, values=establecimientos, fg_color=t["bg_base"], button_color=t["bg_card"], button_hover_color=t["bg_hover"], text_color=t["text_primary"], dropdown_fg_color=t["bg_base"], dropdown_text_color=t["text_primary"])
+        if establecimientos:
+            try:
+                ent_establecimiento.set(establecimientos[0])
+            except Exception:
+                pass
         ent_establecimiento.pack(fill="x", pady=(2, 0))
-        self._poner_placeholder_entry(ent_establecimiento, "Establecimiento")
-        ent_establecimiento.bind("<FocusIn>", lambda e: self._limpiar_placeholder_entry(ent_establecimiento, "Establecimiento"))
-        ent_establecimiento.bind("<FocusOut>", lambda e: self._poner_placeholder_entry(ent_establecimiento, "Establecimiento"))
 
         col_nom_estab = ctk.CTkFrame(fila_ubi2, fg_color="transparent")
         col_nom_estab.pack(side="left", fill="x", expand=True, padx=5)
@@ -423,15 +443,6 @@ class ActividadView:
         self._poner_placeholder_entry(ent_comites, "Comités (ej: Comité A, Comité B)")
         ent_comites.bind("<FocusIn>", lambda e: self._limpiar_placeholder_entry(ent_comites, "Comités (ej: Comité A, Comité B)"))
         ent_comites.bind("<FocusOut>", lambda e: self._poner_placeholder_entry(ent_comites, "Comités (ej: Comité A, Comité B)"))
-
-        # Lugar combinado (legacy/opcional)
-        ctk.CTkLabel(marco_form, text="Lugar / Centro de Salud (resumen)", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(8, 2))
-        ent_lugar = ctk.CTkEntry(marco_form, font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"],
-                                 border_color=t["border"], corner_radius=6)
-        ent_lugar.pack(fill="x", pady=(2, 0))
-        self._poner_placeholder_entry(ent_lugar, "Lugar o centro de salud")
-        ent_lugar.bind("<FocusIn>", lambda e: self._limpiar_placeholder_entry(ent_lugar, "Lugar o centro de salud"))
-        ent_lugar.bind("<FocusOut>", lambda e: self._poner_placeholder_entry(ent_lugar, "Lugar o centro de salud"))
 
         # --- Descripción ---
         ctk.CTkLabel(marco_form, text="Tema Tratado / Descripción *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(8, 2))
@@ -517,112 +528,7 @@ class ActividadView:
         except Exception:
             pass
 
-        # --- Evidencias ---
-        marco_evidencias = ctk.CTkFrame(
-            frame_avanzado, fg_color=t["bg_surface"], corner_radius=10,
-            border_width=1, border_color=t["border"]
-        )
-        marco_evidencias.pack(fill="x", pady=(10, 2))
-
-        ctk.CTkLabel(marco_evidencias, text=" Evidencias / Adjuntos ",
-                     font=("Arial", 9, "bold"), text_color=t["text_muted"]
-                     ).pack(anchor="w", padx=10, pady=(5, 0))
-
-        marco_ev_content = ctk.CTkFrame(marco_evidencias, fg_color="transparent")
-        marco_ev_content.pack(fill="x", padx=10, pady=5)
-
-        marco_lista_ev = ctk.CTkFrame(marco_ev_content, fg_color=t["bg_card"], corner_radius=6)
-        marco_lista_ev.pack(side="left", fill="both", expand=True)
-        listbox_evidencias = tk.Listbox(marco_lista_ev, font=("Arial", 9), bg=t["bg_card"], fg=t["text_primary"],
-                                        selectbackground=t["accent"], relief="flat", height=3)
-        listbox_evidencias.pack(side="left", fill="both", expand=True, padx=2, pady=2)
-        scroll_ev = ttk.Scrollbar(marco_lista_ev, orient="vertical", command=listbox_evidencias.yview)
-        listbox_evidencias.configure(yscrollcommand=scroll_ev.set)
-        scroll_ev.pack(side="right", fill="y")
-
-        marco_btns_ev = ctk.CTkFrame(marco_ev_content, fg_color="transparent")
-        marco_btns_ev.pack(side="right", padx=(10, 0), fill="y")
-
-        evidencias_locales_nuevas = []
-        evidencias_existentes     = []
-        id_actividad_edicion      = datos_edicion["id_actividad"] if datos_edicion else None
-
-        def refrescar_lista_evidencias():
-            listbox_evidencias.delete(0, tk.END)
-            if id_actividad_edicion:
-                evidencias_existentes.clear()
-                try:
-                    for ev in self.controller.listar_evidencias_de_actividad(id_actividad_edicion):
-                        evidencias_existentes.append(ev)
-                        listbox_evidencias.insert(tk.END, ev["nombre_archivo"])
-                except Exception as e:
-                    messagebox.showerror("Error", f"No se pudieron cargar los adjuntos: {str(e)}", parent=ventana)
-            else:
-                for ruta in evidencias_locales_nuevas:
-                    listbox_evidencias.insert(tk.END, os.path.basename(ruta))
-
-        def adjuntar_archivo():
-            ruta = filedialog.askopenfilename(
-                title="Seleccionar evidencia",
-                filetypes=[("Archivos permitidos", "*.jpg;*.jpeg;*.png;*.pdf;*.docx"),
-                           ("Imagenes", "*.jpg;*.jpeg;*.png"),
-                           ("Documentos", "*.pdf;*.docx"),
-                           ("Todos los archivos", "*.*")],
-                parent=ventana
-            )
-            if not ruta:
-                return
-            ext = os.path.splitext(ruta)[1].lower()
-            if ext not in ALLOWED_EXTENSIONS:
-                messagebox.showerror("Error", f"Extension no permitida ({ext}). Permitidas: {', '.join(ALLOWED_EXTENSIONS)}", parent=ventana)
-                return
-            if os.path.getsize(ruta) > MAX_FILE_SIZE_MB * 1024 * 1024:
-                messagebox.showerror("Error", f"El archivo supera el tamano maximo de {MAX_FILE_SIZE_MB} MB.", parent=ventana)
-                return
-
-            if id_actividad_edicion:
-                ok_ev, msg_ev = self.controller.procesar_y_guardar_evidencia(id_actividad_edicion, ruta)
-                if ok_ev:
-                    messagebox.showinfo("Exito", msg_ev, parent=ventana)
-                    refrescar_lista_evidencias()
-                else:
-                    messagebox.showerror("Error", msg_ev, parent=ventana)
-            else:
-                if ruta in evidencias_locales_nuevas:
-                    messagebox.showwarning("Atencion", "Este archivo ya ha sido seleccionado.", parent=ventana)
-                    return
-                evidencias_locales_nuevas.append(ruta)
-                refrescar_lista_evidencias()
-
-        def quitar_archivo():
-            seleccion = listbox_evidencias.curselection()
-            if not seleccion:
-                messagebox.showwarning("Atencion", "Selecciona un archivo de la lista para quitar.", parent=ventana)
-                return
-            idx = seleccion[0]
-            if id_actividad_edicion:
-                ev = evidencias_existentes[idx]
-                if messagebox.askyesno("Confirmar eliminacion",
-                                       f"¿Deseas eliminar permanentemente el archivo '{ev['nombre_archivo']}' del servidor?",
-                                       parent=ventana):
-                    ok_del, msg_del = self.controller.eliminar_evidencia(ev["id_evidencia"])
-                    if ok_del:
-                        messagebox.showinfo("Exito", msg_del, parent=ventana)
-                        refrescar_lista_evidencias()
-                    else:
-                        messagebox.showerror("Error", msg_del, parent=ventana)
-            else:
-                evidencias_locales_nuevas.pop(idx)
-                refrescar_lista_evidencias()
-
-        ctk.CTkButton(marco_btns_ev, text="+ Adjuntar", font=("Arial", 9, "bold"),
-                      fg_color=t["bg_card"], hover_color=t["bg_hover"],
-                      corner_radius=8, command=adjuntar_archivo).pack(fill="x", pady=2)
-        ctk.CTkButton(marco_btns_ev, text="- Quitar", font=("Arial", 9),
-                      fg_color=t["red_bg"], hover_color=t["red"],
-                      corner_radius=8, command=quitar_archivo).pack(fill="x", pady=2)
-
-        refrescar_lista_evidencias()
+        id_actividad_edicion = datos_edicion["id_actividad"] if datos_edicion else None
 
         if datos_edicion:
             if datos_edicion["asic_nombre"] in nombres_asics:
@@ -648,14 +554,18 @@ class ActividadView:
                     pass
             ent_parroquia.delete(0, tk.END)
             ent_parroquia.insert(0, datos_edicion.get("parroquia", "") or "")
-            ent_establecimiento.delete(0, tk.END)
-            ent_establecimiento.insert(0, datos_edicion.get("establecimiento_salud", "") or "")
+            estab_valor = datos_edicion.get("establecimiento_salud", "") or ""
+            if estab_valor in establecimientos:
+                ent_establecimiento.set(estab_valor)
+            elif estab_valor:
+                try:
+                    ent_establecimiento.set(estab_valor)
+                except Exception:
+                    pass
             ent_nombre_establecimiento.delete(0, tk.END)
             ent_nombre_establecimiento.insert(0, datos_edicion.get("nombre_establecimiento", "") or "")
             ent_comites.delete(0, tk.END)
             ent_comites.insert(0, datos_edicion.get("comites_salud", "") or "")
-            ent_lugar.delete(0, tk.END)
-            ent_lugar.insert(0, datos_edicion.get("lugar", "") or "")
 
             # Cargar participantes por categoría (reemplazando valores por defecto)
             self.ent_medicos.delete(0, tk.END)
@@ -707,7 +617,6 @@ class ActividadView:
                 establecimiento_salud=self._valor_entry(ent_establecimiento),
                 nombre_establecimiento=self._valor_entry(ent_nombre_establecimiento),
                 comites_salud=self._valor_entry(ent_comites),
-                lugar=self._valor_entry(ent_lugar),
                 descripcion=txt_desc.get("1.0", "end-1c"),
                 medicos=self.ent_medicos.get(),
                 promotores_salud=self.ent_promotores.get(),
@@ -824,6 +733,12 @@ class ActividadView:
                     messagebox.showerror("Error", msg)
             except Exception as e:
                 messagebox.showerror("Error", f"No se pudo eliminar la actividad: {str(e)}")
+
+    def _on_seleccion_cambio(self, event=None):
+        seleccion = self.tabla.selection()
+        estado = "normal" if seleccion else "disabled"
+        self.btn_editar.configure(state=estado)
+        self.btn_eliminar.configure(state=estado)
 
     def _descargar_plantilla(self):
         if not os.path.exists(TEMPLATE_PATH):

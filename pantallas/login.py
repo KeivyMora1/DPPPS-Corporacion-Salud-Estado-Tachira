@@ -4,8 +4,10 @@
 # Rediseñada con customtkinter y estética premium.
 # ============================================================
 
+import os
 import customtkinter as ctk
 from tkinter import messagebox
+from PIL import Image
 from db import AuthController
 from utils import centrar_ventana
 
@@ -31,6 +33,16 @@ class LoginView:
 
         inner = ctk.CTkFrame(content, fg_color="transparent")
         inner.pack(fill="both", expand=True, padx=48, pady=50)
+
+        # Logo
+        logo_path = os.path.join(os.path.dirname(__file__), "..", "assets", "images", "logo2.png")
+        if os.path.exists(logo_path):
+            try:
+                img = Image.open(logo_path)
+                logo_img = ctk.CTkImage(light_image=img, dark_image=img, size=(120, 120))
+                ctk.CTkLabel(inner, image=logo_img, text="").pack(pady=(0, 12))
+            except Exception:
+                pass
 
         ctk.CTkLabel(inner, text="DPPPS", font=("Segoe UI", 22, "bold")).pack(pady=(0, 4))
         ctk.CTkLabel(

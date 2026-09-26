@@ -151,17 +151,26 @@ def entry_with_placeholder(parent, placeholder="", **kwargs):
     return e
 
 
-def spinbox_numeric(parent, label_text="", default=0, on_change=None, **kwargs):
+def spinbox_numeric(parent, label_text="", default=0, on_change=None, max_digits=5, **kwargs):
     """Campo numérico (Spinbox) con label opcional."""
     if label_text:
         lbl = ctk.CTkLabel(parent, text=label_text, font=("Segoe UI", 10, "bold"))
         lbl.pack(anchor="w")
-    ent = tk.Spinbox(parent, from_=0, to=99999, font=("Arial", 11), width=8, **kwargs)
+    max_val = 10 ** max_digits - 1
+    ent = tk.Spinbox(parent, from_=0, to=max_val, font=("Arial", 11), width=8, **kwargs)
     ent.pack(fill="x", pady=(2, 0))
     ent.delete(0, tk.END)
     ent.insert(0, str(default))
+    
+    # Validar longitud máxima al escribir
+    def _validar_longitud(e):
+        if len(ent.get()) > max_digits:
+            ent.delete(max_digits, tk.END)
+        if on_change:
+            on_change()
+    
+    ent.bind("<KeyRelease>", _validar_longitud)
     if on_change:
-        ent.bind("<KeyRelease>", lambda e: on_change())
         ent.configure(command=on_change)
     return ent
 

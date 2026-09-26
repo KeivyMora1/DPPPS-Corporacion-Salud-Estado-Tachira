@@ -100,10 +100,13 @@ class ReporteView:
 
         label(inner, "Paso 1 de 3 — Configurar parámetros del informe", font_size=12, bold=True).grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 14))
 
-        label(inner, "Fecha:", font_size=10).grid(row=1, column=0, sticky="w", pady=4)
+        label(inner, "Fecha inicio:", font_size=10).grid(row=1, column=0, sticky="w", pady=4)
         self._entry_f_ini = self._date_widget(inner)
-        self._entry_f_ini.grid(row=1, column=1, columnspan=3, sticky="w", padx=(8, 30))
-        self._entry_f_fin = self._entry_f_ini
+        self._entry_f_ini.grid(row=1, column=1, sticky="w", padx=(8, 30))
+
+        label(inner, "Fecha fin:", font_size=10).grid(row=1, column=2, sticky="w", pady=4, padx=(20, 0))
+        self._entry_f_fin = self._date_widget(inner)
+        self._entry_f_fin.grid(row=1, column=3, sticky="w", padx=(8, 30))
 
         label(inner, "ASIC (opcional):", font_size=10).grid(row=2, column=0, sticky="w", pady=4)
 
@@ -153,10 +156,14 @@ class ReporteView:
 
     def _iniciar_previo(self):
         f_ini = self._leer_fecha(self._entry_f_ini)
-        f_fin = f_ini
+        f_fin = self._leer_fecha(self._entry_f_fin)
 
-        if not f_ini:
-            messagebox.showerror("Fecha inválida", "Por favor ingresa una fecha válida (YYYY-MM-DD).")
+        if not f_ini or not f_fin:
+            messagebox.showerror("Fecha inválida", "Por favor ingresa ambas fechas válidas (YYYY-MM-DD).")
+            return
+
+        if f_fin < f_ini:
+            messagebox.showerror("Rango inválido", "La fecha de fin no puede ser anterior a la fecha de inicio.")
             return
 
         titulo  = self._entry_titulo.get().strip() or "Informe Consolidado"
@@ -188,8 +195,26 @@ class ReporteView:
         total_act    = previo["total_actividades"]
         total_part   = previo["total_participantes"]
 
-        card_top = frame_surface(self._frame_generar, fg_color="gray20", corner_radius=10)
-        card_top.pack(fill="x", padx=15, pady=(6, 0))
+        # Botones de acción fijos al final (fuera del scroll)
+        card_act = frame_surface(self._frame_generar, fg_color="gray20", corner_radius=10)
+        card_act.pack(fill="x", padx=15, pady=(8, 15), side="bottom")
+
+        inner_act = frame_transparent(card_act)
+        inner_act.pack(fill="x", padx=20, pady=14)
+
+        btn_secondary(inner_act, "← Volver", self._mostrar_paso1).pack(side="left", padx=(0, 10))
+
+        if total_act > 0:
+            btn_primary(inner_act, "💾  Guardar informe en BD", self._guardar_informe).pack(side="left", padx=(0, 10))
+            btn_success(inner_act, "📄  Exportar Word", self._exportar_word).pack(side="left")
+
+        # Área de contenido con scroll
+        scroll = ctk.CTkScrollableFrame(self._frame_generar, fg_color="transparent")
+        scroll.pack(fill="both", expand=True, padx=15, pady=(6, 0))
+
+        # Header con chips
+        card_top = frame_surface(scroll, fg_color="gray20", corner_radius=10)
+        card_top.pack(fill="x", pady=(0, 10))
 
         inner_top = frame_transparent(card_top)
         inner_top.pack(fill="x", padx=20, pady=14)
@@ -200,30 +225,17 @@ class ReporteView:
         chips.pack(anchor="w")
         self._chip(chips, f"📋 Actividades: {total_act}", "gray25")
         self._chip(chips, f"👥 Participantes: {total_part}", "#613BE3")
-        self._chip(chips, f"📅 {previo['fecha_inicio']}", "#266470")
+        self._chip(chips, f"📅 {previo['fecha_inicio']} → {previo['fecha_fin']}", "#266470")
         if previo.get("asic_nombre"):
             self._chip(chips, f"🏥 {previo['asic_nombre']}", "#30152a")
 
         if total_act == 0:
-            label(self._frame_generar, "⚠  No hay actividades para el período y filtros seleccionados.", font_size=11, text_color="#c45050").pack(pady=20)
+            label(scroll, "⚠  No hay actividades para el período y filtros seleccionados.", font_size=11, text_color="#c45050").pack(pady=20)
         else:
-            fila_resumenes = frame_transparent(self._frame_generar)
-            fila_resumenes.pack(fill="x", padx=15, pady=(10, 0))
+            fila_resumenes = frame_transparent(scroll)
+            fila_resumenes.pack(fill="x", pady=(0, 10))
             self._mini_tabla(fila_resumenes, "Por ASIC", resumen_asic, ["ASIC", "Actividades", "Participantes"])
             self._mini_tabla(fila_resumenes, "Por Tipo", resumen_tipo, ["Tipo de Actividad", "Actividades", "Participantes"])
-            self._tabla_detalle_tk(previo)
-
-        card_act = frame_surface(self._frame_generar, fg_color="gray20", corner_radius=10)
-        card_act.pack(fill="x", padx=15, pady=(8, 0))
-
-        inner_act = frame_transparent(card_act)
-        inner_act.pack(fill="x", padx=20, pady=14)
-
-        btn_secondary(inner_act, "← Volver", self._mostrar_paso1).pack(side="left", padx=(0, 10))
-
-        if total_act > 0:
-            btn_primary(inner_act, "💾  Guardar informe en BD", self._guardar_informe).pack(side="left", padx=(0, 10))
-            btn_success(inner_act, "📄  Exportar Word", self._exportar_word).pack(side="left")
 
     def _mini_tabla(self, parent: ctk.CTkFrame, titulo: str, filas: list, cabeceras: list):
         marco = frame_surface(parent, fg_color="gray20", corner_radius=10)
@@ -249,47 +261,6 @@ class ReporteView:
         sy = ttk.Scrollbar(inner, orient="vertical", command=tree.yview)
         tree.configure(yscrollcommand=sy.set)
         sy.pack(side="right", fill="y")
-        tree.pack(fill="both", expand=True)
-
-    def _tabla_detalle_tk(self, previo: dict):
-        marco = frame_surface(self._frame_generar, fg_color="gray20", corner_radius=10)
-        marco.pack(fill="both", expand=True, padx=15, pady=(8, 0))
-
-        inner = frame_transparent(marco)
-        inner.pack(fill="both", expand=True, padx=12, pady=10)
-
-        label(inner, f"Detalle de actividades ({previo['total_actividades']})", font_size=10, bold=True).pack(anchor="w", pady=(0, 5))
-
-        cols  = ("asic", "tipo", "fecha_inicio", "fecha_fin", "lugar", "participantes", "descripcion")
-        labs  = ("ASIC", "Tipo", "Fecha Ini.", "Fecha Fin", "Lugar", "Partic.", "Descripción")
-        anchs = (150, 140, 90, 90, 140, 70, 350)
-
-        treeview_style("Det", 22)
-
-        cont = frame_transparent(inner)
-        cont.pack(fill="both", expand=True)
-
-        tree = ttk.Treeview(cont, columns=cols, show="headings", style="Det.Treeview", height=10)
-        for col, lab, ancho in zip(cols, labs, anchs):
-            tree.heading(col, text=lab)
-            tree.column(col, width=ancho, minwidth=50, anchor="w")
-
-        for act in previo["actividades"]:
-            tree.insert("", "end", values=(
-                act.get("asic_nombre",  ""),
-                act.get("tipo_nombre",  ""),
-                str(act.get("fecha_inicio", "")),
-                str(act.get("fecha_fin",    "")),
-                act.get("lugar", ""),
-                act.get("participantes", 0),
-                act.get("descripcion", "")[:80],
-            ))
-
-        sy = ttk.Scrollbar(cont, orient="vertical",   command=tree.yview)
-        sx = ttk.Scrollbar(cont, orient="horizontal", command=tree.xview)
-        tree.configure(yscrollcommand=sy.set, xscrollcommand=sx.set)
-        sy.pack(side="right",  fill="y")
-        sx.pack(side="bottom", fill="x")
         tree.pack(fill="both", expand=True)
 
     def _guardar_informe(self):

@@ -1,6 +1,8 @@
+import os
 import tkinter as tk
 import customtkinter as ctk
 from tkinter import messagebox
+from PIL import Image
 from db import AuthController
 from utils import centrar_ventana
 from ui_helpers import (
@@ -45,17 +47,28 @@ class MainView:
         self.logo_area = frame(self.sidebar_inner, fg_color="gray20", corner_radius=0)
         self.logo_area.pack(fill="x", padx=20, pady=(20, 28))
 
-        self.logo_canvas = canvas_circle(self.logo_area, 52, bg="#613BE3")
-        self.logo_canvas.pack(side="left")
+        # Cargar logo2.png - centrado arriba, texto abajo
+        logo_path = os.path.join(os.path.dirname(__file__), "..", "assets", "images", "logo2.png")
+        if os.path.exists(logo_path):
+            try:
+                img = Image.open(logo_path)
+                # Imagen más grande (140x140) ya que el texto está abajo
+                logo_img = ctk.CTkImage(light_image=img, dark_image=img, size=(140, 140))
+                self.logo_label = ctk.CTkLabel(self.logo_area, image=logo_img, text="")
+                self.logo_label.pack(anchor="center", pady=(0, 16))
+            except Exception:
+                self._draw_logo_letter_fallback()
+        else:
+            self._draw_logo_letter_fallback()
 
         self.logo_text_frame = frame(self.logo_area, fg_color="gray20", corner_radius=0)
-        self.logo_text_frame.pack(side="left", padx=(12, 0))
+        self.logo_text_frame.pack(anchor="center")
 
         self.lbl_logo_title = label_title(self.logo_text_frame, "DPPPS")
-        self.lbl_logo_title.pack(anchor="w", pady=0)
+        self.lbl_logo_title.pack(anchor="center", pady=0)
 
         self.lbl_logo_sub = label_subtitle(self.logo_text_frame, "SISTEMA DE INFORMES")
-        self.lbl_logo_sub.pack(anchor="w", pady=0)
+        self.lbl_logo_sub.pack(anchor="center", pady=0)
 
         # ── Separator ──────────────────────────────────────
         separator(self.sidebar_inner, horizontal=True, fg_color="gray40").pack(fill="x", padx=20, pady=(0, 12))
@@ -121,10 +134,20 @@ class MainView:
         self._draw_status_dot()
         self._draw_avatar(nombre)
 
-    def _draw_logo_letter(self):
-        self.logo_canvas.delete("all")
-        self.logo_canvas.create_text(26, 26, text="D",
-                                     font=("Segoe UI", 18, "bold"), fill="#ffffff")
+    def _draw_logo_letter_fallback(self):
+        """Fallback: dibuja un círculo con la letra D si no se puede cargar la imagen."""
+        canvas = canvas_circle(self.logo_area, 140, bg="#613BE3")
+        canvas.pack(anchor="center", pady=(0, 16))
+        canvas.create_text(70, 70, text="D", font=("Segoe UI", 48, "bold"), fill="#ffffff")
+
+        self.logo_text_frame = frame(self.logo_area, fg_color="gray20", corner_radius=0)
+        self.logo_text_frame.pack(anchor="center")
+
+        self.lbl_logo_title = label_title(self.logo_text_frame, "DPPPS")
+        self.lbl_logo_title.pack(anchor="center", pady=0)
+
+        self.lbl_logo_sub = label_subtitle(self.logo_text_frame, "SISTEMA DE INFORMES")
+        self.lbl_logo_sub.pack(anchor="center", pady=0)
 
     def _draw_status_dot(self):
         self.status_dot.delete("all")
