@@ -15,8 +15,8 @@ class MainView:
 
     MENU_ITEMS = [
         ("actividades", "Actividades"),
-        ("reportes",    "Reportes"),
         ("vocerias",    "Vocerias CS"),
+        ("reportes",    "Reportes"),
     ]
 
     def __init__(self, root):
@@ -36,15 +36,22 @@ class MainView:
 
     def _construir_ui(self):
         # ── Sidebar (left, full height) ───────────────────
-        self.panel_menu = frame(self.root, fg_color="gray20", width=240, corner_radius=0)
+        self.panel_menu = frame(
+            self.root,
+            fg_color="#2d2d2d",
+            width=240,
+            corner_radius=0,
+            border_width=2,
+            border_color="#111827"
+        )
         self.panel_menu.pack(fill="y", side="left")
         self.panel_menu.pack_propagate(False)
 
-        self.sidebar_inner = frame(self.panel_menu, fg_color="gray20", corner_radius=0)
-        self.sidebar_inner.pack(fill="both", expand=True)
+        self.sidebar_inner = frame(self.panel_menu, fg_color="#2d2d2d", corner_radius=0)
+        self.sidebar_inner.pack(side="left", fill="both", expand=True)
 
         # ── Logo ───────────────────────────────────────────
-        self.logo_area = frame(self.sidebar_inner, fg_color="gray20", corner_radius=0)
+        self.logo_area = frame(self.sidebar_inner, fg_color="#2d2d2d", corner_radius=0)
         self.logo_area.pack(fill="x", padx=20, pady=(20, 28))
 
         # Cargar logo2.png - centrado arriba, texto abajo
@@ -61,7 +68,7 @@ class MainView:
         else:
             self._draw_logo_letter_fallback()
 
-        self.logo_text_frame = frame(self.logo_area, fg_color="gray20", corner_radius=0)
+        self.logo_text_frame = frame(self.logo_area, fg_color="#2d2d2d", corner_radius=0)
         self.logo_text_frame.pack(anchor="center")
 
         self.lbl_logo_title = label_title(self.logo_text_frame, "DPPPS")
@@ -74,7 +81,7 @@ class MainView:
         separator(self.sidebar_inner, horizontal=True, fg_color="gray40").pack(fill="x", padx=20, pady=(0, 12))
 
         # ── Navigation ─────────────────────────────────────
-        self.nav_frame = frame(self.sidebar_inner, fg_color="gray20", corner_radius=0)
+        self.nav_frame = frame(self.sidebar_inner, fg_color="#2d2d2d", corner_radius=0)
         self.nav_frame.pack(fill="x", padx=10)
 
         for clave, label_text in self.MENU_ITEMS:
@@ -140,7 +147,7 @@ class MainView:
         canvas.pack(anchor="center", pady=(0, 16))
         canvas.create_text(70, 70, text="D", font=("Segoe UI", 48, "bold"), fill="#ffffff")
 
-        self.logo_text_frame = frame(self.logo_area, fg_color="gray20", corner_radius=0)
+        self.logo_text_frame = frame(self.logo_area, fg_color="#2d2d2d", corner_radius=0)
         self.logo_text_frame.pack(anchor="center")
 
         self.lbl_logo_title = label_title(self.logo_text_frame, "DPPPS")

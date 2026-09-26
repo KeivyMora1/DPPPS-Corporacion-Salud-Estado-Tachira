@@ -43,6 +43,12 @@ class ReporteView:
         self._previo:              dict | None = None
         self._id_informe_guardado: int  | None = None
 
+        if self.usuario is None:
+            self.parent.after(0, lambda: messagebox.showwarning(
+                "Sesión no activa",
+                "Debes iniciar sesión antes de acceder a reportes."
+            ))
+
         self._construir_ui()
 
     def _construir_ui(self):
@@ -155,6 +161,10 @@ class ReporteView:
             return None
 
     def _iniciar_previo(self):
+        if self.usuario is None:
+            messagebox.showwarning("Sesión no activa", "Debes iniciar sesión antes de generar reportes.")
+            return
+
         f_ini = self._leer_fecha(self._entry_f_ini)
         f_fin = self._leer_fecha(self._entry_f_fin)
 
@@ -264,6 +274,9 @@ class ReporteView:
         tree.pack(fill="both", expand=True)
 
     def _guardar_informe(self):
+        if self.usuario is None:
+            messagebox.showwarning("Sesión no activa", "Debes iniciar sesión antes de guardar reportes.")
+            return
         if not self._previo:
             return
         titulo = self._previo.get("titulo", "Informe Consolidado")
@@ -333,6 +346,13 @@ class ReporteView:
         self._cargar_historial()
 
     def _cargar_historial(self):
+        if self.usuario is None:
+            if hasattr(self, "_tree_hist"):
+                for row in self._tree_hist.get_children():
+                    self._tree_hist.delete(row)
+            messagebox.showwarning("Sesión no activa", "Debes iniciar sesión antes de consultar el historial.")
+            return
+
         for row in self._tree_hist.get_children():
             self._tree_hist.delete(row)
         try:
@@ -357,6 +377,9 @@ class ReporteView:
         return int(sel[0])
 
     def _exportar_word_historial(self):
+        if self.usuario is None:
+            messagebox.showwarning("Sesión no activa", "Debes iniciar sesión antes de exportar reportes.")
+            return
         id_inf = self._informe_seleccionado()
         if not id_inf:
             return
@@ -378,6 +401,9 @@ class ReporteView:
         threading.Thread(target=_tarea, daemon=True).start()
 
     def _eliminar_historial(self):
+        if self.usuario is None:
+            messagebox.showwarning("Sesión no activa", "Debes iniciar sesión antes de eliminar reportes.")
+            return
         id_inf = self._informe_seleccionado()
         if not id_inf:
             return

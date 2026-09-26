@@ -107,6 +107,70 @@ CREATE TABLE IF NOT EXISTS actividad (
 );
 
 -- ============================================================
+-- TABLA: tipo_voceria
+-- Catálogo de tipos de vocería (ej: Reunión, Asamblea, Jornada)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS tipo_voceria (
+    id_tipo    INT AUTO_INCREMENT PRIMARY KEY,
+    codigo     VARCHAR(20) NOT NULL UNIQUE,      -- Ej: "VOC-001"
+    nombre     VARCHAR(100) NOT NULL,
+    activo     BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============================================================
+-- TABLA: voceria
+-- Cabecera de la sesión de vocería (datos generales de la jornada)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS voceria (
+    id_voceria        INT AUTO_INCREMENT PRIMARY KEY,
+    id_asic           INT NOT NULL,
+    id_tipo           INT NOT NULL,
+    id_usuario_registro INT NOT NULL,
+    fecha             DATE NOT NULL,
+    estado            VARCHAR(100) DEFAULT 'Táchira',
+    municipio         VARCHAR(100),
+    parroquia         VARCHAR(100),
+    tema              VARCHAR(200) NOT NULL,
+    descripcion       TEXT,
+    eliminado         BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (id_asic)             REFERENCES asic(id_asic),
+    FOREIGN KEY (id_tipo)             REFERENCES tipo_voceria(id_tipo),
+    FOREIGN KEY (id_usuario_registro) REFERENCES usuario(id_usuario)
+);
+
+-- ============================================================
+-- TABLA: voceria_item
+-- Detalle de cada vocero/participante dentro de una sesión de vocería
+-- ============================================================
+CREATE TABLE IF NOT EXISTS voceria_item (
+    id_item           INT AUTO_INCREMENT PRIMARY KEY,
+    id_voceria        INT NOT NULL,
+    id_tipo_voceria   INT NOT NULL,           -- Tipo específico de vocería (ej: V. CONTRALORÍA, V. SALUD Y VIDA, etc.)
+    nombre_comite     VARCHAR(150) NOT NULL,
+    centro_dispensador VARCHAR(100) NOT NULL, -- SRI, HOSPITAL, CAT, CDI, CLINICA POPULAR, CONSULTORIO MEDICO POPULAR, AMBULATORIO U OTRO
+    nombre_centro     VARCHAR(150) NOT NULL,
+    nombres           VARCHAR(150) NOT NULL,
+    ci                VARCHAR(20) NOT NULL,
+    telefono          VARCHAR(30),
+    fecha_nacimiento  DATE,
+    edad              INT,
+    sexo              ENUM('M', 'F'),
+    profesion         VARCHAR(100),
+    correo            VARCHAR(100),
+    fechas_eleccion   DATE,
+    eliminado         BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (id_voceria)      REFERENCES voceria(id_voceria),
+    FOREIGN KEY (id_tipo_voceria) REFERENCES tipo_voceria(id_tipo)
+);
+
+-- ============================================================
 -- TABLA: evidencia
 -- Archivos o fotos que se adjuntan a una actividad como prueba.
 -- ============================================================
@@ -222,3 +286,16 @@ INSERT IGNORE INTO tipo_actividad (codigo, nombre) VALUES
     ('TIPO-05', 'Participación Activa en Jornadas'),
     ('TIPO-06', 'Participación Activa en Inmunizaciones'),
     ('TIPO-07', 'Entrevista servicio social');
+
+-- Tipos de vocería permitidos
+INSERT IGNORE INTO tipo_voceria (codigo, nombre) VALUES
+    ('VOC-01', 'V. CONTRALORÍA'),
+    ('VOC-02', 'V. DEL ADULTO MAYOR'),
+    ('VOC-03', 'V. DE ENFERMEDADES CRÓNICAS TRASMISIBLES Y NO TRASMISIBLES'),
+    ('VOC-04', 'V. DE PERSONAS CON DISCAPACIDAD, ENCAMADOS Y CUIDADORES EN SALUD'),
+    ('VOC-05', 'V. DE SALUD Y VIDA'),
+    ('VOC-06', 'V. DE NIÑOS, NIÑAS Y ADOLESCENTES'),
+    ('VOC-07', 'V. DE LA JUVENTUD EN SALUD'),
+    ('VOC-08', 'V. DE EDUCACIÓN POPULAR EN SALUD INTERCULTURAL Y ANCESTRAL'),
+    ('VOC-09', 'V. DE INMUNIZACIONES'),
+    ('VOC-10', 'V. DE PROYECTOS EN SALUD');

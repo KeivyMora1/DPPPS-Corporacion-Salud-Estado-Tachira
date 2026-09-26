@@ -2,6 +2,12 @@ import customtkinter as ctk
 import tkinter as tk
 from tkinter import ttk
 
+try:
+    from tkcalendar import DateEntry
+    HAS_CALENDAR = True
+except ImportError:
+    HAS_CALENDAR = False
+
 
 def frame(parent, **kwargs):
     return ctk.CTkFrame(parent, **kwargs)
@@ -179,3 +185,42 @@ def form_field_row(parent, fields, label_width=10):
     """Crea una fila de campos de formulario (label + entry) en columnas."""
     # fields: lista de dicts con keys: label, placeholder, width, etc.
     pass  # placeholder for future use
+
+
+def date_picker(parent, placeholder="AAAA-MM-DD", font=None, **kwargs):
+    """Campo de fecha con selector de calendario (DateEntry) si está disponible, sino entry con placeholder."""
+    if HAS_CALENDAR:
+        e = DateEntry(parent, date_pattern="yyyy-mm-dd",
+                      background="#26405E", foreground="white",
+                      headersbackground="#1e3a56",
+                      headersforeground="white",
+                      selectbackground="#613BE3", font=font or ("Arial", 10),
+                      width=14, **kwargs)
+        return e
+    else:
+        e = ctk.CTkEntry(parent, font=font or ("Arial", 11), corner_radius=6, **kwargs)
+        if placeholder:
+            e.insert(0, placeholder)
+            e.configure(text_color="gray50")
+        return e
+
+
+def entry_numeric(parent, placeholder="", max_digits=3, **kwargs):
+    """Entry que solo acepta números, con validación de longitud máxima."""
+    e = ctk.CTkEntry(parent, font=("Arial", 11), corner_radius=6, **kwargs)
+    if placeholder:
+        e.insert(0, placeholder)
+        e.configure(text_color="gray50")
+    
+    def _validar(e):
+        texto = e.get()
+        # Solo permitir dígitos
+        if texto and not texto.isdigit():
+            e.delete(0, tk.END)
+            e.insert(0, ''.join(filter(str.isdigit, texto)))
+        # Limitar longitud
+        if len(e.get()) > max_digits:
+            e.delete(max_digits, tk.END)
+    
+    e.bind("<KeyRelease>", lambda ev: _validar(e))
+    return e

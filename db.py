@@ -41,6 +41,8 @@ UPLOADS_DIR = "uploads/"
 EXPORTS_DIR = "exports/"
 # Ruta de la plantilla Excel para importación de actividades
 TEMPLATE_PATH = "assets/templates/plantilla_importacion.xlsx"
+# Ruta de la plantilla Excel para importación de vocerías CS
+VOCERIA_TEMPLATE_PATH = "assets/templates/FORMATO DE DATA COMITES 2026.xlsx"
 # Tipos de archivo permitidos para evidencias
 ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".pdf", ".docx"]
 # Tamaño máximo de archivo en MB
@@ -51,32 +53,140 @@ ASIC_PREDETERMINADOS = [
     ("ASIC-02", "Antonio Rómulo Costa"),
     ("ASIC-03", "Ayacucho"),
     ("ASIC-04", "Bolívar"),
-    ("ASIC-05", "Cárdenas"),
-    ("ASIC-06", "Córdoba"),
-    ("ASIC-07", "Fernández Feo"),
-    ("ASIC-08", "Francisco de Miranda"),
-    ("ASIC-09", "García de Hevia"),
-    ("ASIC-10", "Guásimos"),
-    ("ASIC-11", "Independencia"),
-    ("ASIC-12", "Jáuregui"),
-    ("ASIC-13", "José María Vargas"),
-    ("ASIC-14", "Junín"),
-    ("ASIC-15", "Libertad"),
-    ("ASIC-16", "Libertador"),
-    ("ASIC-17", "Lobatera"),
+    ("ASIC-05", "Capacho Independencia"),
+    ("ASIC-06", "Capacho Libertad"),
+    ("ASIC-07", "Cárdenas"),
+    ("ASIC-08", "Córdoba"),
+    ("ASIC-09", "Dr. Hugo Murzi"),
+    ("ASIC-10", "Dr. Jacinto Convit"),
+    ("ASIC-11", "Dr. José María Vargas"),
+    ("ASIC-12", "Fernández Feo"),
+    ("ASIC-13", "García de Hevia"),
+    ("ASIC-14", "Guásimos"),
+    ("ASIC-15", "Jáuregui"),
+    ("ASIC-16", "Junín"),
+    ("ASIC-17", "Libertador"),
     ("ASIC-18", "Michelena"),
     ("ASIC-19", "Panamericano"),
-    ("ASIC-20", "Pedro María Ureña"),
-    ("ASIC-21", "Rafael Urdaneta"),
-    ("ASIC-22", "Samuel Darío Maldonado"),
-    ("ASIC-23", "San Cristóbal"),
-    ("ASIC-24", "San Judas Tadeo"),
-    ("ASIC-25", "Seboruco"),
-    ("ASIC-26", "Simón Rodríguez"),
-    ("ASIC-27", "Sucre"),
-    ("ASIC-28", "Torbes"),
-    ("ASIC-29", "Uribante"),
+    ("ASIC-20", "Sabaneta"),
+    ("ASIC-21", "Samuel Darío Maldonado"),
+    ("ASIC-22", "Sucre"),
+    ("ASIC-23", "Torbes"),
+    ("ASIC-24", "Ureña"),
+    ("ASIC-25", "Uribante"),
 ]
+
+VOCERIA_ESTADO_OPCIONES = ["Táchira"]
+VOCERIA_MUNICIPIO_OPCIONES = [nombre for _, nombre in ASIC_PREDETERMINADOS]
+VOCERIA_ASIC_OPCIONES = VOCERIA_MUNICIPIO_OPCIONES
+
+
+def build_voceria_template(output_path=None):
+    """Genera la plantilla Excel para vocerías CS con listas desplegables para Estado, Municipio y ASIC."""
+    if output_path is None:
+        output_path = VOCERIA_TEMPLATE_PATH
+
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.worksheet.datavalidation import DataValidation
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "COMITES"
+
+    title_fill = PatternFill("solid", fgColor="D9EAF7")
+    title_font = Font(bold=True, color="1F1F1F", size=12)
+    header_fill = PatternFill("solid", fgColor="EAF2F8")
+    header_font = Font(bold=True, color="1F1F1F")
+
+    ws.merge_cells("A1:K1")
+    ws["A1"] = "FORMATO DE DATOS DE VOCERÍAS CS"
+    ws["A1"].fill = title_fill
+    ws["A1"].font = title_font
+    ws["A1"].alignment = Alignment(horizontal="center")
+
+    headers = [
+        "FECHA",
+        "ESTADO",
+        "MUNICIPIO",
+        "PARROQUIA",
+        "ASIC",
+        "TEMA TRATADO",
+        "DESCRIPCIÓN",
+        "COMITÉ",
+        "CENTRO DISPENSADOR",
+        "NOMBRE CENTRO",
+        "NOMBRES Y APELLIDOS",
+        "C.I.",
+        "TELÉFONO",
+        "FECHA NACIMIENTO",
+        "EDAD",
+        "SEXO",
+        "PROFESIÓN",
+        "CORREO",
+        "FECHA ELECCIÓN",
+        "VOCERÍA",
+    ]
+
+    ws.append(headers)
+    for cell in ws[3]:
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    for col in ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T"]:
+        ws.column_dimensions[col].width = 18
+
+    ws.column_dimensions["A"].width = 14
+    ws.column_dimensions["F"].width = 24
+    ws.column_dimensions["G"].width = 28
+    ws.column_dimensions["H"].width = 20
+    ws.column_dimensions["I"].width = 20
+    ws.column_dimensions["J"].width = 22
+    ws.column_dimensions["K"].width = 24
+    ws.column_dimensions["L"].width = 16
+    ws.column_dimensions["M"].width = 16
+    ws.column_dimensions["N"].width = 16
+    ws.column_dimensions["O"].width = 12
+    ws.column_dimensions["P"].width = 18
+    ws.column_dimensions["Q"].width = 22
+    ws.column_dimensions["R"].width = 18
+    ws.column_dimensions["S"].width = 18
+    ws.column_dimensions["T"].width = 18
+
+    ws.freeze_panes = "A4"
+
+    estado_options = ",".join(VOCERIA_ESTADO_OPCIONES)
+    municipio_options = ",".join(VOCERIA_MUNICIPIO_OPCIONES)
+    asic_options = ",".join(VOCERIA_ASIC_OPCIONES)
+
+    dv_estado = DataValidation(type="list", formula1=f'"{estado_options}"', allow_blank=True)
+    dv_estado.promptTitle = "Estado"
+    dv_estado.prompt = "Seleccione una opción válida."
+    dv_estado.add("B4:B1000")
+    ws.add_data_validation(dv_estado)
+
+    dv_municipio = DataValidation(type="list", formula1=f'"{municipio_options}"', allow_blank=True)
+    dv_municipio.promptTitle = "Municipio"
+    dv_municipio.prompt = "Seleccione un municipio válido."
+    dv_municipio.add("C4:C1000")
+    ws.add_data_validation(dv_municipio)
+
+    dv_asic = DataValidation(type="list", formula1=f'"{asic_options}"', allow_blank=True)
+    dv_asic.promptTitle = "ASIC"
+    dv_asic.prompt = "Seleccione un ASIC válido."
+    dv_asic.add("E4:E1000")
+    ws.add_data_validation(dv_asic)
+
+    ws["A2"] = "FORMATO CON LISTAS DESPLEGABLES PARA ESTADO, MUNICIPIO Y ASIC"
+    ws["A2"].font = Font(italic=True, color="666666")
+
+    wb.save(output_path)
+    return output_path
+
+
 # Catálogo base de tipos de actividad permitidos por el sistema
 TIPOS_ACTIVIDAD_PREDETERMINADOS = [
     ("TIPO-01", "Salud toca tu puerta"),
@@ -590,6 +700,276 @@ class TipoActividadDAO:
         conn.commit()
         cursor.close()
         conn.close()
+
+class VoceriaDAO:
+    """Maneja las consultas SQL para vocerías CS (cabecera)."""
+    def obtener_todas(self, filtros=None):
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        sql = """
+            SELECT v.id_voceria, v.id_asic, v.id_tipo, v.id_usuario_registro,
+                   v.fecha, v.estado, v.municipio, v.parroquia, v.tema, v.descripcion,
+                   v.created_at,
+                   a.nombre AS asic_nombre,
+                   tv.nombre AS tipo_nombre,
+                   u.nombre_completo AS usuario_nombre
+            FROM voceria v
+            JOIN asic a ON v.id_asic = a.id_asic
+            JOIN tipo_voceria tv ON v.id_tipo = tv.id_tipo
+            JOIN usuario u ON v.id_usuario_registro = u.id_usuario
+            WHERE v.eliminado = FALSE
+        """
+        params = []
+        if filtros:
+            if filtros.get("id_asic"):
+                sql += " AND v.id_asic = %s"
+                params.append(filtros["id_asic"])
+            if filtros.get("id_tipo"):
+                sql += " AND v.id_tipo = %s"
+                params.append(filtros["id_tipo"])
+            if filtros.get("fecha_desde"):
+                sql += " AND v.fecha >= %s"
+                params.append(filtros["fecha_desde"])
+            if filtros.get("fecha_hasta"):
+                sql += " AND v.fecha <= %s"
+                params.append(filtros["fecha_hasta"])
+        sql += " ORDER BY v.fecha DESC, v.id_voceria DESC"
+        cursor.execute(sql, tuple(params))
+        lista = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return lista
+
+    def obtener_por_id(self, id_voceria):
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        sql = """
+            SELECT v.*, a.nombre AS asic_nombre, tv.nombre AS tipo_nombre, u.nombre_completo AS usuario_nombre
+            FROM voceria v
+            JOIN asic a ON v.id_asic = a.id_asic
+            JOIN tipo_voceria tv ON v.id_tipo = tv.id_tipo
+            JOIN usuario u ON v.id_usuario_registro = u.id_usuario
+            WHERE v.id_voceria = %s AND v.eliminado = FALSE
+        """
+        cursor.execute(sql, (id_voceria,))
+        voc = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        return voc
+
+    def obtener_con_items(self, id_voceria):
+        """Obtiene la vocería con todos sus items (voceros)."""
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        # Cabecera
+        sql = """
+            SELECT v.*, a.nombre AS asic_nombre, tv.nombre AS tipo_nombre, u.nombre_completo AS usuario_nombre
+            FROM voceria v
+            JOIN asic a ON v.id_asic = a.id_asic
+            JOIN tipo_voceria tv ON v.id_tipo = tv.id_tipo
+            JOIN usuario u ON v.id_usuario_registro = u.id_usuario
+            WHERE v.id_voceria = %s AND v.eliminado = FALSE
+        """
+        cursor.execute(sql, (id_voceria,))
+        voc = cursor.fetchone()
+        if not voc:
+            cursor.close()
+            conn.close()
+            return None
+        # Items
+        sql_items = """
+            SELECT vi.*, tv.nombre AS tipo_voceria_nombre
+            FROM voceria_item vi
+            JOIN tipo_voceria tv ON vi.id_tipo_voceria = tv.id_tipo
+            WHERE vi.id_voceria = %s AND vi.eliminado = FALSE
+            ORDER BY vi.id_item
+        """
+        cursor.execute(sql_items, (id_voceria,))
+        items = cursor.fetchall()
+        voc["items"] = items
+        cursor.close()
+        conn.close()
+        return voc
+
+    def crear(self, id_asic, id_tipo, id_usuario_registro, fecha, estado, municipio, parroquia,
+              tema, descripcion, items):
+        """
+        Crea vocería cabecera + items en una transacción.
+        items: lista de dicts con los campos de voceria_item
+        """
+        conn = get_connection()
+        cursor = conn.cursor()
+        try:
+            # 1. Crear cabecera
+            sql = """
+                INSERT INTO voceria (id_asic, id_tipo, id_usuario_registro, fecha, estado, municipio, parroquia,
+                                     tema, descripcion)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            cursor.execute(sql, (id_asic, id_tipo, id_usuario_registro, fecha, estado, municipio, parroquia,
+                                 tema, descripcion))
+            id_voceria = cursor.lastrowid
+
+            # 2. Crear items
+            if items:
+                sql_item = """
+                    INSERT INTO voceria_item (id_voceria, id_tipo_voceria, nombre_comite, centro_dispensador,
+                                             nombre_centro, nombres, ci, telefono, fecha_nacimiento, edad,
+                                             sexo, profesion, correo, fechas_eleccion)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                for item in items:
+                    cursor.execute(sql_item, (
+                        id_voceria,
+                        item.get("id_tipo_voceria"),
+                        item.get("nombre_comite"),
+                        item.get("centro_dispensador"),
+                        item.get("nombre_centro"),
+                        item.get("nombres"),
+                        item.get("ci"),
+                        item.get("telefono"),
+                        item.get("fecha_nacimiento"),
+                        item.get("edad"),
+                        item.get("sexo"),
+                        item.get("profesion"),
+                        item.get("correo"),
+                        item.get("fechas_eleccion")
+                    ))
+
+            conn.commit()
+            return id_voceria
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            cursor.close()
+            conn.close()
+
+    def actualizar(self, id_voceria, id_asic, id_tipo, fecha, estado, municipio, parroquia,
+                   tema, descripcion, items):
+        conn = get_connection()
+        cursor = conn.cursor()
+        try:
+            # 1. Actualizar cabecera
+            sql = """
+                UPDATE voceria
+                SET id_asic = %s, id_tipo = %s, fecha = %s, estado = %s, municipio = %s, parroquia = %s,
+                    tema = %s, descripcion = %s
+                WHERE id_voceria = %s
+            """
+            cursor.execute(sql, (id_asic, id_tipo, fecha, estado, municipio, parroquia,
+                                 tema, descripcion, id_voceria))
+
+            # 2. Soft delete items existentes
+            cursor.execute("UPDATE voceria_item SET eliminado = TRUE WHERE id_voceria = %s", (id_voceria,))
+
+            # 3. Crear nuevos items
+            if items:
+                sql_item = """
+                    INSERT INTO voceria_item (id_voceria, id_tipo_voceria, nombre_comite, centro_dispensador,
+                                             nombre_centro, nombres, ci, telefono, fecha_nacimiento, edad,
+                                             sexo, profesion, correo, fechas_eleccion)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                for item in items:
+                    cursor.execute(sql_item, (
+                        id_voceria,
+                        item.get("id_tipo_voceria"),
+                        item.get("nombre_comite"),
+                        item.get("centro_dispensador"),
+                        item.get("nombre_centro"),
+                        item.get("nombres"),
+                        item.get("ci"),
+                        item.get("telefono"),
+                        item.get("fecha_nacimiento"),
+                        item.get("edad"),
+                        item.get("sexo"),
+                        item.get("profesion"),
+                        item.get("correo"),
+                        item.get("fechas_eleccion")
+                    ))
+
+            conn.commit()
+            return True
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            cursor.close()
+            conn.close()
+
+    def eliminar(self, id_voceria):
+        conn = get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("UPDATE voceria SET eliminado = TRUE WHERE id_voceria = %s", (id_voceria,))
+            cursor.execute("UPDATE voceria_item SET eliminado = TRUE WHERE id_voceria = %s", (id_voceria,))
+            conn.commit()
+            return True
+        except Exception:
+            conn.rollback()
+            return False
+        finally:
+            cursor.close()
+            conn.close()
+
+
+class TipoVoceriaDAO:
+    """Maneja el catálogo de tipos de vocería."""
+    def obtener_todos(self):
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM tipo_voceria WHERE activo = TRUE ORDER BY nombre")
+        lista = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return lista
+
+    def obtener_por_id(self, id_tipo):
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM tipo_voceria WHERE id_tipo = %s", (id_tipo,))
+        tipo = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        return tipo
+
+    def obtener_por_codigo(self, codigo):
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM tipo_voceria WHERE codigo = %s", (codigo,))
+        tipo = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        return tipo
+
+    def crear(self, codigo, nombre):
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO tipo_voceria (codigo, nombre) VALUES (%s, %s)", (codigo, nombre))
+        conn.commit()
+        nuevo_id = cursor.lastrowid
+        cursor.close()
+        conn.close()
+        return nuevo_id
+
+    def actualizar(self, id_tipo, codigo, nombre):
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE tipo_voceria SET codigo=%s, nombre=%s WHERE id_tipo=%s", (codigo, nombre, id_tipo))
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+    def desactivar(self, id_tipo):
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE tipo_voceria SET activo = FALSE WHERE id_tipo = %s", (id_tipo,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+
 class EvidenciaDAO:
     """Maneja la inserción, consulta y eliminación de evidencias en la base de datos."""
     def obtener_por_actividad(self, id_actividad):
@@ -1392,6 +1772,104 @@ class CatalogoController:
             return False, "No se encontro el tipo de actividad."
         self.tipo_dao.desactivar(id_tipo)
         return True, f"Tipo '{tipo['nombre']}' eliminado correctamente."
+
+
+class VoceriaController:
+    """Maneja la lógica de negocio para vocerías CS."""
+    def __init__(self):
+        self.voceria_dao = VoceriaDAO()
+        self.tipo_voceria_dao = TipoVoceriaDAO()
+        self.asic_dao = AsicDAO()
+        self.auth = AuthController()
+
+    def listar_vocerias(self, filtros=None):
+        return self.voceria_dao.obtener_todas(filtros)
+
+    def listar_asics(self):
+        asics = self.asic_dao.obtener_todos()
+        return asics
+
+    def listar_tipos_voceria(self):
+        tipos = self.tipo_voceria_dao.obtener_todos()
+        return tipos
+
+    def obtener_voceria_completa(self, id_voceria):
+        """Obtiene vocería con todos sus items (voceros)."""
+        return self.voceria_dao.obtener_con_items(id_voceria)
+
+    def guardar_voceria(self, id_asic, id_tipo=None, fecha=None, estado=None, municipio=None, parroquia=None,
+                         tema=None, descripcion=None, items=None, id_voceria=None):
+        """
+        Guarda vocería con sus items (voceros).
+        items: lista de dicts con los campos de cada vocero
+        """
+        if items is None:
+            items = []
+
+        if not id_asic:
+            return False, "Debes seleccionar un ASIC."
+        if not fecha:
+            return False, "La fecha es obligatoria."
+        if not items:
+            return False, "Debe agregar al menos 1 vocero."
+
+        tipos_voceria = self.tipo_voceria_dao.obtener_todos()
+        if not id_tipo and tipos_voceria:
+            id_tipo = tipos_voceria[0]["id_tipo"]
+        if not id_tipo:
+            return False, "Debes seleccionar un tipo de vocería."
+
+        if not tema:
+            tema = "Vocería CS"
+        if not descripcion:
+            descripcion = f"Registro de vocería del municipio {municipio or 'N/A'} para {fecha}"
+
+        # Validar items
+        for item in items:
+            if not item.get("nombre_comite"):
+                return False, "Nombre del Comité es obligatorio en todos los items."
+            if not item.get("centro_dispensador"):
+                return False, "Centro dispensador es obligatorio en todos los items."
+            if not item.get("nombre_centro"):
+                return False, "Nombre del Centro es obligatorio en todos los items."
+            if not item.get("nombres"):
+                return False, "Nombres y Apellidos es obligatorio en todos los items."
+            if not item.get("ci"):
+                return False, "C.I. es obligatorio en todos los items."
+            if not item.get("telefono"):
+                return False, "Teléfono es obligatorio en todos los items."
+            if not item.get("fecha_nacimiento"):
+                return False, "Fecha Nacimiento es obligatorio en todos los items."
+            if not item.get("edad"):
+                return False, "Edad es obligatorio en todos los items."
+            if not item.get("sexo"):
+                return False, "Sexo es obligatorio en todos los items."
+            if not item.get("id_tipo_voceria"):
+                return False, "Vocería es obligatorio en todos los items."
+
+        id_usuario = self.auth.obtener_usuario_actual()
+        id_usuario_registro = id_usuario["id_usuario"] if id_usuario else 1
+
+        try:
+            if id_voceria is None:
+                self.voceria_dao.crear(id_asic, id_tipo, id_usuario_registro, fecha, estado, municipio, parroquia,
+                                       tema, descripcion, items)
+                return True, "Vocería registrada correctamente."
+            else:
+                self.voceria_dao.actualizar(id_voceria, id_asic, id_tipo, fecha, estado, municipio, parroquia,
+                                           tema, descripcion, items)
+                return True, "Vocería actualizada correctamente."
+        except Exception as e:
+            return False, f"Error al guardar: {str(e)}"
+
+    def eliminar_voceria(self, id_voceria):
+        voc = self.voceria_dao.obtener_por_id(id_voceria)
+        if not voc:
+            return False, "No se encontró la vocería."
+        self.voceria_dao.eliminar(id_voceria)
+        return True, "Vocería eliminada correctamente."
+
+
 # ============================================================
 # SECCIÓN 5 — SERVICIOS
 # Lógica de negocio compleja: Excel, PDF, Consolidación.
