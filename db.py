@@ -775,7 +775,7 @@ class VoceriaDAO:
         cursor = conn.cursor(dictionary=True)
         sql = """
             SELECT v.id_voceria, v.id_asic, v.id_tipo, v.id_usuario_registro,
-                   v.created_at AS fecha_registro, v.estado, v.municipio, v.parroquia,
+                   v.created_at AS fecha_registro, v.estado, v.municipio, v.parroquia, v.centro_dispensador, v.nombre_centro, v.nombre_comite,
                    a.nombre AS asic_nombre,
                    tv.nombre AS tipo_nombre,
                    u.nombre_completo AS usuario_nombre,
@@ -787,7 +787,7 @@ class VoceriaDAO:
             LEFT JOIN voceria_item vi ON vi.id_voceria = v.id_voceria AND vi.eliminado = FALSE
             WHERE v.eliminado = FALSE
             GROUP BY v.id_voceria, v.id_asic, v.id_tipo, v.id_usuario_registro,
-                     v.created_at, v.estado, v.municipio, v.parroquia,
+                     v.created_at, v.estado, v.municipio, v.parroquia, v.centro_dispensador, v.nombre_centro, v.nombre_comite,
                      a.nombre, tv.nombre, u.nombre_completo
         """
         params = []
@@ -816,7 +816,7 @@ class VoceriaDAO:
         cursor = conn.cursor(dictionary=True)
         sql = """
             SELECT v.id_voceria, v.id_asic, v.id_tipo, v.id_usuario_registro,
-                   v.created_at, v.estado, v.municipio, v.parroquia,
+                   v.created_at, v.estado, v.municipio, v.parroquia, v.centro_dispensador, v.nombre_centro, v.nombre_comite,
                    a.nombre AS asic_nombre,
                    tv.nombre AS tipo_nombre,
                    u.nombre_completo AS usuario_nombre
@@ -839,7 +839,7 @@ class VoceriaDAO:
         # Cabecera
         sql = """
             SELECT v.id_voceria, v.id_asic, v.id_tipo, v.id_usuario_registro,
-                   v.created_at, v.estado, v.municipio, v.parroquia,
+                   v.created_at, v.estado, v.municipio, v.parroquia, v.centro_dispensador, v.nombre_centro, v.nombre_comite,
                    a.nombre AS asic_nombre,
                    tv.nombre AS tipo_nombre,
                    u.nombre_completo AS usuario_nombre
@@ -871,7 +871,7 @@ class VoceriaDAO:
         return voc
 
     def crear(self, id_asic, id_tipo, id_usuario_registro, estado, municipio, parroquia,
-              items):
+              centro_dispensador, nombre_centro, nombre_comite, items):
         """
         Crea vocería cabecera + items en una transacción.
         items: lista de dicts con los campos de voceria_item
@@ -881,27 +881,23 @@ class VoceriaDAO:
         try:
             # 1. Crear cabecera
             sql = """
-                INSERT INTO voceria (id_asic, id_tipo, id_usuario_registro, estado, municipio, parroquia)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                INSERT INTO voceria (id_asic, id_tipo, id_usuario_registro, estado, municipio, parroquia, centro_dispensador, nombre_centro, nombre_comite)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
-            cursor.execute(sql, (id_asic, id_tipo, id_usuario_registro, estado, municipio, parroquia))
+            cursor.execute(sql, (id_asic, id_tipo, id_usuario_registro, estado, municipio, parroquia, centro_dispensador, nombre_centro, nombre_comite))
             id_voceria = cursor.lastrowid
 
-            # 2. Crear items
+            # 2. Crear items (sin nombre_comite y nombre_centro que ahora son generales)
             if items:
                 sql_item = """
-                    INSERT INTO voceria_item (id_voceria, id_tipo_voceria, nombre_comite, centro_dispensador,
-                                             nombre_centro, nombres, ci, telefono, fecha_nacimiento, edad,
+                    INSERT INTO voceria_item (id_voceria, id_tipo_voceria, nombres, ci, telefono, fecha_nacimiento, edad,
                                              sexo, profesion, correo, fechas_eleccion)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """
                 for item in items:
                     cursor.execute(sql_item, (
                         id_voceria,
                         item.get("id_tipo_voceria"),
-                        item.get("nombre_comite"),
-                        item.get("centro_dispensador"),
-                        item.get("nombre_centro"),
                         item.get("nombres"),
                         item.get("ci"),
                         item.get("telefono"),
@@ -923,37 +919,33 @@ class VoceriaDAO:
             conn.close()
 
     def actualizar(self, id_voceria, id_asic, id_tipo, estado, municipio, parroquia,
-                   items):
+                   centro_dispensador, nombre_centro, nombre_comite, items):
         conn = get_connection()
         cursor = conn.cursor()
         try:
             # 1. Actualizar cabecera
             sql = """
                 UPDATE voceria
-                SET id_asic = %s, id_tipo = %s, estado = %s, municipio = %s, parroquia = %s
+                SET id_asic = %s, id_tipo = %s, estado = %s, municipio = %s, parroquia = %s, centro_dispensador = %s, nombre_centro = %s, nombre_comite = %s
                 WHERE id_voceria = %s
             """
-            cursor.execute(sql, (id_asic, id_tipo, estado, municipio, parroquia,
+            cursor.execute(sql, (id_asic, id_tipo, estado, municipio, parroquia, centro_dispensador, nombre_centro, nombre_comite,
                                  id_voceria))
 
             # 2. Soft delete items existentes
             cursor.execute("UPDATE voceria_item SET eliminado = TRUE WHERE id_voceria = %s", (id_voceria,))
 
-            # 3. Crear nuevos items
+            # 3. Crear nuevos items (sin nombre_comite y nombre_centro que ahora son generales)
             if items:
                 sql_item = """
-                    INSERT INTO voceria_item (id_voceria, id_tipo_voceria, nombre_comite, centro_dispensador,
-                                             nombre_centro, nombres, ci, telefono, fecha_nacimiento, edad,
+                    INSERT INTO voceria_item (id_voceria, id_tipo_voceria, nombres, ci, telefono, fecha_nacimiento, edad,
                                              sexo, profesion, correo, fechas_eleccion)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """
                 for item in items:
                     cursor.execute(sql_item, (
                         id_voceria,
                         item.get("id_tipo_voceria"),
-                        item.get("nombre_comite"),
-                        item.get("centro_dispensador"),
-                        item.get("nombre_centro"),
                         item.get("nombres"),
                         item.get("ci"),
                         item.get("telefono"),
@@ -1665,10 +1657,11 @@ class VoceriaController:
         return self.voceria_dao.obtener_con_items(id_voceria)
 
     def guardar_voceria(self, id_asic, id_tipo=None, estado=None, municipio=None, parroquia=None,
-                         items=None, id_voceria=None):
+                         centro_dispensador=None, nombre_centro=None, nombre_comite=None, items=None, id_voceria=None):
         """
         Guarda vocería con sus items (voceros).
         items: lista de dicts con los campos de cada vocero
+        centro_dispensador, nombre_centro, nombre_comite: campos generales que aplican a toda la vocería
         """
         if items is None:
             items = []
@@ -1681,6 +1674,12 @@ class VoceriaController:
             return False, "El municipio es obligatorio."
         if not parroquia or not str(parroquia).strip() or str(parroquia).strip() == "Parroquia":
             return False, "La parroquia es obligatoria."
+        if not centro_dispensador or not str(centro_dispensador).strip():
+            return False, "El centro dispensador es obligatorio."
+        if not nombre_centro or not str(nombre_centro).strip():
+            return False, "El nombre del centro es obligatorio."
+        if not nombre_comite or not str(nombre_comite).strip():
+            return False, "El nombre del comité es obligatorio."
         if not items:
             return False, "Debe agregar al menos 1 vocería."
 
@@ -1690,14 +1689,8 @@ class VoceriaController:
         if not id_tipo:
             return False, "Debes seleccionar un tipo de vocería."
 
-        # Validar TODOS los campos en cada item
+        # Validar TODOS los campos en cada item (sin centro_dispensador, nombre_centro, nombre_comite que ahora son generales)
         for idx, item in enumerate(items, start=1):
-            if not item.get("nombre_comite") or not str(item.get("nombre_comite")).strip():
-                return False, f"Vocería #{idx}: Nombre del Comité es obligatorio."
-            if not item.get("centro_dispensador") or not str(item.get("centro_dispensador")).strip():
-                return False, f"Vocería #{idx}: Centro dispensador es obligatorio."
-            if not item.get("nombre_centro") or not str(item.get("nombre_centro")).strip():
-                return False, f"Vocería #{idx}: Nombre del Centro es obligatorio."
             if not item.get("nombres") or not str(item.get("nombres")).strip():
                 return False, f"Vocería #{idx}: Nombres y Apellidos son obligatorios."
             if not item.get("ci") or not str(item.get("ci")).strip():
@@ -1727,11 +1720,11 @@ class VoceriaController:
         try:
             if id_voceria is None:
                 self.voceria_dao.crear(id_asic, id_tipo, id_usuario_registro, estado, municipio, parroquia,
-                                       items)
+                                       centro_dispensador, nombre_centro, nombre_comite, items)
                 return True, "Vocería registrada correctamente."
             else:
                 self.voceria_dao.actualizar(id_voceria, id_asic, id_tipo, estado, municipio, parroquia,
-                                            items)
+                                            centro_dispensador, nombre_centro, nombre_comite, items)
                 return True, "Vocería actualizada correctamente."
         except Exception as e:
             return False, f"Error al guardar: {str(e)}"

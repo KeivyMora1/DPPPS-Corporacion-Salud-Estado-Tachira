@@ -119,19 +119,22 @@ CREATE TABLE IF NOT EXISTS tipo_voceria (
 
 -- ============================================================
 -- TABLA: voceria
--- Cabecera de la sesión de vocería (datos generales de la jornada)
+-- Cabecera de cada registro de vocería CS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS voceria (
-    id_voceria        INT AUTO_INCREMENT PRIMARY KEY,
-    id_asic           INT NOT NULL,
-    id_tipo           INT NOT NULL,
-    id_usuario_registro INT NOT NULL,
-    estado            VARCHAR(100) DEFAULT 'Táchira',
-    municipio         VARCHAR(100),
-    parroquia         VARCHAR(100),
-    eliminado         BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    id_voceria           INT AUTO_INCREMENT PRIMARY KEY,
+    id_asic              INT NOT NULL,
+    id_tipo              INT NOT NULL,           -- Tipo general (ej: Vocería CS)
+    id_usuario_registro  INT NOT NULL,
+    estado               VARCHAR(100),
+    municipio            VARCHAR(100),
+    parroquia            VARCHAR(100),
+    centro_dispensador   VARCHAR(100),           -- Centro dispensador general para toda la vocería
+    nombre_centro        VARCHAR(150),          -- Nombre del centro general para toda la vocería
+    nombre_comite        VARCHAR(150),          -- Nombre del comité general para toda la vocería
+    eliminado            BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
     FOREIGN KEY (id_asic)             REFERENCES asic(id_asic),
     FOREIGN KEY (id_tipo)             REFERENCES tipo_voceria(id_tipo),
@@ -146,9 +149,6 @@ CREATE TABLE IF NOT EXISTS voceria_item (
     id_item           INT AUTO_INCREMENT PRIMARY KEY,
     id_voceria        INT NOT NULL,
     id_tipo_voceria   INT NOT NULL,           -- Tipo específico de vocería (ej: V. CONTRALORÍA, V. SALUD Y VIDA, etc.)
-    nombre_comite     VARCHAR(150) NOT NULL,
-    centro_dispensador VARCHAR(100) NOT NULL, -- SRI, HOSPITAL, CAT, CDI, CLINICA POPULAR, CONSULTORIO MEDICO POPULAR, AMBULATORIO U OTRO
-    nombre_centro     VARCHAR(150) NOT NULL,
     nombres           VARCHAR(150) NOT NULL,
     ci                VARCHAR(20) NOT NULL,
     telefono          VARCHAR(30),

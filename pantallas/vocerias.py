@@ -352,6 +352,23 @@ class VoceriaView:
         marco_form.pack(fill="both", expand=True)
 
         # ===== CAMPOS GENERALES =====
+
+        # Opciones de establecimientos (mismo que actividades) - definido antes para usarlo en campos generales
+        self.establecimientos_opciones = [
+            "Consultorio Popular TIPO I",
+            "Consultorio Popular TIPO II",
+            "Consultorio Popular TIPO III",
+            "Clinica Popular TIPO I",
+            "Clinica Popular TIPO II",
+            "CDI",
+            "SRI",
+            "CAT",
+            "Hospitales TIPO I",
+            "Hospitales TIPO II",
+            "Hospitales TIPO III",
+            "Hospitales TIPO IV"
+        ]
+
         frame_generales = ctk.CTkFrame(marco_form, fg_color=t["bg_card"], corner_radius=8)
         frame_generales.pack(fill="x", pady=(0, 10))
         inner_gen = ctk.CTkFrame(frame_generales, fg_color="transparent")
@@ -400,8 +417,42 @@ class VoceriaView:
             self.ent_asic.set(nombres_asics[0])
         self.ent_asic.pack(fill="x", pady=(2, 0))
 
+        # Fila 2: Centro dispensador
+        fila2 = ctk.CTkFrame(inner_gen, fg_color="transparent")
+        fila2.pack(fill="x", pady=5)
+
+        col_centro_gen = ctk.CTkFrame(fila2, fg_color="transparent")
+        col_centro_gen.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        ctk.CTkLabel(col_centro_gen, text="Centro dispensador *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        self.ent_centro_dispensador = ctk.CTkOptionMenu(col_centro_gen, values=self.establecimientos_opciones, fg_color=t["bg_base"], button_color=t["bg_card"], button_hover_color=t["bg_hover"], text_color=t["text_primary"], dropdown_fg_color=t["bg_base"], dropdown_text_color=t["text_primary"])
+        self.ent_centro_dispensador.set(self.establecimientos_opciones[0])
+        self.ent_centro_dispensador.pack(fill="x", pady=(2, 0))
+
+        # Fila 3: Nombre del Centro, Nombre del Comité
+        fila3 = ctk.CTkFrame(inner_gen, fg_color="transparent")
+        fila3.pack(fill="x", pady=5)
+
+        # Nombre del Centro
+        col_nom_centro = ctk.CTkFrame(fila3, fg_color="transparent")
+        col_nom_centro.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        ctk.CTkLabel(col_nom_centro, text="Nombre del Centro *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        self.ent_nombre_centro = ctk.CTkEntry(col_nom_centro, placeholder_text="Nombre del Centro", font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
+        self.ent_nombre_centro.pack(fill="x", pady=(2, 0))
+        self.ent_nombre_centro.bind("<KeyRelease>", lambda e: self._actualizar_estado_botones())
+        self.ent_nombre_centro.bind("<FocusOut>", lambda e: self._actualizar_estado_botones())
+
+        # Nombre del Comité
+        col_nom_comite = ctk.CTkFrame(fila3, fg_color="transparent")
+        col_nom_comite.pack(side="left", fill="x", expand=True, padx=(5, 0))
+        ctk.CTkLabel(col_nom_comite, text="Nombre del Comité *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        self.ent_nombre_comite = ctk.CTkEntry(col_nom_comite, placeholder_text="Nombre del Comité", font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
+        self.ent_nombre_comite.pack(fill="x", pady=(2, 0))
+        self.ent_nombre_comite.bind("<KeyRelease>", lambda e: self._actualizar_estado_botones())
+        self.ent_nombre_comite.bind("<FocusOut>", lambda e: self._actualizar_estado_botones())
+
         self.ent_estado.configure(command=lambda c: self._actualizar_estado_botones())
         self.ent_municipio.configure(command=lambda c: self._actualizar_estado_botones())
+        self.ent_centro_dispensador.configure(command=lambda c: self._actualizar_estado_botones())
 
         # ===== VOCERÍAS (ACORDEÓN) =====
         ctk.CTkLabel(marco_form, text="Vocerías", font=("Arial", 12, "bold"), text_color=t["text_primary"]).pack(anchor="w", pady=(10, 5))
@@ -421,22 +472,6 @@ class VoceriaView:
                 "Jornada de Vocería",
             ]
 
-        # Opciones de establecimientos (mismo que actividades)
-        self.establecimientos_opciones = [
-            "Consultorio Popular TIPO I",
-            "Consultorio Popular TIPO II",
-            "Consultorio Popular TIPO III",
-            "Clinica Popular TIPO I",
-            "Clinica Popular TIPO II",
-            "CDI",
-            "SRI",
-            "CAT",
-            "Hospitales TIPO I",
-            "Hospitales TIPO II",
-            "Hospitales TIPO III",
-            "Hospitales TIPO IV"
-        ]
-
         self.items_voceria = []  # lista de dicts con widgets de cada item
         self._actualizar_estado_botones()
 
@@ -455,6 +490,9 @@ class VoceriaView:
             municipio = self.ent_municipio.get().strip() if hasattr(self, "ent_municipio") else ""
             parroquia = self.ent_parroquia.get().strip() if hasattr(self, "ent_parroquia") else ""
             asic = self.ent_asic.get().strip() if hasattr(self, "ent_asic") else ""
+            centro_dispensador = self.ent_centro_dispensador.get().strip() if hasattr(self, "ent_centro_dispensador") else ""
+            nombre_centro = self.ent_nombre_centro.get().strip() if hasattr(self, "ent_nombre_centro") else ""
+            nombre_comite = self.ent_nombre_comite.get().strip() if hasattr(self, "ent_nombre_comite") else ""
 
             if not estado:
                 lbl_error.configure(text="⚠ Debe seleccionar el Estado")
@@ -469,6 +507,17 @@ class VoceriaView:
             if not asic or asic not in self.asic_map:
                 lbl_error.configure(text="⚠ Debe seleccionar un ASIC válido")
                 return
+            if not centro_dispensador:
+                lbl_error.configure(text="⚠ Debe seleccionar el Centro dispensador")
+                return
+            if not nombre_centro:
+                lbl_error.configure(text="⚠ Debe ingresar el Nombre del Centro")
+                self.ent_nombre_centro.focus_set()
+                return
+            if not nombre_comite:
+                lbl_error.configure(text="⚠ Debe ingresar el Nombre del Comité")
+                self.ent_nombre_comite.focus_set()
+                return
 
             # Validar al menos 1 item
             items_validos = [item for item in self.items_voceria if item["frame"].winfo_exists()]
@@ -476,11 +525,8 @@ class VoceriaView:
                 lbl_error.configure(text="⚠ Debe agregar al menos 1 vocería")
                 return
 
-            # Validar todos los campos obligatorios de cada item
+            # Validar todos los campos obligatorios de cada item (sin centro_dispensador, nombre_centro, nombre_comite)
             nombres_campos = {
-                "comite": "Nombre del Comité",
-                "centro": "Centro dispensador",
-                "nom_centro": "Nombre del Centro",
                 "nombres": "Nombres y Apellidos",
                 "ci": "C.I.",
                 "tel": "Teléfono",
@@ -520,10 +566,10 @@ class VoceriaView:
                                 w[key].focus_set()
                             return
             
-            # Recopilar datos generales
+# Recopilar datos generales
             id_asic = self.asic_map.get(asic)
             
-            # Recopilar items
+            # Recopilar items (sin nombre_comite y nombre_centro que ahora son generales)
             items = []
             for item in items_validos:
                 w = item["widgets"]
@@ -534,9 +580,6 @@ class VoceriaView:
                 )
 
                 item_data = {
-                    "nombre_comite": w["comite"].get().strip(),
-                    "centro_dispensador": w["centro"].get(),
-                    "nombre_centro": w["nom_centro"].get().strip(),
                     "nombres": w["nombres"].get().strip(),
                     "ci": w["ci"].get().strip(),
                     "telefono": w["tel"].get().strip(),
@@ -563,6 +606,9 @@ class VoceriaView:
                 estado=estado,
                 municipio=municipio,
                 parroquia=parroquia,
+                centro_dispensador=centro_dispensador,
+                nombre_centro=nombre_centro,
+                nombre_comite=nombre_comite,
                 items=items,
                 id_voceria=id_voceria_guardar
             )
@@ -596,6 +642,19 @@ class VoceriaView:
                     if id_a == datos_edicion["id_asic"]:
                         self.ent_asic.set(nom)
                         break
+            # Cargar centro dispensador general
+            if datos_edicion.get("centro_dispensador"):
+                self.ent_centro_dispensador.set(datos_edicion["centro_dispensador"])
+            # Cargar nombre centro general
+            if datos_edicion.get("nombre_centro"):
+                self.ent_nombre_centro.delete(0, tk.END)
+                self.ent_nombre_centro.insert(0, datos_edicion["nombre_centro"])
+                self.ent_nombre_centro.configure(text_color=t["text_primary"])
+            # Cargar nombre comité general
+            if datos_edicion.get("nombre_comite"):
+                self.ent_nombre_comite.delete(0, tk.END)
+                self.ent_nombre_comite.insert(0, datos_edicion["nombre_comite"])
+                self.ent_nombre_comite.configure(text_color=t["text_primary"])
             # Limpiar items iniciales y cargar los existentes
             for it in list(self.items_voceria):
                 it["frame"].destroy()
@@ -607,14 +666,6 @@ class VoceriaView:
                 if self.items_voceria:
                     nuevo_item = self.items_voceria[-1]
                     w = nuevo_item["widgets"]
-                    if item_data_raw.get("nombre_comite"):
-                        w["comite"].delete(0, tk.END)
-                        w["comite"].insert(0, str(item_data_raw["nombre_comite"]))
-                    if item_data_raw.get("centro_dispensador"):
-                        w["centro"].set(str(item_data_raw["centro_dispensador"]))
-                    if item_data_raw.get("nombre_centro"):
-                        w["nom_centro"].delete(0, tk.END)
-                        w["nom_centro"].insert(0, str(item_data_raw["nombre_centro"]))
                     if item_data_raw.get("nombres"):
                         w["nombres"].delete(0, tk.END)
                         w["nombres"].insert(0, str(item_data_raw["nombres"]))
@@ -780,33 +831,9 @@ class VoceriaView:
                 self._actualizar_header_item(item_data_container["data"])
             self._actualizar_estado_botones()
 
-        # Fila 1: Nombre Comité, Centro Salud, Nombre Centro
+        # Fila 1: Nombres y Apellidos, C.I., Teléfono
         fila1 = ctk.CTkFrame(inner, fg_color="transparent")
         fila1.pack(fill="x", pady=3)
-
-        # Nombre Comité
-        col_comite = ctk.CTkFrame(fila1, fg_color="transparent")
-        col_comite.pack(side="left", fill="x", expand=True, padx=(0, 5))
-        ctk.CTkLabel(col_comite, text="Nombre del Comité *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_comite = ctk.CTkEntry(col_comite, placeholder_text="Nombre del Comité", font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
-        ent_comite.pack(fill="x", pady=(2, 0))
-
-        # Centro dispensador
-        col_centro = ctk.CTkFrame(fila1, fg_color="transparent")
-        col_centro.pack(side="left", fill="x", expand=True, padx=5)
-        ctk.CTkLabel(col_centro, text="Centro dispensador *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_centro = ctk.CTkOptionMenu(col_centro, values=self.establecimientos_opciones, fg_color=t["bg_base"], button_color=t["bg_card"], button_hover_color=t["bg_hover"], text_color=t["text_primary"], dropdown_fg_color=t["bg_base"], dropdown_text_color=t["text_primary"])
-        ent_centro.set(self.establecimientos_opciones[0])
-        ent_centro.pack(fill="x", pady=(2, 0))
-
-        # Nombre Centro
-        col_nom_centro = ctk.CTkFrame(fila1, fg_color="transparent")
-        col_nom_centro.pack(side="left", fill="x", expand=True, padx=(5, 0))
-        ctk.CTkLabel(col_nom_centro, text="Nombre del Centro *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_nom_centro = ctk.CTkEntry(col_nom_centro, placeholder_text="Nombre del Centro", font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
-        ent_nom_centro.pack(fill="x", pady=(2, 0))
-
-        # Fila 2: Nombres y Apellidos, C.I., Teléfono
         fila2 = ctk.CTkFrame(inner, fg_color="transparent")
         fila2.pack(fill="x", pady=3)
 
@@ -938,11 +965,10 @@ class VoceriaView:
         ent_felecc.pack(fill="x", pady=(2, 0))
 
         # Conectar eventos de cambios en campos
-        for ent in (ent_comite, ent_nom_centro, ent_nombres, ent_ci, ent_tel, ent_fnac, ent_edad, ent_prof, ent_correo, ent_felecc):
+        for ent in (ent_nombres, ent_ci, ent_tel, ent_fnac, ent_edad, ent_prof, ent_correo, ent_felecc):
             ent.bind("<KeyRelease>", _on_field_change)
             ent.bind("<FocusOut>", _on_field_change)
 
-        ent_centro.configure(command=lambda choice: _on_field_change())
         ent_sexo.configure(command=lambda choice: _on_field_change())
 
         def on_voceria_cambiada(choice):
@@ -963,9 +989,6 @@ class VoceriaView:
             "index": item_index,
             "expandido": expandido,
             "widgets": {
-                "comite": ent_comite,
-                "centro": ent_centro,
-                "nom_centro": ent_nom_centro,
                 "nombres": ent_nombres,
                 "ci": ent_ci,
                 "tel": ent_tel,
@@ -1079,6 +1102,9 @@ class VoceriaView:
         municipio = self.ent_municipio.get().strip() if hasattr(self, "ent_municipio") else ""
         parroquia = self.ent_parroquia.get().strip() if hasattr(self, "ent_parroquia") else ""
         asic = self.ent_asic.get().strip() if hasattr(self, "ent_asic") else ""
+        centro_dispensador = self.ent_centro_dispensador.get().strip() if hasattr(self, "ent_centro_dispensador") else ""
+        nombre_centro = self.ent_nombre_centro.get().strip() if hasattr(self, "ent_nombre_centro") else ""
+        nombre_comite = self.ent_nombre_comite.get().strip() if hasattr(self, "ent_nombre_comite") else ""
 
         if not estado or estado in ("Seleccionar...", ""):
             return False
@@ -1088,6 +1114,12 @@ class VoceriaView:
             return False
         if not asic or asic not in self.asic_map:
             return False
+        if not centro_dispensador:
+            return False
+        if not nombre_centro:
+            return False
+        if not nombre_comite:
+            return False
         return True
 
     def _verificar_item_completo(self, item):
@@ -1096,7 +1128,7 @@ class VoceriaView:
             return False
         w = item["widgets"]
         campos_obligatorios = [
-            "comite", "centro", "nom_centro", "nombres", "ci",
+            "nombres", "ci",
             "tel", "fnac", "edad", "voceria", "sexo", "prof", "correo", "felecc"
         ]
         for key in campos_obligatorios:
@@ -1293,6 +1325,9 @@ class VoceriaView:
             ("Estado:", voc.get("estado", "")),
             ("Municipio:", voc.get("municipio", "")),
             ("Parroquia:", voc.get("parroquia", "")),
+            ("Centro dispensador:", voc.get("centro_dispensador", "")),
+            ("Nombre del Centro:", voc.get("nombre_centro", "")),
+            ("Nombre del Comité:", voc.get("nombre_comite", "")),
         ]
 
         for i, (label, value) in enumerate(info_general):
@@ -1325,16 +1360,13 @@ class VoceriaView:
                   foreground=[("selected", t["text_primary"])])
 
         columnas_items = (
-            "tipo_voceria", "nombre_comite", "centro_dispensador", "nombre_centro",
+            "tipo_voceria",
             "nombres", "ci", "telefono", "fecha_nacimiento", "edad",
             "sexo", "profesion", "correo", "fechas_eleccion"
         )
         
         labels_items = {
             "tipo_voceria": "Vocería",
-            "nombre_comite": "Comité",
-            "centro_dispensador": "Centro Dispensador",
-            "nombre_centro": "Nombre Centro",
             "nombres": "Nombres y Apellidos",
             "ci": "C.I.",
             "telefono": "Teléfono",
@@ -1355,9 +1387,6 @@ class VoceriaView:
         for item in items:
             tree.insert("", "end", values=(
                 item.get("tipo_voceria_nombre", ""),
-                item.get("nombre_comite", ""),
-                item.get("centro_dispensador", ""),
-                item.get("nombre_centro", ""),
                 item.get("nombres", ""),
                 item.get("ci", ""),
                 item.get("telefono", ""),
