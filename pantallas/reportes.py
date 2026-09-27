@@ -19,7 +19,7 @@ from db import AuthController, AsicDAO, ConsolidacionService, PDFService
 from ui_helpers import (
     frame, frame_transparent, frame_surface, label, label_title, label_subtitle,
     btn_primary, btn_secondary, btn_danger, btn_success, separator, treeview_style,
-    entry, combobox
+    entry, combobox, date_picker
 )
 
 try:
@@ -145,22 +145,19 @@ class ReporteView:
         return ids if ids else None
 
     def _date_widget(self, parent):
-        if _TIENE_CALENDAR:
-            return DateEntry(parent, date_pattern="yyyy-mm-dd",
-                             background="gray25", foreground="white",
-                             headersbackground="gray15",
-                             headersforeground="white",
-                             selectbackground="#613BE3", font=("Arial", 10),
-                             width=14)
-        else:
-            w = entry(parent, width=140)
-            w.insert(0, date.today().strftime("%Y-%m-%d"))
-            return w
+        return date_picker(parent, width=150, font=("Arial", 10),
+                           fg_color="#20053D", text_color="#CBE1DB", border_color="#345572", corner_radius=6)
 
     def _leer_fecha(self, widget) -> date | None:
         try:
-            return widget.get_date() if _TIENE_CALENDAR else \
-                   datetime.strptime(widget.get().strip(), "%Y-%m-%d").date()
+            if hasattr(widget, "get_date"):
+                d = widget.get_date()
+                if d:
+                    return d
+            val = widget.get().strip()
+            if val and val != "AAAA-MM-DD":
+                return datetime.strptime(val, "%Y-%m-%d").date()
+            return None
         except Exception:
             return None
 

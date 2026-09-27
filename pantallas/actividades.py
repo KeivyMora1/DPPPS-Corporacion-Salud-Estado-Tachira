@@ -24,7 +24,7 @@ from ui_helpers import (
     frame, frame_transparent, label, label_title, label_subtitle,
     btn_primary, btn_secondary, btn_danger, btn_success,
     separator, treeview_style, scrollable_frame, entry_with_placeholder,
-    spinbox_numeric, combobox, entry_numeric
+    spinbox_numeric, combobox, entry_numeric, date_picker
 )
 
 
@@ -106,11 +106,13 @@ class ActividadView:
         self.combo_filtro_tipo.grid(row=0, column=3, padx=5, pady=5)
 
         ctk.CTkLabel(marco_filtros, text="Desde:", font=("Arial", 9, "bold"), text_color=t["text_muted"]).grid(row=0, column=4, padx=5, pady=5, sticky="w")
-        self.ent_filtro_desde = entry_with_placeholder(marco_filtros, placeholder="AAAA-MM-DD", width=130, font=("Arial", 10))
+        self.ent_filtro_desde = date_picker(marco_filtros, placeholder="AAAA-MM-DD", width=140, font=("Arial", 10),
+                                            fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], default_today=False)
         self.ent_filtro_desde.grid(row=0, column=5, padx=5, pady=5)
 
         ctk.CTkLabel(marco_filtros, text="Hasta:", font=("Arial", 9, "bold"), text_color=t["text_muted"]).grid(row=0, column=6, padx=5, pady=5, sticky="w")
-        self.ent_filtro_hasta = entry_with_placeholder(marco_filtros, placeholder="AAAA-MM-DD", width=130, font=("Arial", 10))
+        self.ent_filtro_hasta = date_picker(marco_filtros, placeholder="AAAA-MM-DD", width=140, font=("Arial", 10),
+                                            fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], default_today=False)
         self.ent_filtro_hasta.grid(row=0, column=7, padx=5, pady=5)
 
         nombres_asic = ["Todos"] + sorted(list(self.asic_map.keys()))
@@ -272,10 +274,8 @@ class ActividadView:
     def _limpiar_filtros(self):
         self.combo_filtro_asic.set("Todos")
         self.combo_filtro_tipo.set("Todos")
-        self.ent_filtro_desde.delete(0, tk.END)
-        self._poner_placeholder_fecha(self.ent_filtro_desde)
-        self.ent_filtro_hasta.delete(0, tk.END)
-        self._poner_placeholder_fecha(self.ent_filtro_hasta)
+        self.ent_filtro_desde.set_date("")
+        self.ent_filtro_hasta.set_date("")
         self._cargar_datos_tabla()
 
     def _cargar_datos_tabla(self, filtros=None):
@@ -348,7 +348,16 @@ class ActividadView:
         # --- ASIC y Tipo ---
         ctk.CTkLabel(marco_form, text="ASIC *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(2, 2))
         nombres_asics = sorted(list(self.asic_map.keys()))
-        combo_asic = ctk.CTkOptionMenu(marco_form, values=nombres_asics)
+        combo_asic = ctk.CTkOptionMenu(
+            marco_form,
+            values=nombres_asics,
+            fg_color=t["bg_base"],
+            button_color=t["bg_card"],
+            button_hover_color=t["bg_hover"],
+            text_color=t["text_primary"],
+            dropdown_fg_color=t["bg_base"],
+            dropdown_text_color=t["text_primary"]
+        )
         if nombres_asics:
             try:
                 combo_asic.set(nombres_asics[0])
@@ -358,7 +367,16 @@ class ActividadView:
 
         ctk.CTkLabel(marco_form, text="Tipo de Actividad *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(8, 2))
         nombres_tipos = sorted(self.tipo_map.keys())
-        combo_tipo = ctk.CTkOptionMenu(marco_form, values=nombres_tipos)
+        combo_tipo = ctk.CTkOptionMenu(
+            marco_form,
+            values=nombres_tipos,
+            fg_color=t["bg_base"],
+            button_color=t["bg_card"],
+            button_hover_color=t["bg_hover"],
+            text_color=t["text_primary"],
+            dropdown_fg_color=t["bg_base"],
+            dropdown_text_color=t["text_primary"]
+        )
         if nombres_tipos:
             try:
                 combo_tipo.set(nombres_tipos[0])
@@ -371,10 +389,9 @@ class ActividadView:
         marco_fechas.pack(fill="x", pady=8)
 
         ctk.CTkLabel(marco_fechas, text="Fecha *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_fecha_inicio = ctk.CTkEntry(marco_fechas, font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"],
-                        border_color=t["border"], corner_radius=6)
+        ent_fecha_inicio = date_picker(marco_fechas, font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"],
+                                       border_color=t["border"], corner_radius=6)
         ent_fecha_inicio.pack(fill="x", pady=(2, 0))
-        ent_fecha_inicio.insert(0, date.today().strftime("%Y-%m-%d"))
         ent_fecha_fin = ent_fecha_inicio
 
         # Contenedor para campos opcionales/avanzados (siempre visible)
@@ -516,25 +533,49 @@ class ActividadView:
         fila_p1 = ctk.CTkFrame(inner_part, fg_color="transparent")
         fila_p1.pack(fill="x", pady=2)
 
-        self.ent_medicos = entry_numeric(fila_p1, "Médicos", on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
-        self.ent_promotores = entry_numeric(fila_p1, "Promotores en Salud", on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
-        self.ent_voceros_comite = entry_numeric(fila_p1, "Voceros Comité Salud", on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
+        col_p1_1 = ctk.CTkFrame(fila_p1, fg_color="transparent")
+        col_p1_1.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        self.ent_medicos = entry_numeric(col_p1_1, "Médicos", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
+
+        col_p1_2 = ctk.CTkFrame(fila_p1, fg_color="transparent")
+        col_p1_2.pack(side="left", fill="x", expand=True, padx=5)
+        self.ent_promotores = entry_numeric(col_p1_2, "Promotores en Salud", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
+
+        col_p1_3 = ctk.CTkFrame(fila_p1, fg_color="transparent")
+        col_p1_3.pack(side="left", fill="x", expand=True, padx=(5, 0))
+        self.ent_voceros_comite = entry_numeric(col_p1_3, "Voceros Comité Salud", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
 
         # Fila 2: Vocero Consejo, Coordinador Docencia, Autoridades
         fila_p2 = ctk.CTkFrame(inner_part, fg_color="transparent")
         fila_p2.pack(fill="x", pady=2)
 
-        self.ent_vocero_consejo = entry_numeric(fila_p2, "Vocero Consejo Dir. ASIC", on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
-        self.ent_coordinador = entry_numeric(fila_p2, "Coordinador Docencia ASIC", on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
-        self.ent_autoridades = entry_numeric(fila_p2, "Autoridades Presentes", on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
+        col_p2_1 = ctk.CTkFrame(fila_p2, fg_color="transparent")
+        col_p2_1.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        self.ent_vocero_consejo = entry_numeric(col_p2_1, "Vocero Consejo Dir. ASIC", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
+
+        col_p2_2 = ctk.CTkFrame(fila_p2, fg_color="transparent")
+        col_p2_2.pack(side="left", fill="x", expand=True, padx=5)
+        self.ent_coordinador = entry_numeric(col_p2_2, "Coordinador Docencia ASIC", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
+
+        col_p2_3 = ctk.CTkFrame(fila_p2, fg_color="transparent")
+        col_p2_3.pack(side="left", fill="x", expand=True, padx=(5, 0))
+        self.ent_autoridades = entry_numeric(col_p2_3, "Autoridades Presentes", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
 
         # Fila 3: Otros Actores, Personas Comunidad, Estudiantes Aspirantes
         fila_p3 = ctk.CTkFrame(inner_part, fg_color="transparent")
         fila_p3.pack(fill="x", pady=2)
 
-        self.ent_otros_actores = entry_numeric(fila_p3, "Otros Actores", on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
-        self.ent_personas_comunidad = entry_numeric(fila_p3, "Personas Comunidad", on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
-        self.ent_estudiantes = entry_numeric(fila_p3, "Estudiantes Aspirantes", on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
+        col_p3_1 = ctk.CTkFrame(fila_p3, fg_color="transparent")
+        col_p3_1.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        self.ent_otros_actores = entry_numeric(col_p3_1, "Otros Actores", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
+
+        col_p3_2 = ctk.CTkFrame(fila_p3, fg_color="transparent")
+        col_p3_2.pack(side="left", fill="x", expand=True, padx=5)
+        self.ent_personas_comunidad = entry_numeric(col_p3_2, "Personas Comunidad", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
+
+        col_p3_3 = ctk.CTkFrame(fila_p3, fg_color="transparent")
+        col_p3_3.pack(side="left", fill="x", expand=True, padx=(5, 0))
+        self.ent_estudiantes = entry_numeric(col_p3_3, "Estudiantes Aspirantes", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
 
         # Total Participantes (mostrar contador calculado)
         # Registrar nombres de campos de participantes para sumar automáticamente
@@ -567,10 +608,18 @@ class ActividadView:
                     pass
 
             f_ini_val = datos_edicion.get("fecha_inicio")
-            if isinstance(f_ini_val, (date, datetime)):
-                f_ini_val = f_ini_val.strftime("%Y-%m-%d")
-            ent_fecha_inicio.delete(0, tk.END)
-            ent_fecha_inicio.insert(0, str(f_ini_val or ""))
+            if f_ini_val:
+                if isinstance(f_ini_val, (date, datetime)):
+                    f_ini_val = f_ini_val.strftime("%Y-%m-%d")
+                if hasattr(ent_fecha_inicio, "set_date"):
+                    try:
+                        ent_fecha_inicio.set_date(f_ini_val)
+                    except Exception:
+                        ent_fecha_inicio.delete(0, tk.END)
+                        ent_fecha_inicio.insert(0, str(f_ini_val))
+                else:
+                    ent_fecha_inicio.delete(0, tk.END)
+                    ent_fecha_inicio.insert(0, str(f_ini_val or ""))
 
             # Cargar campos de ubicación
             estado_valor = datos_edicion.get("estado", "") or "Táchira"

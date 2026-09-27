@@ -117,11 +117,13 @@ class VoceriaView:
         self.combo_filtro_tipo.grid(row=0, column=3, padx=5, pady=5)
 
         ctk.CTkLabel(marco_filtros, text="Desde:", font=("Arial", 9, "bold"), text_color=t["text_muted"]).grid(row=0, column=4, padx=5, pady=5, sticky="w")
-        self.ent_filtro_desde = entry_with_placeholder(marco_filtros, placeholder="AAAA-MM-DD", width=130, font=("Arial", 10))
+        self.ent_filtro_desde = date_picker(marco_filtros, placeholder="AAAA-MM-DD", width=140, font=("Arial", 10),
+                                            fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], default_today=False)
         self.ent_filtro_desde.grid(row=0, column=5, padx=5, pady=5)
 
         ctk.CTkLabel(marco_filtros, text="Hasta:", font=("Arial", 9, "bold"), text_color=t["text_muted"]).grid(row=0, column=6, padx=5, pady=5, sticky="w")
-        self.ent_filtro_hasta = entry_with_placeholder(marco_filtros, placeholder="AAAA-MM-DD", width=130, font=("Arial", 10))
+        self.ent_filtro_hasta = date_picker(marco_filtros, placeholder="AAAA-MM-DD", width=140, font=("Arial", 10),
+                                            fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], default_today=False)
         self.ent_filtro_hasta.grid(row=0, column=7, padx=5, pady=5)
 
         nombres_asic = ["Todos"] + sorted(list(self.asic_map.keys()))
@@ -277,10 +279,8 @@ class VoceriaView:
     def _limpiar_filtros(self):
         self.combo_filtro_asic.set("Todos")
         self.combo_filtro_tipo.set("Todos")
-        self.ent_filtro_desde.delete(0, tk.END)
-        self._poner_placeholder_fecha(self.ent_filtro_desde)
-        self.ent_filtro_hasta.delete(0, tk.END)
-        self._poner_placeholder_fecha(self.ent_filtro_hasta)
+        self.ent_filtro_desde.set_date("")
+        self.ent_filtro_hasta.set_date("")
         self._cargar_datos_tabla()
 
     def _cargar_datos_tabla(self, filtros=None):
@@ -823,7 +823,7 @@ class VoceriaView:
         col_fnac = ctk.CTkFrame(fila3, fg_color="transparent")
         col_fnac.pack(side="left", fill="x", expand=True, padx=(0, 5))
         ctk.CTkLabel(col_fnac, text="Fecha Nacimiento *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_fnac = date_picker(col_fnac, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
+        ent_fnac = date_picker(col_fnac, placeholder="AAAA-MM-DD", default_today=False, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
         ent_fnac.pack(fill="x", pady=(2, 0))
 
         col_edad = ctk.CTkFrame(fila3, fg_color="transparent")
