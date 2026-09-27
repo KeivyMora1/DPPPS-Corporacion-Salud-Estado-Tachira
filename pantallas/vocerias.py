@@ -507,6 +507,18 @@ class VoceriaView:
                         if hasattr(w[key], "focus_set"):
                             w[key].focus_set()
                         return
+                    if key == "edad":
+                        if not val.isdigit() or len(val) > 3 or int(val) > 999:
+                            lbl_error.configure(text=f"⚠ Vocería #{idx}: La Edad debe ser un número de máximo 3 dígitos (0-999)")
+                            if hasattr(w[key], "focus_set"):
+                                w[key].focus_set()
+                            return
+                    if key == "tel":
+                        if len(val) > 13:
+                            lbl_error.configure(text=f"⚠ Vocería #{idx}: El Teléfono debe tener máximo 13 caracteres")
+                            if hasattr(w[key], "focus_set"):
+                                w[key].focus_set()
+                            return
             
             # Recopilar datos generales
             id_asic = self.asic_map.get(asic)
@@ -807,13 +819,58 @@ class VoceriaView:
         col_ci = ctk.CTkFrame(fila2, fg_color="transparent")
         col_ci.pack(side="left", fill="x", expand=True, padx=5)
         ctk.CTkLabel(col_ci, text="C.I. *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_ci = ctk.CTkEntry(col_ci, placeholder_text="C.I.", font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
+        
+        def formatear_ci(texto):
+            """Formatea el CI agregando coma cada 3 dígitos desde la derecha."""
+            if not texto:
+                return ""
+            solo_digitos = "".join(c for c in texto if c.isdigit())
+            if not solo_digitos:
+                return ""
+            partes = []
+            while len(solo_digitos) > 3:
+                partes.insert(0, solo_digitos[-3:])
+                solo_digitos = solo_digitos[:-3]
+            partes.insert(0, solo_digitos)
+            return ",".join(partes)
+        
+        def validar_ci(texto):
+            if texto == "":
+                return True
+            if not all(c.isdigit() or c == "," for c in texto):
+                return False
+            solo_digitos = "".join(c for c in texto if c.isdigit())
+            return len(solo_digitos) <= 8
+        
+        def on_ci_change(event=None):
+            actual = ent_ci.get()
+            cursor_pos = ent_ci.index(tk.INSERT)
+            formateado = formatear_ci(actual)
+            if formateado != actual:
+                ent_ci.delete(0, tk.END)
+                ent_ci.insert(0, formateado)
+                try:
+                    nueva_pos = cursor_pos + (len(formateado) - len(actual))
+                    ent_ci.icursor(max(0, min(nueva_pos, len(formateado))))
+                except Exception:
+                    pass
+            _on_field_change()
+        
+        vcmd_ci = (col_ci.register(validar_ci), "%P")
+        ent_ci = ctk.CTkEntry(col_ci, placeholder_text="C.I.", font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6, validate="key", validatecommand=vcmd_ci)
         ent_ci.pack(fill="x", pady=(2, 0))
+        ent_ci.bind("<KeyRelease>", on_ci_change)
+        ent_ci.bind("<FocusOut>", on_ci_change)
 
         col_tel = ctk.CTkFrame(fila2, fg_color="transparent")
         col_tel.pack(side="left", fill="x", expand=True, padx=(5, 0))
         ctk.CTkLabel(col_tel, text="Teléfono *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_tel = ctk.CTkEntry(col_tel, placeholder_text="Teléfono", font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
+        
+        def validar_tel(texto):
+            return len(texto) <= 13
+        
+        vcmd_tel = (col_tel.register(validar_tel), "%P")
+        ent_tel = ctk.CTkEntry(col_tel, placeholder_text="Teléfono", font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6, validate="key", validatecommand=vcmd_tel)
         ent_tel.pack(fill="x", pady=(2, 0))
 
         # Fila 3: Fecha Nacimiento, Edad, Vocería
@@ -829,7 +886,14 @@ class VoceriaView:
         col_edad = ctk.CTkFrame(fila3, fg_color="transparent")
         col_edad.pack(side="left", fill="x", expand=True, padx=5)
         ctk.CTkLabel(col_edad, text="Edad *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_edad = ctk.CTkEntry(col_edad, placeholder_text="Edad", font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
+        
+        def validar_edad(texto):
+            if texto == "":
+                return True
+            return texto.isdigit() and len(texto) <= 3 and int(texto) <= 999
+        
+        vcmd_edad = (col_edad.register(validar_edad), "%P")
+        ent_edad = ctk.CTkEntry(col_edad, placeholder_text="Edad", font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6, validate="key", validatecommand=vcmd_edad)
         ent_edad.pack(fill="x", pady=(2, 0))
 
         col_voceria = ctk.CTkFrame(fila3, fg_color="transparent")
@@ -1024,8 +1088,6 @@ class VoceriaView:
             return False
         if not asic or asic not in self.asic_map:
             return False
-        if not fecha or fecha in ("", "AAAA-MM-DD"):
-            return False
         return True
 
     def _verificar_item_completo(self, item):
@@ -1046,6 +1108,9 @@ class VoceriaView:
                 return False
             if key == "correo" and "@" not in val:
                 return False
+            if key == "edad":
+                if not val.isdigit() or len(val) > 3 or int(val) > 999:
+                    return False
         return True
     
     def _actualizar_bordes_items(self):
@@ -1224,7 +1289,7 @@ class VoceriaView:
         info_general = [
             ("ASIC:", voc.get("asic_nombre", "")),
             ("Tipo:", voc.get("tipo_nombre", "")),
-            ("Fecha:", voc.get("fecha", "")),
+            ("Fecha:", voc.get("fecha_registro", "")),
             ("Estado:", voc.get("estado", "")),
             ("Municipio:", voc.get("municipio", "")),
             ("Parroquia:", voc.get("parroquia", "")),

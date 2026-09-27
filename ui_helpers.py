@@ -433,11 +433,241 @@ def date_picker(parent, placeholder="AAAA-MM-DD", font=None, fg_color="#20053D",
     )
 
 
+class CTkMultiSelectOptionMenu(ctk.CTkFrame):
+    """
+    Menú desplegable de selección múltiple con estilo idéntico a CTkOptionMenu.
+    """
+    def __init__(self, parent, values=None, placeholder="Todos", width=220, height=28,
+                 fg_color="#20053D", button_color="#26405E", button_hover_color="#2f4d6a",
+                 text_color="#CBE1DB", dropdown_fg_color="#20053D", dropdown_text_color="#CBE1DB",
+                 border_color="#345572", border_width=1, corner_radius=6, command=None, **kwargs):
+        super().__init__(
+            parent,
+            fg_color=fg_color,
+            border_color=border_color,
+            border_width=border_width,
+            corner_radius=corner_radius,
+            width=width,
+            height=height
+        )
+        self.grid_propagate(False)
+        self.pack_propagate(False)
+
+        self._values = values or []
+        self._placeholder = placeholder
+        self._command = command
+        self._button_color = button_color
+        self._button_hover_color = button_hover_color
+        self._text_color = text_color
+        self._dropdown_fg_color = dropdown_fg_color
+        self._border_color = border_color
+        self._selected = set()
+
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+
+        self.btn_main = ctk.CTkButton(
+            self,
+            text=self._placeholder,
+            font=("Arial", 10),
+            fg_color=fg_color,
+            hover_color=button_hover_color,
+            text_color=text_color,
+            anchor="w",
+            corner_radius=corner_radius,
+            command=self.toggle_dropdown
+        )
+        self.btn_main.grid(row=0, column=0, sticky="nsew", padx=(2, 0), pady=1)
+
+        self.btn_arrow = ctk.CTkButton(
+            self,
+            text="▼",
+            width=24,
+            font=("Arial", 9),
+            fg_color=button_color,
+            hover_color=button_hover_color,
+            text_color=text_color,
+            corner_radius=corner_radius,
+            command=self.toggle_dropdown
+        )
+        self.btn_arrow.grid(row=0, column=1, sticky="ns", padx=(1, 1), pady=1)
+
+        self._top_menu = None
+        self._check_vars = {}
+
+    def toggle_dropdown(self):
+        if self._top_menu and self._top_menu.winfo_exists() and self._top_menu.winfo_ismapped():
+            self._close_dropdown()
+        else:
+            self._open_dropdown()
+
+    def _open_dropdown(self):
+        if self._top_menu and self._top_menu.winfo_exists():
+            self._top_menu.destroy()
+
+        self._top_menu = tk.Toplevel(self)
+        self._top_menu.withdraw()
+        self._top_menu.overrideredirect(True)
+        self._top_menu.attributes("-topmost", True)
+
+        menu_frame = ctk.CTkFrame(
+            self._top_menu,
+            fg_color=self._dropdown_fg_color,
+            border_color=self._border_color,
+            border_width=1,
+            corner_radius=6
+        )
+        menu_frame.pack(fill="both", expand=True)
+
+        todos_var = tk.BooleanVar(value=(len(self._selected) == 0))
+
+        def on_toggle_todos():
+            if todos_var.get():
+                self._selected.clear()
+                for v, var in self._check_vars.items():
+                    var.set(False)
+            self._update_label()
+            if self._command:
+                self._command(self.get_selected())
+
+        cb_todos = ctk.CTkCheckBox(
+            menu_frame,
+            text="(Todos)",
+            font=("Arial", 10, "bold"),
+            text_color=self._text_color,
+            fg_color="#613BE3",
+            hover_color="#4e2fb8",
+            variable=todos_var,
+            command=on_toggle_todos,
+            height=22,
+            checkbox_width=16,
+            checkbox_height=16
+        )
+        cb_todos.pack(anchor="w", padx=10, pady=(8, 4))
+
+        scroll = ctk.CTkScrollableFrame(
+            menu_frame,
+            fg_color="transparent",
+            height=min(max(len(self._values) * 26, 60), 200),
+            width=max(self.winfo_width() - 20, 220)
+        )
+        scroll.pack(fill="both", expand=True, padx=4, pady=(2, 6))
+
+        self._check_vars = {}
+        for val in self._values:
+            var = tk.BooleanVar(value=(val in self._selected))
+            self._check_vars[val] = var
+
+            def on_item_toggle(v=val, bvar=var):
+                if bvar.get():
+                    self._selected.add(v)
+                else:
+                    self._selected.discard(v)
+                todos_var.set(len(self._selected) == 0)
+                self._update_label()
+                if self._command:
+                    self._command(self.get_selected())
+
+            cb = ctk.CTkCheckBox(
+                scroll,
+                text=str(val),
+                font=("Arial", 10),
+                text_color=self._text_color,
+                fg_color="#613BE3",
+                hover_color="#4e2fb8",
+                variable=var,
+                command=on_item_toggle,
+                height=22,
+                checkbox_width=16,
+                checkbox_height=16
+            )
+            cb.pack(anchor="w", padx=4, pady=2)
+
+        self.update_idletasks()
+        x = self.winfo_rootx()
+        y = self.winfo_rooty() + self.winfo_height() + 2
+        w = max(self.winfo_width(), 240)
+        h = min(max(len(self._values) * 26 + 50, 90), 250)
+        self._top_menu.geometry(f"{w}x{h}+{x}+{y}")
+        self._top_menu.deiconify()
+        self._top_menu.lift()
+        self._bind_outside_click()
+
+    def _close_dropdown(self):
+        if self._top_menu and self._top_menu.winfo_exists():
+            self._top_menu.destroy()
+            self._top_menu = None
+
+    def _bind_outside_click(self):
+        top_win = self.winfo_toplevel()
+        def _check_click(e):
+            if not self._top_menu or not self._top_menu.winfo_exists():
+                try:
+                    top_win.unbind("<ButtonPress-1>", click_id)
+                except Exception:
+                    pass
+                return
+            try:
+                x, y = self._top_menu.winfo_pointerxy()
+                xc = self._top_menu.winfo_rootx()
+                yc = self._top_menu.winfo_rooty()
+                w = self._top_menu.winfo_width()
+                h = self._top_menu.winfo_height()
+                if not (xc <= x <= xc + w and yc <= y <= yc + h):
+                    bx = self.winfo_rootx()
+                    by = self.winfo_rooty()
+                    bw = self.winfo_width()
+                    bh = self.winfo_height()
+                    if not (bx <= x <= bx + bw and by <= y <= by + bh):
+                        self._close_dropdown()
+                        top_win.unbind("<ButtonPress-1>", click_id)
+            except Exception:
+                pass
+        click_id = top_win.bind("<ButtonPress-1>", _check_click, add="+")
+
+    def _update_label(self):
+        if not self._selected:
+            self.btn_main.configure(text=self._placeholder)
+        elif len(self._selected) == 1:
+            self.btn_main.configure(text=list(self._selected)[0])
+        elif len(self._selected) <= 2:
+            self.btn_main.configure(text=", ".join(list(self._selected)))
+        else:
+            self.btn_main.configure(text=f"{len(self._selected)} seleccionados")
+
+    def get_selected(self):
+        return list(self._selected)
+
+    def get(self):
+        return self.get_selected()
+
+    def set_values(self, values):
+        self._values = values
+        self._selected.clear()
+        self._update_label()
+
+    def set_selected(self, selected_list):
+        self._selected = set(selected_list) if selected_list else set()
+        self._update_label()
+
+
+def multiselect_option_menu(parent, values=None, placeholder="Todos", width=220, **kwargs):
+    """Menú de selección múltiple con estilo idéntico a CTkOptionMenu."""
+    return CTkMultiSelectOptionMenu(parent, values=values, placeholder=placeholder, width=width, **kwargs)
+
+
 def entry_numeric(parent, label_text="", placeholder="", max_digits=5, on_change=None, fg_color=None, text_color=None, border_color=None, **kwargs):
     """Entry numérico con label opcional, estilo consistente con CTkEntry."""
     if label_text:
         lbl = ctk.CTkLabel(parent, text=label_text, font=("Segoe UI", 10, "bold"))
         lbl.pack(anchor="w")
+    
+    def validar_texto(texto):
+        if texto == "":
+            return True
+        return texto.isdigit() and len(texto) <= max_digits
+    
+    vcmd = (parent.register(validar_texto), "%P")
     
     e = ctk.CTkEntry(
         parent,
@@ -446,6 +676,8 @@ def entry_numeric(parent, label_text="", placeholder="", max_digits=5, on_change
         fg_color=fg_color,
         text_color=text_color,
         border_color=border_color,
+        validate="key",
+        validatecommand=vcmd,
         **kwargs
     )
     e.pack(fill="x", pady=(2, 0))
@@ -455,18 +687,8 @@ def entry_numeric(parent, label_text="", placeholder="", max_digits=5, on_change
         e.configure(text_color="gray50")
     
     def _validar(entry):
-        texto = entry.get()
-        # Solo permitir dígitos
-        if texto and not texto.isdigit():
-            clean = ''.join(filter(str.isdigit, texto))
-            entry.delete(0, tk.END)
-            entry.insert(0, clean)
-        # Limitar longitud
-        if len(entry.get()) > max_digits:
-            entry.delete(max_digits, tk.END)
         if on_change:
             on_change()
     
-    e.bind("<KeyRelease>", lambda ev: _validar(e))
     e.bind("<FocusOut>", lambda ev: _validar(e))
     return e

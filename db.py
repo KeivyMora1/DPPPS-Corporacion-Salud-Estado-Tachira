@@ -775,7 +775,7 @@ class VoceriaDAO:
         cursor = conn.cursor(dictionary=True)
         sql = """
             SELECT v.id_voceria, v.id_asic, v.id_tipo, v.id_usuario_registro,
-                   v.fecha, v.created_at AS fecha_registro, v.estado, v.municipio, v.parroquia,
+                   v.created_at AS fecha_registro, v.estado, v.municipio, v.parroquia,
                    a.nombre AS asic_nombre,
                    tv.nombre AS tipo_nombre,
                    u.nombre_completo AS usuario_nombre,
@@ -787,7 +787,7 @@ class VoceriaDAO:
             LEFT JOIN voceria_item vi ON vi.id_voceria = v.id_voceria AND vi.eliminado = FALSE
             WHERE v.eliminado = FALSE
             GROUP BY v.id_voceria, v.id_asic, v.id_tipo, v.id_usuario_registro,
-                     v.fecha, v.created_at, v.estado, v.municipio, v.parroquia,
+                     v.created_at, v.estado, v.municipio, v.parroquia,
                      a.nombre, tv.nombre, u.nombre_completo
         """
         params = []
@@ -799,12 +799,12 @@ class VoceriaDAO:
                 sql += " AND v.id_tipo = %s"
                 params.append(filtros["id_tipo"])
             if filtros.get("fecha_desde"):
-                sql += " AND v.fecha >= %s"
+                sql += " AND v.created_at >= %s"
                 params.append(filtros["fecha_desde"])
             if filtros.get("fecha_hasta"):
-                sql += " AND v.fecha <= %s"
+                sql += " AND v.created_at <= %s"
                 params.append(filtros["fecha_hasta"])
-        sql += " ORDER BY v.fecha DESC, v.id_voceria DESC"
+        sql += " ORDER BY v.created_at DESC, v.id_voceria DESC"
         cursor.execute(sql, tuple(params))
         lista = cursor.fetchall()
         cursor.close()
@@ -816,8 +816,7 @@ class VoceriaDAO:
         cursor = conn.cursor(dictionary=True)
         sql = """
             SELECT v.id_voceria, v.id_asic, v.id_tipo, v.id_usuario_registro,
-                   v.fecha, v.estado, v.municipio, v.parroquia,
-                   v.created_at,
+                   v.created_at, v.estado, v.municipio, v.parroquia,
                    a.nombre AS asic_nombre,
                    tv.nombre AS tipo_nombre,
                    u.nombre_completo AS usuario_nombre
@@ -840,8 +839,7 @@ class VoceriaDAO:
         # Cabecera
         sql = """
             SELECT v.id_voceria, v.id_asic, v.id_tipo, v.id_usuario_registro,
-                   v.fecha, v.estado, v.municipio, v.parroquia,
-                   v.created_at,
+                   v.created_at, v.estado, v.municipio, v.parroquia,
                    a.nombre AS asic_nombre,
                    tv.nombre AS tipo_nombre,
                    u.nombre_completo AS usuario_nombre
@@ -872,7 +870,7 @@ class VoceriaDAO:
         conn.close()
         return voc
 
-    def crear(self, id_asic, id_tipo, id_usuario_registro, fecha, estado, municipio, parroquia,
+    def crear(self, id_asic, id_tipo, id_usuario_registro, estado, municipio, parroquia,
               items):
         """
         Crea vocería cabecera + items en una transacción.
@@ -883,10 +881,10 @@ class VoceriaDAO:
         try:
             # 1. Crear cabecera
             sql = """
-                INSERT INTO voceria (id_asic, id_tipo, id_usuario_registro, fecha, estado, municipio, parroquia)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO voceria (id_asic, id_tipo, id_usuario_registro, estado, municipio, parroquia)
+                VALUES (%s, %s, %s, %s, %s, %s)
             """
-            cursor.execute(sql, (id_asic, id_tipo, id_usuario_registro, fecha, estado, municipio, parroquia))
+            cursor.execute(sql, (id_asic, id_tipo, id_usuario_registro, estado, municipio, parroquia))
             id_voceria = cursor.lastrowid
 
             # 2. Crear items
@@ -924,7 +922,7 @@ class VoceriaDAO:
             cursor.close()
             conn.close()
 
-    def actualizar(self, id_voceria, id_asic, id_tipo, fecha, estado, municipio, parroquia,
+    def actualizar(self, id_voceria, id_asic, id_tipo, estado, municipio, parroquia,
                    items):
         conn = get_connection()
         cursor = conn.cursor()
@@ -932,10 +930,10 @@ class VoceriaDAO:
             # 1. Actualizar cabecera
             sql = """
                 UPDATE voceria
-                SET id_asic = %s, id_tipo = %s, fecha = %s, estado = %s, municipio = %s, parroquia = %s
+                SET id_asic = %s, id_tipo = %s, estado = %s, municipio = %s, parroquia = %s
                 WHERE id_voceria = %s
             """
-            cursor.execute(sql, (id_asic, id_tipo, fecha, estado, municipio, parroquia,
+            cursor.execute(sql, (id_asic, id_tipo, estado, municipio, parroquia,
                                  id_voceria))
 
             # 2. Soft delete items existentes
@@ -1666,7 +1664,7 @@ class VoceriaController:
         """Obtiene vocería con todos sus items (voceros)."""
         return self.voceria_dao.obtener_con_items(id_voceria)
 
-    def guardar_voceria(self, id_asic, id_tipo=None, fecha=None, estado=None, municipio=None, parroquia=None,
+    def guardar_voceria(self, id_asic, id_tipo=None, estado=None, municipio=None, parroquia=None,
                          items=None, id_voceria=None):
         """
         Guarda vocería con sus items (voceros).
@@ -1677,8 +1675,6 @@ class VoceriaController:
 
         if not id_asic:
             return False, "Debes seleccionar un ASIC."
-        if not fecha or str(fecha).strip() in ("", "AAAA-MM-DD"):
-            return False, "La fecha es obligatoria."
         if not estado or not str(estado).strip():
             return False, "El estado es obligatorio."
         if not municipio or not str(municipio).strip():
@@ -1730,12 +1726,12 @@ class VoceriaController:
 
         try:
             if id_voceria is None:
-                self.voceria_dao.crear(id_asic, id_tipo, id_usuario_registro, fecha, estado, municipio, parroquia,
+                self.voceria_dao.crear(id_asic, id_tipo, id_usuario_registro, estado, municipio, parroquia,
                                        items)
                 return True, "Vocería registrada correctamente."
             else:
-                self.voceria_dao.actualizar(id_voceria, id_asic, id_tipo, fecha, estado, municipio, parroquia,
-                                           items)
+                self.voceria_dao.actualizar(id_voceria, id_asic, id_tipo, estado, municipio, parroquia,
+                                            items)
                 return True, "Vocería actualizada correctamente."
         except Exception as e:
             return False, f"Error al guardar: {str(e)}"
@@ -1875,7 +1871,7 @@ class ConsolidacionService:
             filtros["id_asic"] = aid
             for voc in self._voceria_dao.obtener_todas(filtros):
                 vistas[voc["id_voceria"]] = voc
-        return sorted(vistas.values(), key=lambda v: (str(v.get("fecha", "")), v["id_voceria"]), reverse=True)
+        return sorted(vistas.values(), key=lambda v: (str(v.get("fecha_registro", "")), v["id_voceria"]), reverse=True)
 
     @staticmethod
     def _agrupar(actividades: list, campo_grupo: str) -> list:

@@ -16,10 +16,11 @@ from datetime import date, datetime
 import customtkinter as ctk
 
 from db import AuthController, AsicDAO, ConsolidacionService, PDFService
+from themes import THEME
 from ui_helpers import (
     frame, frame_transparent, frame_surface, label, label_title, label_subtitle,
     btn_primary, btn_secondary, btn_danger, btn_success, separator, treeview_style,
-    entry, combobox, date_picker
+    entry, combobox, date_picker, multiselect_option_menu
 )
 
 try:
@@ -87,10 +88,10 @@ class ReporteView:
         self._entry_f_fin = self._date_widget(inner)
         self._entry_f_fin.grid(row=1, column=3, sticky="w", padx=(8, 30))
 
-        label(inner, "ASIC (opcional):\nCtrl+clic para\nseleccionar varios", font_size=10).grid(row=2, column=0, sticky="nw", pady=4)
+        label(inner, "ASIC (opcional):", font_size=10).grid(row=2, column=0, sticky="w", pady=6)
 
         self._asic_map: dict = {}          # nombre → id_asic
-        self._asic_nombres: list = []      # orden de inserción para el Listbox
+        self._asic_nombres: list = []      # orden de inserción
         try:
             for a in AsicDAO().obtener_todos():
                 self._asic_map[a["nombre"]] = a["id_asic"]
@@ -98,50 +99,39 @@ class ReporteView:
         except Exception:
             pass
 
-        lb_frame = tk.Frame(inner, bg="gray20")
-        lb_frame.grid(row=2, column=1, columnspan=3, sticky="w", padx=8, pady=4)
-
-        self._lb_asic = tk.Listbox(
-            lb_frame,
-            selectmode=tk.MULTIPLE,
-            height=min(max(len(self._asic_nombres), 4), 8),
-            width=40,
-            font=("Arial", 10),
-            bg="gray25", fg="white",
-            selectbackground="#613BE3",
-            selectforeground="white",
-            relief="flat", borderwidth=0,
-            activestyle="none",
+        t = THEME
+        self._combo_asic = multiselect_option_menu(
+            inner,
+            values=self._asic_nombres,
+            placeholder="Todos",
+            width=440,
+            fg_color=t["bg_base"],
+            button_color=t["bg_card"],
+            button_hover_color=t["bg_hover"],
+            text_color=t["text_primary"],
+            dropdown_fg_color=t["bg_base"],
+            dropdown_text_color=t["text_primary"],
+            border_color=t["border"],
+            corner_radius=6
         )
-        sb_asic = ttk.Scrollbar(lb_frame, orient="vertical", command=self._lb_asic.yview)
-        self._lb_asic.configure(yscrollcommand=sb_asic.set)
-        for nombre in self._asic_nombres:
-            self._lb_asic.insert(tk.END, nombre)
-        self._lb_asic.pack(side="left")
-        sb_asic.pack(side="left", fill="y")
+        self._combo_asic.grid(row=2, column=1, columnspan=3, sticky="w", padx=8, pady=6)
 
-        label(inner, "(sin selección = todos)", font_size=9, text_color="gray60").grid(
-            row=3, column=1, columnspan=3, sticky="w", padx=8
-        )
-
-        label(inner, "Título del informe:", font_size=10).grid(row=4, column=0, sticky="w", pady=4)
-        self._entry_titulo = entry(inner, width=440)
+        label(inner, "Título del informe:", font_size=10).grid(row=3, column=0, sticky="w", pady=4)
+        t = THEME
+        self._entry_titulo = ctk.CTkEntry(inner, width=440, font=("Arial", 11),
+                                          fg_color=t["bg_base"], text_color=t["text_primary"],
+                                          border_color=t["border"], corner_radius=6)
         self._entry_titulo.insert(0, "Informe Consolidado de Actividades")
-        self._entry_titulo.grid(row=4, column=1, columnspan=3, sticky="w", padx=8)
+        self._entry_titulo.grid(row=3, column=1, columnspan=3, sticky="w", padx=8)
 
-        btn_secondary(inner, "▶  Generar Vista Previa", self._iniciar_previo).grid(row=5, column=0, columnspan=4, sticky="w", pady=(14, 0))
+        btn_secondary(inner, "▶  Generar Vista Previa", self._iniciar_previo).grid(row=4, column=0, columnspan=4, sticky="w", pady=(14, 0))
 
     def _leer_asics_seleccionados(self):
         """Retorna None (todos los ASIC) o una lista de IDs seleccionados."""
-        seleccion = self._lb_asic.curselection()
-        if not seleccion:
+        seleccionados = self._combo_asic.get_selected()
+        if not seleccionados:
             return None
-        ids = []
-        for idx in seleccion:
-            nombre = self._asic_nombres[idx]
-            id_asic = self._asic_map.get(nombre)
-            if id_asic is not None:
-                ids.append(id_asic)
+        ids = [self._asic_map[nom] for nom in seleccionados if nom in self._asic_map]
         return ids if ids else None
 
     def _date_widget(self, parent):
@@ -311,7 +301,7 @@ class ReporteView:
         tree.column(4, width=120, anchor="w")
 
         for voc in vocerias:
-            f = voc.get("fecha", "")
+            f = voc.get("fecha_registro", "")
             if hasattr(f, "strftime"):
                 f = f.strftime("%d/%m/%Y")
             cantidad = voc.get("cantidad_vocerias", 0)

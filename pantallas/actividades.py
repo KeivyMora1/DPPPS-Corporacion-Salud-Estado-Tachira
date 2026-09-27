@@ -484,9 +484,7 @@ class ActividadView:
         ent_comites = ctk.CTkEntry(col_comites, font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"],
                                    border_color=t["border"], corner_radius=6)
         ent_comites.pack(fill="x", pady=(2, 0))
-        self._poner_placeholder_entry(ent_comites, "Comités (ej: Comité A, Comité B)")
-        ent_comites.bind("<FocusIn>", lambda e: self._limpiar_placeholder_entry(ent_comites, "Comités (ej: Comité A, Comité B)"))
-        ent_comites.bind("<FocusOut>", lambda e: self._poner_placeholder_entry(ent_comites, "Comités (ej: Comité A, Comité B)"))
+        ent_comites.insert(0, "0")
 
         # --- Descripción ---
         ctk.CTkLabel(marco_form, text="Tema Tratado / Descripción *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(8, 2))
@@ -663,9 +661,8 @@ class ActividadView:
             ent_comites.delete(0, tk.END)
             if datos_edicion.get("comites_salud"):
                 ent_comites.insert(0, str(datos_edicion["comites_salud"]))
-                ent_comites.configure(text_color=t["text_primary"])
             else:
-                self._poner_placeholder_entry(ent_comites, "Comités (ej: Comité A, Comité B)")
+                ent_comites.insert(0, "0")
 
             # Cargar participantes por categoría (reemplazando valores por defecto)
             self.ent_medicos.delete(0, tk.END)

@@ -126,7 +126,6 @@ CREATE TABLE IF NOT EXISTS voceria (
     id_asic           INT NOT NULL,
     id_tipo           INT NOT NULL,
     id_usuario_registro INT NOT NULL,
-    fecha             DATE NOT NULL,
     estado            VARCHAR(100) DEFAULT 'Táchira',
     municipio         VARCHAR(100),
     parroquia         VARCHAR(100),
