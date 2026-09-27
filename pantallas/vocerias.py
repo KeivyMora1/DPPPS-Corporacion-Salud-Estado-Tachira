@@ -87,11 +87,33 @@ class VoceriaView:
         marco_filtros.pack(fill="x", padx=30, pady=(0, 10))
 
         ctk.CTkLabel(marco_filtros, text="ASIC:", font=("Arial", 9, "bold"), text_color=t["text_muted"]).grid(row=0, column=0, padx=5, pady=5, sticky="w")
-        self.combo_filtro_asic = ttk.Combobox(marco_filtros, state="readonly", width=22, font=("Arial", 10))
+        self.combo_filtro_asic = ctk.CTkOptionMenu(
+            marco_filtros,
+            values=["Todos"],
+            fg_color=t["bg_base"],
+            button_color=t["bg_card"],
+            button_hover_color=t["bg_hover"],
+            text_color=t["text_primary"],
+            dropdown_fg_color=t["bg_base"],
+            dropdown_text_color=t["text_primary"],
+            font=("Arial", 10),
+            width=180
+        )
         self.combo_filtro_asic.grid(row=0, column=1, padx=5, pady=5)
 
         ctk.CTkLabel(marco_filtros, text="Tipo:", font=("Arial", 9, "bold"), text_color=t["text_muted"]).grid(row=0, column=2, padx=5, pady=5, sticky="w")
-        self.combo_filtro_tipo = ttk.Combobox(marco_filtros, state="readonly", width=22, font=("Arial", 10))
+        self.combo_filtro_tipo = ctk.CTkOptionMenu(
+            marco_filtros,
+            values=["Todos"],
+            fg_color=t["bg_base"],
+            button_color=t["bg_card"],
+            button_hover_color=t["bg_hover"],
+            text_color=t["text_primary"],
+            dropdown_fg_color=t["bg_base"],
+            dropdown_text_color=t["text_primary"],
+            font=("Arial", 10),
+            width=180
+        )
         self.combo_filtro_tipo.grid(row=0, column=3, padx=5, pady=5)
 
         ctk.CTkLabel(marco_filtros, text="Desde:", font=("Arial", 9, "bold"), text_color=t["text_muted"]).grid(row=0, column=4, padx=5, pady=5, sticky="w")
@@ -104,10 +126,10 @@ class VoceriaView:
 
         nombres_asic = ["Todos"] + sorted(list(self.asic_map.keys()))
         nombres_tipo = ["Todos"] + sorted(list(self.tipo_map.keys()))
-        self.combo_filtro_asic["values"] = nombres_asic
-        self.combo_filtro_asic.current(0)
-        self.combo_filtro_tipo["values"] = nombres_tipo
-        self.combo_filtro_tipo.current(0)
+        self.combo_filtro_asic.configure(values=nombres_asic)
+        self.combo_filtro_asic.set("Todos")
+        self.combo_filtro_tipo.configure(values=nombres_tipo)
+        self.combo_filtro_tipo.set("Todos")
 
         ctk.CTkButton(marco_filtros, text="Buscar", font=("Arial", 9, "bold"),
                       fg_color=t["accent"], hover_color=t["accent_dim"],
@@ -183,22 +205,22 @@ class VoceriaView:
                   foreground=[("selected", t["text_primary"])])
 
         columnas = (
-            "id", "asic", "tipo", "fecha", "estado", "municipio", "parroquia"
+            "id", "asic", "fecha", "cantidad", "estado", "municipio", "parroquia"
         )
         self.tabla = ttk.Treeview(marco_tabla, columns=columnas, show="headings", height=12, style="Voc.Treeview")
 
-        self.tabla.heading("id",              text="#")
-        self.tabla.heading("asic",            text="ASIC")
-        self.tabla.heading("tipo",            text="Tipo Vocería")
-        self.tabla.heading("fecha",           text="Fecha")
-        self.tabla.heading("estado",          text="Estado")
-        self.tabla.heading("municipio",       text="Municipio")
-        self.tabla.heading("parroquia",       text="Parroquia")
+        self.tabla.heading("id",              text="ID", anchor="center")
+        self.tabla.heading("asic",            text="ASIC", anchor="w")
+        self.tabla.heading("fecha",           text="Fecha del registro", anchor="w")
+        self.tabla.heading("cantidad",        text="Cantidad Vocerías", anchor="w")
+        self.tabla.heading("estado",          text="Estado", anchor="w")
+        self.tabla.heading("municipio",       text="Municipio", anchor="w")
+        self.tabla.heading("parroquia",       text="Parroquia", anchor="w")
 
         self.tabla.column("id",             width=40,  anchor="center")
         self.tabla.column("asic",           width=150, anchor="w")
-        self.tabla.column("tipo",           width=160, anchor="w")
-        self.tabla.column("fecha",          width=90,  anchor="center")
+        self.tabla.column("fecha",          width=90,  anchor="w")
+        self.tabla.column("cantidad",       width=100, anchor="w")
         self.tabla.column("estado",         width=90,  anchor="w")
         self.tabla.column("municipio",      width=110, anchor="w")
         self.tabla.column("parroquia",      width=110, anchor="w")
@@ -210,8 +232,16 @@ class VoceriaView:
 
         self.tabla.bind("<<TreeviewSelect>>", self._on_seleccion_cambio)
         self.tabla.bind("<Double-1>", self._abrir_detalle_voceria)
+        self.tabla.bind("<Button-1>", self._on_tabla_click, add="+")
 
         self._cargar_datos_tabla()
+
+    def _on_tabla_click(self, event):
+        """Deselecciona fila si se hace clic en área vacía de la tabla."""
+        tree = event.widget
+        item = tree.identify_row(event.y)
+        if not item:
+            tree.selection_remove(tree.selection())
 
     def _aplicar_filtros(self):
         asic_sel = self.combo_filtro_asic.get()
@@ -245,8 +275,8 @@ class VoceriaView:
         self._cargar_datos_tabla(filtros)
 
     def _limpiar_filtros(self):
-        self.combo_filtro_asic.current(0)
-        self.combo_filtro_tipo.current(0)
+        self.combo_filtro_asic.set("Todos")
+        self.combo_filtro_tipo.set("Todos")
         self.ent_filtro_desde.delete(0, tk.END)
         self._poner_placeholder_fecha(self.ent_filtro_desde)
         self.ent_filtro_hasta.delete(0, tk.END)
@@ -260,15 +290,17 @@ class VoceriaView:
         try:
             lista = self.controller.listar_vocerias(filtros)
             for voc in lista:
-                f_ini = voc["fecha"]
+                f_ini = voc.get("fecha_registro") or voc.get("fecha")
                 if isinstance(f_ini, (date, datetime)):
                     f_ini = f_ini.strftime("%d/%m/%Y")
+
+                cantidad = voc.get("cantidad_vocerias", 0)
 
                 self.tabla.insert("", "end", iid=str(voc["id_voceria"]), values=(
                     voc["id_voceria"],
                     voc.get("asic_nombre", ""),
-                    voc.get("tipo_nombre", ""),
                     f_ini,
+                    cantidad,
                     voc.get("estado", ""),
                     voc.get("municipio", ""),
                     voc.get("parroquia", ""),
@@ -368,18 +400,6 @@ class VoceriaView:
             self.ent_asic.set(nombres_asics[0])
         self.ent_asic.pack(fill="x", pady=(2, 0))
 
-        # Fila 2: Fecha
-        fila2 = ctk.CTkFrame(inner_gen, fg_color="transparent")
-        fila2.pack(fill="x", pady=5)
-
-        col_fecha = ctk.CTkFrame(fila2, fg_color="transparent")
-        col_fecha.pack(side="left", fill="x", expand=True, padx=(0, 5))
-        ctk.CTkLabel(col_fecha, text="Fecha *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        self.ent_fecha = date_picker(col_fecha, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
-        self.ent_fecha.pack(fill="x", pady=(2, 0))
-        self.ent_fecha.bind("<KeyRelease>", lambda e: self._actualizar_estado_botones())
-        self.ent_fecha.bind("<FocusOut>", lambda e: self._actualizar_estado_botones())
-
         self.ent_estado.configure(command=lambda c: self._actualizar_estado_botones())
         self.ent_municipio.configure(command=lambda c: self._actualizar_estado_botones())
 
@@ -435,7 +455,6 @@ class VoceriaView:
             municipio = self.ent_municipio.get().strip() if hasattr(self, "ent_municipio") else ""
             parroquia = self.ent_parroquia.get().strip() if hasattr(self, "ent_parroquia") else ""
             asic = self.ent_asic.get().strip() if hasattr(self, "ent_asic") else ""
-            fecha = self.ent_fecha.get().strip() if hasattr(self, "ent_fecha") else ""
 
             if not estado:
                 lbl_error.configure(text="⚠ Debe seleccionar el Estado")
@@ -449,10 +468,6 @@ class VoceriaView:
                 return
             if not asic or asic not in self.asic_map:
                 lbl_error.configure(text="⚠ Debe seleccionar un ASIC válido")
-                return
-            if not fecha or fecha == "AAAA-MM-DD":
-                lbl_error.configure(text="⚠ Debe ingresar la Fecha (formato AAAA-MM-DD)")
-                self.ent_fecha.focus_set()
                 return
 
             # Validar al menos 1 item
@@ -475,7 +490,7 @@ class VoceriaView:
                 "sexo": "Sexo",
                 "prof": "Profesión/Oficio",
                 "correo": "Correo Electrónico",
-                "felecc": "Fechas de Elección",
+                "felecc": "Fecha de Elección",
             }
 
             for idx, item in enumerate(items_validos, start=1):
@@ -533,7 +548,6 @@ class VoceriaView:
             ok, msg = self.controller.guardar_voceria(
                 id_asic=id_asic,
                 id_tipo=id_tipo,
-                fecha=fecha,
                 estado=estado,
                 municipio=municipio,
                 parroquia=parroquia,
@@ -570,13 +584,6 @@ class VoceriaView:
                     if id_a == datos_edicion["id_asic"]:
                         self.ent_asic.set(nom)
                         break
-            if datos_edicion.get("fecha"):
-                f = datos_edicion["fecha"]
-                if isinstance(f, (date, datetime)):
-                    f = f.strftime("%Y-%m-%d")
-                self.ent_fecha.delete(0, tk.END)
-                self.ent_fecha.insert(0, str(f))
-
             # Limpiar items iniciales y cargar los existentes
             for it in list(self.items_voceria):
                 it["frame"].destroy()
@@ -862,7 +869,7 @@ class VoceriaView:
 
         col_felecc = ctk.CTkFrame(fila5, fg_color="transparent")
         col_felecc.pack(side="left", fill="x", expand=True, padx=(0, 5))
-        ctk.CTkLabel(col_felecc, text="Fechas de Elección *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        ctk.CTkLabel(col_felecc, text="Fecha de Elección *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
         ent_felecc = date_picker(col_felecc, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
         ent_felecc.pack(fill="x", pady=(2, 0))
 
@@ -1008,7 +1015,6 @@ class VoceriaView:
         municipio = self.ent_municipio.get().strip() if hasattr(self, "ent_municipio") else ""
         parroquia = self.ent_parroquia.get().strip() if hasattr(self, "ent_parroquia") else ""
         asic = self.ent_asic.get().strip() if hasattr(self, "ent_asic") else ""
-        fecha = self.ent_fecha.get().strip() if hasattr(self, "ent_fecha") else ""
 
         if not estado or estado in ("Seleccionar...", ""):
             return False
@@ -1304,6 +1310,8 @@ class VoceriaView:
         tree.pack(side="left", fill="both", expand=True)
         scroll_y.pack(side="right", fill="y")
         scroll_x.pack(side="bottom", fill="x")
+
+        tree.bind("<Button-1>", self._on_tabla_click, add="+")
 
         # Botón cerrar
         ctk.CTkButton(ventana, text="Cerrar", font=("Arial", 11, "bold"),

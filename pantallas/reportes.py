@@ -54,33 +54,16 @@ class ReporteView:
     def _construir_ui(self):
         header = frame_transparent(self.parent)
         header.pack(fill="x", padx=30, pady=(25, 4))
-
+ 
         label_title(header, "📊  Reportes y Consolidación", 17).pack(side="left")
-
+ 
         label_subtitle(self.parent,
             "Genera informes consolidados por período y exporta el documento en Word.",
             wraplength=900, justify="left"
         ).pack(anchor="w", padx=30, pady=(0, 14))
-
-        style = ttk.Style()
-        style.theme_use("clam")
-        style.configure("Rep.TNotebook",     background="gray15", borderwidth=0)
-        style.configure("Rep.TNotebook.Tab", background="gray20",
-                        foreground="gray70", padding=[14, 6], font=("Arial", 10))
-        style.map("Rep.TNotebook.Tab",
-                  background=[("selected", "gray25")],
-                  foreground=[("selected", "white")])
-
-        nb = ttk.Notebook(self.parent, style="Rep.TNotebook")
-        nb.pack(fill="both", expand=True, padx=30, pady=(0, 20))
-
-        self._tab_generar = frame(nb, fg_color="gray15")
-        nb.add(self._tab_generar, text="  ✨ Generar Informe  ")
-        self._construir_tab_generar()
-
-    def _construir_tab_generar(self):
-        self._frame_generar = frame_transparent(self._tab_generar)
-        self._frame_generar.pack(fill="both", expand=True)
+ 
+        self._frame_generar = frame(self.parent, fg_color="gray15")
+        self._frame_generar.pack(fill="both", expand=True, padx=30, pady=(0, 20))
         self._mostrar_paso1()
 
     def _mostrar_paso1(self):
@@ -299,6 +282,15 @@ class ReporteView:
         sy.pack(side="right", fill="y")
         tree.pack(fill="both", expand=True)
 
+        tree.bind("<Button-1>", self._on_tabla_click, add="+")
+
+    def _on_tabla_click(self, event):
+        """Deselecciona fila si se hace clic en área vacía de la tabla."""
+        tree = event.widget
+        item = tree.identify_row(event.y)
+        if not item:
+            tree.selection_remove(tree.selection())
+
     def _mini_tabla_vocerias(self, parent: ctk.CTkFrame, vocerias: list):
         marco = frame_surface(parent, fg_color="gray20", corner_radius=10)
         marco.pack(fill="x", pady=(10, 0))
@@ -308,24 +300,28 @@ class ReporteView:
 
         label(inner, "Vocerías CS", font_size=10, bold=True).pack(anchor="w", pady=(0, 5))
 
-        cabeceras = ["Fecha", "ASIC", "Tipo", "Municipio", "Parroquia"]
+        cabeceras = ["Fecha", "ASIC", "Cantidad Vocerías", "Municipio", "Parroquia"]
         cols = tuple(range(len(cabeceras)))
         treeview_style("R", 22)
 
         tree = ttk.Treeview(inner, columns=cols, show="headings", style="R.Treeview", height=min(len(vocerias), 8))
         for i, cab in enumerate(cabeceras):
             tree.heading(i, text=cab)
-        tree.column(0, width=100, anchor="center")
+        tree.column(0, width=100, anchor="w")
         tree.column(1, width=180, anchor="w")
-        tree.column(2, width=150, anchor="w")
+        tree.column(2, width=120, anchor="w")
         tree.column(3, width=120, anchor="w")
         tree.column(4, width=120, anchor="w")
 
         for voc in vocerias:
+            f = voc.get("fecha", "")
+            if hasattr(f, "strftime"):
+                f = f.strftime("%d/%m/%Y")
+            cantidad = voc.get("cantidad_vocerias", 0)
             tree.insert("", "end", values=(
-                voc.get("fecha", ""),
+                f,
                 voc.get("asic_nombre", ""),
-                voc.get("tipo_nombre", ""),
+                cantidad,
                 voc.get("municipio", ""),
                 voc.get("parroquia", ""),
             ))
@@ -334,6 +330,8 @@ class ReporteView:
         tree.configure(yscrollcommand=sy.set)
         sy.pack(side="right", fill="y")
         tree.pack(fill="both", expand=True)
+
+        tree.bind("<Button-1>", self._on_tabla_click, add="+")
 
     def _exportar_word(self):
         if not self._previo:

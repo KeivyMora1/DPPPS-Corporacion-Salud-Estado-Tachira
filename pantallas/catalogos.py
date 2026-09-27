@@ -94,7 +94,16 @@ class CatalogoView:
         tree.configure(yscrollcommand=scroll.set)
         tree.pack(side="left", fill="both", expand=True)
         scroll.pack(side="right", fill="y")
+
+        tree.bind("<Button-1>", self._on_tabla_click, add="+")
         return tree
+
+    def _on_tabla_click(self, event):
+        """Deselecciona fila si se hace clic en área vacía de la tabla."""
+        tree = event.widget
+        item = tree.identify_row(event.y)
+        if not item:
+            tree.selection_remove(tree.selection())
 
     def _crear_barra_botones(self, parent, cmd_editar, cmd_eliminar):
         barra = frame_transparent(parent)

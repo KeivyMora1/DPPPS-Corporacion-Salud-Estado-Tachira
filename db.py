@@ -775,16 +775,20 @@ class VoceriaDAO:
         cursor = conn.cursor(dictionary=True)
         sql = """
             SELECT v.id_voceria, v.id_asic, v.id_tipo, v.id_usuario_registro,
-                   v.fecha, v.estado, v.municipio, v.parroquia,
-                   v.created_at,
+                   v.fecha, v.created_at AS fecha_registro, v.estado, v.municipio, v.parroquia,
                    a.nombre AS asic_nombre,
                    tv.nombre AS tipo_nombre,
-                   u.nombre_completo AS usuario_nombre
+                   u.nombre_completo AS usuario_nombre,
+                   COUNT(vi.id_item) AS cantidad_vocerias
             FROM voceria v
             JOIN asic a ON v.id_asic = a.id_asic
             JOIN tipo_voceria tv ON v.id_tipo = tv.id_tipo
             JOIN usuario u ON v.id_usuario_registro = u.id_usuario
+            LEFT JOIN voceria_item vi ON vi.id_voceria = v.id_voceria AND vi.eliminado = FALSE
             WHERE v.eliminado = FALSE
+            GROUP BY v.id_voceria, v.id_asic, v.id_tipo, v.id_usuario_registro,
+                     v.fecha, v.created_at, v.estado, v.municipio, v.parroquia,
+                     a.nombre, tv.nombre, u.nombre_completo
         """
         params = []
         if filtros:

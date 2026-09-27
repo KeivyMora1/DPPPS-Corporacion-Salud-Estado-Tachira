@@ -199,16 +199,16 @@ class ActividadView:
         )
         self.tabla = ttk.Treeview(marco_tabla, columns=columnas, show="headings", height=12, style="Act.Treeview")
 
-        self.tabla.heading("asic",                     text="ASIC")
-        self.tabla.heading("tipo",                     text="Tipo de Actividad")
-        self.tabla.heading("fecha",                    text="Fecha")
-        self.tabla.heading("estado",                   text="Estado")
-        self.tabla.heading("municipio",                text="Municipio")
-        self.tabla.heading("parroquia",                text="Parroquia")
-        self.tabla.heading("establecimiento_salud",    text="Establecimiento")
-        self.tabla.heading("nombre_establecimiento",   text="Nombre Establecimiento")
-        self.tabla.heading("comites_salud",            text="Comités")
-        self.tabla.heading("participantes",            text="Participantes")
+        self.tabla.heading("asic",                     text="ASIC", anchor="w")
+        self.tabla.heading("tipo",                     text="Tipo de Actividad", anchor="w")
+        self.tabla.heading("fecha",                    text="Fecha", anchor="w")
+        self.tabla.heading("estado",                   text="Estado", anchor="w")
+        self.tabla.heading("municipio",                text="Municipio", anchor="w")
+        self.tabla.heading("parroquia",                text="Parroquia", anchor="w")
+        self.tabla.heading("establecimiento_salud",    text="Establecimiento", anchor="w")
+        self.tabla.heading("nombre_establecimiento",   text="Nombre Establecimiento", anchor="w")
+        self.tabla.heading("comites_salud",            text="Comités", anchor="w")
+        self.tabla.heading("participantes",            text="Participantes", anchor="w")
 
         self.tabla.column("asic",                  width=150,  anchor="w")
         self.tabla.column("tipo",                  width=160,  anchor="w")
@@ -227,8 +227,16 @@ class ActividadView:
         scroll_y.pack(side="right", fill="y")
 
         self.tabla.bind("<<TreeviewSelect>>", self._on_seleccion_cambio)
+        self.tabla.bind("<Button-1>", self._on_tabla_click, add="+")
 
         self._cargar_datos_tabla()
+
+    def _on_tabla_click(self, event):
+        """Deselecciona fila si se hace clic en área vacía de la tabla."""
+        tree = event.widget
+        item = tree.identify_row(event.y)
+        if not item:
+            tree.selection_remove(tree.selection())
 
     def _aplicar_filtros(self):
         asic_sel = self.combo_filtro_asic.get()
@@ -1087,6 +1095,8 @@ class ActividadView:
             scrolly.pack(side="right", fill="y")
             scrollx.pack(side="bottom", fill="x")
             tree.pack(fill="both", expand=True)
+
+            tree.bind("<Button-1>", self._on_tabla_click, add="+")
 
         def _confirmar_importar(self):
             validas = self._resultado_previo["filas_validas"]
