@@ -296,7 +296,8 @@ def get_connection():
             port=params["port"],
             user=params["user"],
             password=params["password"],
-            database=params["database"]
+            database=params["database"],
+            use_pure=True
         )
         return conn
     except mysql.connector.Error as error:

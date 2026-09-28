@@ -17,11 +17,15 @@ from ui_helpers import (
     btn_nav, btn_danger, separator, canvas_circle, scrollable_frame
 )
 
+from pantallas.actividades.controller import ControladorActividad
+from pantallas.vocerias.controller import ControladorVoceria
+from pantallas.reportes.controller import ControladorReporte
+
 SECCION_INICIAL = "actividades"
-SECCIONES = {
-    "actividades": ("pantallas.actividades", "ActividadView", {}),
-    "vocerias": ("pantallas.vocerias", "VoceriaView", {}),
-    "reportes": ("pantallas.reportes", "ReporteView", {}),
+CONTROLADORES = {
+    "actividades": ControladorActividad,
+    "vocerias": ControladorVoceria,
+    "reportes": ControladorReporte,
 }
 
 
@@ -290,15 +294,12 @@ class ControladorPrincipal:
 
         self.vista.actualizar_nav(seccion)
 
-        configuracion = SECCIONES.get(seccion)
-        if configuracion is None:
+        controlador_clase = CONTROLADORES.get(seccion)
+        if controlador_clase is None:
             self.vista.area_contenido.update_idletasks()
             return
 
-        modulo, clase, kwargs = configuracion
-        modulo_obj = __import__(modulo, fromlist=[clase])
-        clase_obj = getattr(modulo_obj, clase)
-        clase_obj(self.vista.area_contenido, **kwargs)
+        controlador_clase(self.vista.area_contenido)
 
         self.vista.area_contenido.update_idletasks()
 
