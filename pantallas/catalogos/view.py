@@ -1,33 +1,18 @@
-# ============================================================
-# pantallas/catalogos.py
-# Vista para gestionar los catálogos del sistema:
-#   - ASIC (Áreas de Salud Integral Comunitaria)
-#   - Tipos de Actividad
-#
-# Tiene dos modos: puede mostrar solo ASIC, solo Tipos,
-# o ambos en pestañas (modo "catalogos").
-# ============================================================
-
 import customtkinter as ctk
 import tkinter as tk
 from tkinter import ttk, messagebox
+
 from db import CatalogoController
 from ui_helpers import (
     frame, frame_transparent, label, label_title, label_subtitle,
     btn_primary, btn_secondary, btn_danger, separator, treeview_style
 )
 
-
-class CatalogoView:
-    """
-    Vista de catálogos con dos pestañas: ASIC y Tipos de Actividad.
-    Se carga dentro del área de contenido de la ventana principal.
-    """
-
-    def __init__(self, parent, modo="catalogos"):
-        self.parent     = parent
-        self.controller = CatalogoController()
-        self.modo       = modo
+class VistaCatalogo:
+    def __init__(self, parent, controlador, modo="catalogos"):
+        self.parent = parent
+        self.controlador = controlador
+        self.modo = modo
 
         self._construir_ui()
 
@@ -114,7 +99,9 @@ class CatalogoView:
         return barra
 
     def _construir_tab_asic(self, parent):
-        self._crear_barra_acciones(parent, "+ Nuevo ASIC", self._abrir_form_asic, self._cargar_asic)
+        self._crear_barra_acciones(parent, "+ Nuevo ASIC",
+                                   self.controlador.abrir_form_asic,
+                                   self.controlador.cargar_asic)
 
         self.tabla_asic = self._crear_tabla(
             parent,
@@ -124,22 +111,36 @@ class CatalogoView:
             "ASIC"
         )
 
-        self._crear_barra_botones(parent, self._editar_asic, self._eliminar_asic)
-        self._cargar_asic()
+        self._crear_barra_botones(parent,
+                                  self.controlador.editar_asic,
+                                  self.controlador.eliminar_asic)
+        self.controlador.cargar_asic()
 
-    def _cargar_asic(self):
-        for item in self.tabla_asic.get_children():
-            self.tabla_asic.delete(item)
-        for asic in self.controller.listar_asic():
-            self.tabla_asic.insert("", "end", values=(
-                asic["id_asic"],
-                asic["codigo"],
-                asic["nombre"],
-                asic.get("municipio", ""),
-                asic.get("parroquia", "")
-            ))
+    def _construir_tab_tipos(self, parent):
+        self._crear_barra_acciones(parent, "+ Nuevo Tipo",
+                                   self.controlador.abrir_form_tipo,
+                                   self.controlador.cargar_tipos)
 
-    def _abrir_form_asic(self, datos=None):
+        self.tabla_tipos = self._crear_tabla(
+            parent,
+            ("id", "codigo", "nombre"),
+            ("ID", "Código", "Nombre"),
+            (50, 120, 320),
+            "Tipos"
+        )
+
+        self._crear_barra_botones(parent,
+                                  self.controlador.editar_tipo,
+                                  self.controlador.eliminar_tipo)
+        self.controlador.cargar_tipos()
+
+    def _centrar_ventana(self, ventana, w, h):
+        ventana.update_idletasks()
+        x = (ventana.winfo_screenwidth()  // 2) - (w // 2)
+        y = (ventana.winfo_screenheight() // 2) - (h // 2)
+        ventana.geometry(f"+{x}+{y}")
+
+    def abrir_formulario_asic(self, datos=None):
         ventana = ctk.CTkToplevel(self.parent)
         ventana.title("Nuevo ASIC" if datos is None else "Editar ASIC")
         ventana.geometry("420x410")
@@ -169,77 +170,20 @@ class CatalogoView:
 
         def guardar():
             id_asic = datos["id_asic"] if datos else None
-            ok, msg = self.controller.guardar_asic(
+            ok, msg = self.controlador.guardar_asic(
                 e_codigo.get(), e_nombre.get(),
                 e_municipio.get(), e_parroquia.get(), id_asic
             )
             if ok:
                 messagebox.showinfo("Éxito", msg, parent=ventana)
                 ventana.destroy()
-                self._cargar_asic()
+                self.controlador.cargar_asic()
             else:
                 lbl_error.configure(text=msg)
 
         btn_primary(ventana, "Guardar", guardar).pack(fill="x", padx=25, pady=(10, 0), ipady=8)
 
-    def _centrar_ventana(self, ventana, w, h):
-        ventana.update_idletasks()
-        x = (ventana.winfo_screenwidth()  // 2) - (w // 2)
-        y = (ventana.winfo_screenheight() // 2) - (h // 2)
-        ventana.geometry(f"+{x}+{y}")
-
-    def _editar_asic(self):
-        seleccion = self.tabla_asic.selection()
-        if not seleccion:
-            messagebox.showwarning("Atención", "Selecciona un ASIC de la tabla primero.")
-            return
-        valores = self.tabla_asic.item(seleccion[0])["values"]
-        datos = {"id_asic": valores[0], "codigo": valores[1],
-                 "nombre":  valores[2], "municipio": valores[3], "parroquia": valores[4]}
-        self._abrir_form_asic(datos)
-
-    def _eliminar_asic(self):
-        seleccion = self.tabla_asic.selection()
-        if not seleccion:
-            messagebox.showwarning("Atención", "Selecciona un ASIC de la tabla primero.")
-            return
-        valores = self.tabla_asic.item(seleccion[0])["values"]
-        id_asic = valores[0]
-        nombre  = valores[2]
-        if messagebox.askyesno("Confirmar eliminación",
-                               f"¿Deseas eliminar el ASIC '{nombre}'?\nEsta acción no se puede deshacer."):
-            ok, msg = self.controller.eliminar_asic(id_asic)
-            if ok:
-                messagebox.showinfo("Éxito", msg)
-                self._cargar_asic()
-            else:
-                messagebox.showerror("Error", msg)
-
-    def _construir_tab_tipos(self, parent):
-        self._crear_barra_acciones(parent, "+ Nuevo Tipo", self._abrir_form_tipo, self._cargar_tipos)
-
-        self.tabla_tipos = self._crear_tabla(
-            parent,
-            ("id", "codigo", "nombre"),
-            ("ID", "Código", "Nombre"),
-            (50, 120, 320),
-            "Tipos"
-        )
-
-        self._crear_barra_botones(parent, self._editar_tipo, self._eliminar_tipo)
-        self._cargar_tipos()
-
-    def _cargar_tipos(self):
-        for item in self.tabla_tipos.get_children():
-            self.tabla_tipos.delete(item)
-        for tipo in self.controller.listar_tipos():
-            self.tabla_tipos.insert("", "end", values=(
-                tipo["id_tipo"],
-                tipo["codigo"],
-                tipo["nombre"]
-            ))
-
-    def _abrir_form_tipo(self, datos=None):
+    def abrir_formulario_tipo(self, datos=None):
         ventana = ctk.CTkToplevel(self.parent)
         ventana.title("Nuevo Tipo" if datos is None else "Editar Tipo")
         ventana.geometry("420x260")
@@ -267,40 +211,22 @@ class CatalogoView:
 
         def guardar():
             id_tipo = datos["id_tipo"] if datos else None
-            ok, msg = self.controller.guardar_tipo(
+            ok, msg = self.controlador.guardar_tipo(
                 e_codigo.get(), e_nombre.get(), id_tipo
             )
             if ok:
                 messagebox.showinfo("Éxito", msg, parent=ventana)
                 ventana.destroy()
-                self._cargar_tipos()
+                self.controlador.cargar_tipos()
             else:
                 lbl_error.configure(text=msg)
 
         btn_primary(ventana, "Guardar", guardar).pack(fill="x", padx=25, pady=(10, 0), ipady=8)
 
-    def _editar_tipo(self):
-        seleccion = self.tabla_tipos.selection()
-        if not seleccion:
-            messagebox.showwarning("Atención", "Selecciona un tipo de la tabla primero.")
-            return
-        valores = self.tabla_tipos.item(seleccion[0])["values"]
-        datos = {"id_tipo": valores[0], "codigo": valores[1], "nombre": valores[2]}
-        self._abrir_form_tipo(datos)
 
-    def _eliminar_tipo(self):
-        seleccion = self.tabla_tipos.selection()
-        if not seleccion:
-            messagebox.showwarning("Atención", "Selecciona un tipo de la tabla primero.")
-            return
-        valores = self.tabla_tipos.item(seleccion[0])["values"]
-        id_tipo = valores[0]
-        nombre  = valores[2]
-        if messagebox.askyesno("Confirmar eliminación",
-                               f"¿Deseas eliminar el tipo '{nombre}'?"):
-            ok, msg = self.controller.eliminar_tipo(id_tipo)
-            if ok:
-                messagebox.showinfo("Éxito", msg)
-                self._cargar_tipos()
-            else:
-                messagebox.showerror("Error", msg)
+# ─────────────────────────────────────────────────────────────
+# CONTROLADOR
+# Instancia al Modelo y la Vista. Maneja las acciones del usuario.
+# ─────────────────────────────────────────────────────────────
+
+__all__ = ['VistaCatalogo']

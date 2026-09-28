@@ -312,7 +312,7 @@ def get_connection():
 # (antes en models/)
 # ============================================================
 import bcrypt
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 class UsuarioDAO:
     """
     Maneja todas las operaciones de la tabla 'usuario'.
@@ -364,16 +364,50 @@ class UsuarioDAO:
         conn.close()
         return usuarios
 
-    def crear(self, username, password, nombre_completo, email=""):
-        """Crea un nuevo usuario. La contraseña se cifra automáticamente con bcrypt."""
+    def crear(self, username=None, password=None, nombre_completo=None, email="", **kwargs):
+        """Crea un nuevo usuario con compatibilidad para ambos flujos del sistema."""
+        if username is None:
+            username = kwargs.get("username") or (email or "").lower().strip()
+        if password is None:
+            password = kwargs.get("password", "")
+        if nombre_completo is None:
+            nombre_completo = kwargs.get("nombre_completo") or ""
+
         hash_pw = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+        email_normalizada = (email or kwargs.get("email") or "").lower().strip()
+        nombre = kwargs.get("nombre", "").strip()
+        apellido = kwargs.get("apellido", "").strip()
+        codigo_verificacion = kwargs.get("codigo_verificacion", "")
+        codigo_verificacion_expira = kwargs.get("codigo_verificacion_expira")
+
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute(
-            """INSERT INTO usuario (username, password_hash, nombre_completo, email)
-               VALUES (%s, %s, %s, %s)""",
-            (username, hash_pw, nombre_completo, email)
-        )
+        if nombre or apellido or codigo_verificacion or codigo_verificacion_expira is not None:
+            cursor.execute(
+                """
+                INSERT INTO usuario (
+                    username, password_hash, nombre_completo, email, nombre, apellido,
+                    email_verificado, codigo_verificacion, codigo_verificacion_expira, activo
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, FALSE, %s, %s, TRUE)
+                """,
+                (
+                    username.lower().strip(),
+                    hash_pw,
+                    nombre_completo or f"{nombre} {apellido}".strip(),
+                    email_normalizada,
+                    nombre,
+                    apellido,
+                    codigo_verificacion,
+                    codigo_verificacion_expira,
+                )
+            )
+        else:
+            cursor.execute(
+                """INSERT INTO usuario (username, password_hash, nombre_completo, email)
+                   VALUES (%s, %s, %s, %s)""",
+                (username, hash_pw, nombre_completo, email_normalizada)
+            )
         conn.commit()
         nuevo_id = cursor.lastrowid
         cursor.close()
@@ -382,26 +416,16 @@ class UsuarioDAO:
 
     def crear_usuario(self, nombre, apellido, email, password, codigo_verificacion="", codigo_verificacion_expira=None):
         """Crea un usuario nuevo para el flujo de registro con correo verificado."""
-        hash_pw = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-        username = email.lower().strip()
-        nombre_completo = f"{nombre.strip()} {apellido.strip()}".strip()
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            INSERT INTO usuario (
-                username, password_hash, nombre_completo, email, nombre, apellido,
-                email_verificado, codigo_verificacion, codigo_verificacion_expira, activo
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, FALSE, %s, %s, TRUE)
-            """,
-            (username, hash_pw, nombre_completo, email.lower().strip(), nombre.strip(), apellido.strip(), codigo_verificacion, codigo_verificacion_expira)
+        return self.crear(
+            username=email.lower().strip(),
+            password=password,
+            nombre_completo=f"{nombre.strip()} {apellido.strip()}".strip(),
+            email=email.lower().strip(),
+            nombre=nombre.strip(),
+            apellido=apellido.strip(),
+            codigo_verificacion=codigo_verificacion,
+            codigo_verificacion_expira=codigo_verificacion_expira,
         )
-        conn.commit()
-        nuevo_id = cursor.lastrowid
-        cursor.close()
-        conn.close()
-        return nuevo_id
 
     def guardar_codigo_verificacion(self, email, codigo, expiracion):
         """Guarda el código de verificación en el usuario."""
@@ -1163,7 +1187,16 @@ class AuthController:
         codigo = self._generar_codigo()
         expiracion = datetime.now() + timedelta(minutes=10)
         try:
-            self.usuario_dao.crear_usuario(nombre, apellido, email, password, codigo, expiracion)
+            self.usuario_dao.crear(
+                username=email.lower().strip(),
+                password=password,
+                nombre_completo=f"{nombre.strip()} {apellido.strip()}".strip(),
+                email=email.lower().strip(),
+                nombre=nombre.strip(),
+                apellido=apellido.strip(),
+                codigo_verificacion=codigo,
+                codigo_verificacion_expira=expiracion,
+            )
             enviado = self._enviar_codigo_por_email(email, codigo, "verificacion")
             respuesta = {
                 "success": True,
@@ -2292,7 +2325,7 @@ class PDFService:
   <dcterms:modified xsi:type="dcterms:W3CDTF">{fecha}</dcterms:modified>
 </cp:coreProperties>'''.format(
             titulo=escape(datos.get("titulo", "Informe Consolidado").strip() or "Informe Consolidado"),
-            fecha=datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+            fecha=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         )
         app = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">
@@ -2379,169 +2412,73 @@ class PDFService:
         return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
     def _word_template_con_datos(self, xml_bytes: bytes, datos: dict) -> bytes:
-        """Reemplaza los conteos reales en cada tipo de actividad de la plantilla del oficio.
-
-        La tabla tiene 2 celdas por fila:
-        - Celda 1: párrafos con el nombre de la actividad, luego 'Participantes', etc.
-        - Celda 2: párrafos con números alineados a las líneas de la celda 1.
-        Se preserva un párrafo por línea para que los números queden frente a su texto.
-        """
+        """Actualiza solo los valores dinámicos de la plantilla oficial sin alterar su estructura."""
         root = ET.fromstring(xml_bytes)
         ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
-        w_ns = ns["w"]
 
         resumen_tipo = datos.get("resumen_por_tipo", []) or []
-        tipo_map = {}
+        tipo_lookup = {}
         for fila in resumen_tipo:
             nombre = str(fila.get("nombre") or "").strip()
             if not nombre:
                 continue
-            tipo_map[self._normalizar_texto(nombre)] = {
-                "total_actividades":   int(fila.get("total_actividades",  0) or 0),
+            tipo_lookup[self._normalizar_texto(nombre)] = {
+                "total_actividades": int(fila.get("total_actividades", 0) or 0),
                 "total_participantes": int(fila.get("total_participantes", 0) or 0),
             }
 
-        # Agregar conteo de vocerías a "Actualización de los comités de salud"
-        vocerias = datos.get("vocerias", []) or []
-        vocerias_count = len(vocerias)
-        if vocerias_count > 0:
-            # Buscar la clave normalizada que coincida con esta actividad
-            target_norm = self._normalizar_texto("Actualización de los comités de salud")
-            if target_norm not in tipo_map:
-                tipo_map[target_norm] = {"total_actividades": 0, "total_participantes": 0}
-            tipo_map[target_norm]["total_actividades"] += vocerias_count
-
-        nombre_aliases = []
         for _, nombre in TIPOS_ACTIVIDAD_PREDETERMINADOS:
-            if nombre:
-                nombre_aliases.append(nombre)
-        # Asegurar que "Actualización de los comités de salud" esté en los aliases
-        # para que la plantilla lo reconozca aunque no haya actividades de ese tipo
-        nombre_aliases.append("Actualización de los comités de salud")
-        for fila in resumen_tipo:
-            nombre = str(fila.get("nombre") or "").strip()
-            if nombre and nombre not in nombre_aliases:
-                nombre_aliases.append(nombre)
+            tipo_lookup.setdefault(self._normalizar_texto(nombre), {
+                "total_actividades": 0,
+                "total_participantes": 0,
+            })
 
-        for fila_elem in root.findall(".//w:tr", ns):
-            celdas = fila_elem.findall("./w:tc", ns)
+        vocerias = datos.get("vocerias", []) or []
+        llave_actualizacion = self._normalizar_texto("Actualización de los comités de salud")
+        tipo_lookup.setdefault(llave_actualizacion, {"total_actividades": 0, "total_participantes": 0})
+        tipo_lookup[llave_actualizacion]["total_actividades"] = len(vocerias) or tipo_lookup[llave_actualizacion].get("total_actividades", 0)
+
+        llave_seguimiento = self._normalizar_texto("Seguimiento a los Comités de Salud mediante las vocerías en salud comunal")
+        tipo_lookup.setdefault(llave_seguimiento, {"total_actividades": 0, "total_participantes": 0})
+
+        def get_valor(nombre: str, campo: str) -> int:
+            clave = self._normalizar_texto(nombre)
+            datos_tipo = tipo_lookup.get(clave, {"total_actividades": 0, "total_participantes": 0})
+            return int(datos_tipo.get(campo, 0) or 0)
+
+        def asignar_valores_fila(indice_fila: int, valores):
+            filas = root.findall(".//w:tr", ns)
+            if indice_fila >= len(filas):
+                return
+            celdas = filas[indice_fila].findall("./w:tc", ns)
             if len(celdas) < 2:
-                continue
+                return
+            nodos = celdas[1].findall(".//w:t", ns)
+            if not nodos:
+                return
+            nodos_numericos = [n for n in nodos if (n.text or "").strip().isdigit()]
+            for nodo, valor in zip(nodos_numericos, valores):
+                nodo.text = str(valor)
+            for nodo in nodos_numericos[len(valores):]:
+                nodo.text = "0"
 
-            cel1_elem = celdas[0]
-            cel2_elem = celdas[1]
+        salud = (get_valor("Salud toca tu puerta", "total_actividades"), get_valor("Salud toca tu puerta", "total_participantes"))
+        sesiones = (get_valor("Sesiones educativas", "total_actividades"), get_valor("Sesiones educativas", "total_participantes"))
+        comites_escuela = (get_valor("Los Comités de Salud van a la escuela", "total_actividades"), get_valor("Los Comités de Salud van a la escuela", "total_participantes"))
+        promocion = (get_valor("Actividades de Promoción y Prevención Social", "total_actividades"), get_valor("Actividades de Promoción y Prevención Social", "total_participantes"))
+        jornadas = (get_valor("Participación Activa en Jornadas", "total_actividades"), get_valor("Participación Activa en Jornadas", "total_participantes"))
+        inmunizaciones = (get_valor("Participación Activa en Inmunizaciones", "total_actividades"), get_valor("Participación Activa en Inmunizaciones", "total_participantes"))
+        entrevista = (get_valor("Entrevista servicio social", "total_actividades"), get_valor("Entrevista servicio social", "total_participantes"))
+        actividades_asic = (get_valor("Actividades Realizadas en los Establecimientos de Salud de los ASIC", "total_actividades"), get_valor("Actividades Realizadas en los Establecimientos de Salud de los ASIC", "total_participantes"))
 
-            # Analizar cada párrafo de la celda 1 para determinar qué valor
-            # va en el párrafo correspondiente de la celda 2.
-            parrafos_cel1 = cel1_elem.findall("w:p", ns)
-            if not parrafos_cel1:
-                continue
-
-            # Primero verificamos si esta fila contiene algún tipo reconocible
-            texto_total_cel1 = "".join(
-                (n.text or "") for n in cel1_elem.findall(".//w:t", ns)
-            )
-            contiene_tipo = any(
-                self._normalizar_texto(alias) in self._normalizar_texto(texto_total_cel1)
-                for alias in nombre_aliases
-                if self._normalizar_texto(alias)
-            )
-            if not contiene_tipo:
-                continue
-
-            # Si la fila contiene 'Entrevista servicio social', asegurar que la línea siguiente sea 'Participantes'
-            if "entrevista servicio social" in self._normalizar_texto(texto_total_cel1):
-                tiene_part = any(
-                    self._normalizar_texto("".join((n.text or "") for n in p.findall(".//w:t", ns))) in ("participantes", "particiantes")
-                    for p in parrafos_cel1
-                )
-                if not tiene_part:
-                    for pi, p in enumerate(parrafos_cel1):
-                        txt_p = self._normalizar_texto("".join((n.text or "") for n in p.findall(".//w:t", ns)))
-                        if "entrevista servicio social" in txt_p:
-                            for p_sig in parrafos_cel1[pi+1:]:
-                                txt_sig = "".join((n.text or "") for n in p_sig.findall(".//w:t", ns)).strip()
-                                if txt_sig:
-                                    t_nodes = p_sig.findall(".//w:t", ns)
-                                    for tidx, tn in enumerate(t_nodes):
-                                        tn.text = "Participantes" if tidx == 0 else ""
-                                    break
-
-            # Extraer estilo de un párrafo con número en cel2 para reutilizarlo
-            rpr_xml_orig = None
-            ppr_xml_orig = None
-            for p_ref in cel2_elem.findall("w:p", ns):
-                t_nodes = p_ref.findall(".//w:t", ns)
-                texto_p = "".join((n.text or "") for n in t_nodes).strip()
-                if texto_p:  # párrafo que tiene contenido → tomar su estilo
-                    rpr_e = p_ref.find(".//w:rPr", ns)
-                    ppr_e = p_ref.find("w:pPr",  ns)
-                    if rpr_e is not None:
-                        rpr_xml_orig = ET.tostring(rpr_e, encoding="unicode")
-                    if ppr_e is not None:
-                        ppr_xml_orig = ET.tostring(ppr_e, encoding="unicode")
-                    break
-
-            # Preservar tcPr (propiedades de celda) antes de limpiar
-            tcpr_elem = cel2_elem.find("w:tcPr", ns)
-            tcpr_xml = ET.tostring(tcpr_elem, encoding="unicode") if tcpr_elem is not None else None
-
-            # Limpiar celda 2
-            for child in list(cel2_elem):
-                cel2_elem.remove(child)
-
-            # Restaurar tcPr
-            if tcpr_xml:
-                try:
-                    cel2_elem.append(ET.fromstring(tcpr_xml))
-                except Exception:
-                    pass
-
-            # Reconstruir celda 2: un párrafo por cada párrafo de celda 1
-            ultimo_tipo_norm = None
-            for p1 in parrafos_cel1:
-                texto_p1 = "".join((n.text or "") for n in p1.findall(".//w:t", ns)).strip()
-                linea_norm = self._normalizar_texto(texto_p1)
-
-                # Determinar qué número poner en este párrafo
-                valor: str | None = None
-
-                if not texto_p1:
-                    # Párrafo vacío → dejar vacío en cel2 (preserva espaciado)
-                    valor = None
-                elif linea_norm in ("participantes", "particiantes", "participantes "):
-                    # Línea "Participantes" → conteo de participantes del tipo previo
-                    if ultimo_tipo_norm is not None:
-                        valor = str(tipo_map.get(ultimo_tipo_norm, {}).get("total_participantes", 0))
-                    else:
-                        valor = "0"
-                else:
-                    # Buscar si esta línea contiene algún tipo de actividad
-                    for alias in nombre_aliases:
-                        alias_norm = self._normalizar_texto(alias)
-                        if alias_norm and alias_norm in linea_norm:
-                            valor = str(tipo_map.get(alias_norm, {}).get("total_actividades", 0))
-                            ultimo_tipo_norm = alias_norm
-                            break
-                    if valor is None and texto_p1:
-                        valor = "0"
-
-                # Crear el párrafo en cel2
-                nuevo_p = ET.SubElement(cel2_elem, f"{{{w_ns}}}p")
-                if ppr_xml_orig:
-                    try:
-                        nuevo_p.insert(0, ET.fromstring(ppr_xml_orig))
-                    except Exception:
-                        pass
-                if valor is not None:
-                    nuevo_r = ET.SubElement(nuevo_p, f"{{{w_ns}}}r")
-                    if rpr_xml_orig:
-                        try:
-                            nuevo_r.insert(0, ET.fromstring(rpr_xml_orig))
-                        except Exception:
-                            pass
-                    nuevo_t = ET.SubElement(nuevo_r, f"{{{w_ns}}}t")
-                    nuevo_t.text = valor
+        asignar_valores_fila(1, [
+            get_valor("Seguimiento a los Comités de Salud mediante las vocerías en salud comunal", "total_actividades"),
+            get_valor("Actualización de los comités de salud", "total_actividades"),
+        ])
+        asignar_valores_fila(2, [salud[0], salud[1]])
+        asignar_valores_fila(3, [sesiones[0], sesiones[1], comites_escuela[0], comites_escuela[1]])
+        asignar_valores_fila(4, [promocion[0], promocion[1], jornadas[0], jornadas[1], inmunizaciones[0], inmunizaciones[1]])
+        asignar_valores_fila(5, [entrevista[0], entrevista[1], actividades_asic[0]])
 
         return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 

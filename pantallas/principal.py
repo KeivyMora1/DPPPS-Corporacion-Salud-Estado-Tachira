@@ -1,8 +1,15 @@
+# ============================================================
+# pantallas/principal.py
+# Ventana principal con sidebar y área de contenido.
+# Estructura MVC: ModeloPrincipal / VistaPrincipal / ControladorPrincipal
+# ============================================================
+
 import os
 import tkinter as tk
 import customtkinter as ctk
 from tkinter import messagebox
 from PIL import Image
+
 from db import AuthController
 from utils import centrar_ventana
 from ui_helpers import (
@@ -10,8 +17,39 @@ from ui_helpers import (
     btn_nav, btn_danger, separator, canvas_circle, scrollable_frame
 )
 
+SECCION_INICIAL = "actividades"
+SECCIONES = {
+    "actividades": ("pantallas.actividades", "ActividadView", {}),
+    "vocerias": ("pantallas.vocerias", "VoceriaView", {}),
+    "reportes": ("pantallas.reportes", "ReporteView", {}),
+}
 
-class MainView:
+
+# ─────────────────────────────────────────────────────────────
+# MODELO
+# Gestiona el estado de sesión y el usuario actual.
+# Sin referencias a tkinter.
+# ─────────────────────────────────────────────────────────────
+class ModeloPrincipal:
+    def __init__(self):
+        self.auth = AuthController()
+        self.usuario = self.auth.obtener_usuario_actual()
+
+    def logout(self):
+        self.auth.logout()
+
+    def get_nombre_usuario(self):
+        if self.usuario:
+            return self.usuario["nombre_completo"]
+        return "Usuario"
+
+
+# ─────────────────────────────────────────────────────────────
+# VISTA
+# Solo construye la interfaz. No tiene lógica de negocio.
+# Recibe al controlador para asignarle las acciones.
+# ─────────────────────────────────────────────────────────────
+class VistaPrincipal:
 
     MENU_ITEMS = [
         ("actividades", "Actividades"),
@@ -19,18 +57,16 @@ class MainView:
         ("reportes",    "Reportes"),
     ]
 
-    def __init__(self, root):
+    def __init__(self, root, controlador):
         self.root = root
-        self.auth = AuthController()
-        self.usuario = self.auth.obtener_usuario_actual()
+        self.controlador = controlador
 
         self.frames_menu = {}
-        self.seccion_actual = "actividades"
+        self.seccion_actual = SECCION_INICIAL
 
         self.root.title("DPPPS")
 
         self._construir_ui()
-        self._navegar("actividades")
 
         self.root.after(50, lambda: self.root.state("zoomed"))
 
@@ -85,7 +121,7 @@ class MainView:
         self.nav_frame.pack(fill="x", padx=10)
 
         for clave, label_text in self.MENU_ITEMS:
-            btn = btn_nav(self.nav_frame, label_text, lambda c=clave: self._navegar(c))
+            btn = btn_nav(self.nav_frame, label_text, lambda c=clave: self.controlador.navegar(c))
             btn.pack(fill="x", pady=3, padx=4)
             self.frames_menu[clave] = {"button": btn}
 
@@ -113,7 +149,7 @@ class MainView:
         self.header_right = frame(self.barra_top, fg_color="gray15", corner_radius=0)
         self.header_right.pack(side="right", padx=24)
 
-        nombre = self.usuario["nombre_completo"] if self.usuario else "Usuario"
+        nombre = self.controlador.modelo.get_nombre_usuario()
 
         self.user_info_frame = frame_transparent(self.header_right)
         self.user_info_frame.pack(side="right")
@@ -182,7 +218,7 @@ class MainView:
         self._avatar_menu.geometry(f"180x42+{x - 136}+{y}")
         self._avatar_menu.configure(fg_color="gray25", corner_radius=10)
 
-        btn_logout = btn_danger(self._avatar_menu, "Cerrar sesión", self._cerrar_sesion)
+        btn_logout = btn_danger(self._avatar_menu, "Cerrar sesión", self.controlador.cerrar_sesion)
         btn_logout.pack(fill="x", padx=8, pady=8)
 
         self._avatar_menu.focus_set()
@@ -206,12 +242,8 @@ class MainView:
         except Exception:
             pass
 
-    def _navegar(self, seccion):
-        self.seccion_actual = seccion
-
-        for widget in self.area_contenido.winfo_children():
-            widget.destroy()
-
+    def actualizar_nav(self, seccion):
+        """Resalta el botón activo en el menú lateral."""
         for clave, data in self.frames_menu.items():
             btn = data["button"]
             if clave == seccion:
@@ -219,26 +251,65 @@ class MainView:
             else:
                 btn.configure(fg_color="transparent", hover_color="gray30", text_color="gray70")
 
-        from pantallas.catalogos   import CatalogoView
-        from pantallas.actividades import ActividadView
-        from pantallas.reportes    import ReporteView
-        from pantallas.vocerias    import VoceriaView
 
-        if seccion == "tipos":
-            CatalogoView(self.area_contenido, modo="tipos")
-        elif seccion == "actividades":
-            ActividadView(self.area_contenido)
-        elif seccion == "reportes":
-            ReporteView(self.area_contenido)
-        elif seccion == "vocerias":
-            VoceriaView(self.area_contenido)
+# ─────────────────────────────────────────────────────────────
+# CONTROLADOR
+# Instancia al Modelo y la Vista. Maneja la navegación y acciones.
+# ─────────────────────────────────────────────────────────────
+class ControladorPrincipal:
+    def __init__(self, root):
+        self.root = root
+        self.modelo = ModeloPrincipal()
+        self.vista = None
+        self.vista = VistaPrincipal(root, self)
+        self.navegar(SECCION_INICIAL)
 
-        self.area_contenido.update_idletasks()
+    def navegar(self, seccion):
+        if self.vista is None:
+            return
 
-    def _cerrar_sesion(self):
+        self.vista.seccion_actual = seccion
+
+        for widget in self.vista.area_contenido.winfo_children():
+            widget.destroy()
+
+        self.vista.actualizar_nav(seccion)
+
+        configuracion = SECCIONES.get(seccion)
+        if configuracion is None:
+            self.vista.area_contenido.update_idletasks()
+            return
+
+        modulo, clase, kwargs = configuracion
+        modulo_obj = __import__(modulo, fromlist=[clase])
+        clase_obj = getattr(modulo_obj, clase)
+        clase_obj(self.vista.area_contenido, **kwargs)
+
+        self.vista.area_contenido.update_idletasks()
+
+    def cerrar_sesion(self):
         confirmar = messagebox.askyesno("Cerrar sesión", "¿Estás seguro de que quieres salir?")
         if confirmar:
-            self.auth.logout()
+            self.modelo.logout()
             self.root.destroy()
             import main
             main.iniciar_app()
+
+
+# ─────────────────────────────────────────────────────────────
+# PUNTO DE ENTRADA PÚBLICO
+# Mantiene la misma interfaz que antes: MainView(root)
+# ─────────────────────────────────────────────────────────────
+class MainView:
+    def __init__(self, root):
+        self._controlador = ControladorPrincipal(root)
+
+
+__all__ = [
+    "ModeloPrincipal",
+    "VistaPrincipal",
+    "ControladorPrincipal",
+    "MainView",
+    "SECCION_INICIAL",
+    "SECCIONES",
+]
