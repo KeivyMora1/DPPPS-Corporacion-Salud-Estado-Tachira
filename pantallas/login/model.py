@@ -1,0 +1,27 @@
+from db import AuthController
+
+
+class ModeloLogin:
+    def __init__(self):
+        self.auth = AuthController()
+
+    def login(self, email, password):
+        return self.auth.login(email, password)
+
+    def registrar_usuario(self, nombre, apellido, email, password):
+        return self.auth.registrar_usuario(nombre, apellido, email, password)
+
+    def verificar_email(self, email, codigo):
+        return self.auth.verificar_email(email, codigo)
+
+    def solicitar_recuperacion(self, email):
+        return self.auth.solicitar_recuperacion(email)
+
+    def obtener_usuario_por_email(self, email):
+        return self.auth.usuario_dao.obtener_por_email(email)
+
+    def cambiar_password_con_codigo(self, email, codigo, nueva_password):
+        return self.auth.cambiar_password_con_codigo(email, codigo, nueva_password)
+
+
+__all__ = ["ModeloLogin"]
