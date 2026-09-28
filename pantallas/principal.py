@@ -60,6 +60,7 @@ class VistaPrincipal:
     def __init__(self, root, controlador):
         self.root = root
         self.controlador = controlador
+        self._after_ids = []
 
         self.frames_menu = {}
         self.seccion_actual = SECCION_INICIAL
@@ -68,7 +69,8 @@ class VistaPrincipal:
 
         self._construir_ui()
 
-        self.root.after(50, lambda: self.root.state("zoomed"))
+        aid = self.root.after(50, lambda: self.root.state("zoomed"))
+        self._after_ids.append(aid)
 
     def _construir_ui(self):
         # ── Sidebar (left, full height) ───────────────────
@@ -223,9 +225,10 @@ class VistaPrincipal:
 
         self._avatar_menu.focus_set()
 
-        self.root.after(10, lambda: self.root.bind(
+        aid = self.root.after(10, lambda: self.root.bind(
             "<Button-1>", self._cerrar_avatar_menu, add="+"
         ))
+        self._after_ids.append(aid)
 
     def _cerrar_avatar_menu(self, event):
         if not hasattr(self, "_avatar_menu") or not self._avatar_menu.winfo_exists():
@@ -290,6 +293,12 @@ class ControladorPrincipal:
     def cerrar_sesion(self):
         confirmar = messagebox.askyesno("Cerrar sesión", "¿Estás seguro de que quieres salir?")
         if confirmar:
+            if self.vista and hasattr(self.vista, '_after_ids'):
+                for aid in self.vista._after_ids:
+                    try:
+                        self.root.after_cancel(aid)
+                    except Exception:
+                        pass
             self.modelo.logout()
             self.root.destroy()
             import main

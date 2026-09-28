@@ -3,7 +3,115 @@ import unicodedata
 import zipfile
 from xml.etree import ElementTree as ET
 
-from db import AuthController, PDFService, TIPOS_ACTIVIDAD_PREDETERMINADOS
+import mysql.connector
+
+from db import AuthController, PDFService, TIPOS_ACTIVIDAD_PREDETERMINADOS, ActividadController
+import db as db_module
+
+
+def test_asegurar_esquema_autenticacion_no_falla_si_la_bd_aun_no_existe(monkeypatch):
+    def fake_get_connection():
+        raise mysql.connector.Error(1049, "Unknown database 'dppps_informes'")
+
+    monkeypatch.setattr(db_module, "get_connection", fake_get_connection)
+
+    assert db_module.asegurar_esquema_autenticacion() is None
+
+
+def test_schema_cumple_requerimientos_de_base_solicitada():
+    schema = open("schema.sql", encoding="utf-8").read()
+
+    assert "CREATE TABLE IF NOT EXISTS asic" in schema
+    assert "id_asic INT AUTO_INCREMENT PRIMARY KEY" in schema
+    assert "nombre VARCHAR(150) NOT NULL" in schema
+    assert "created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" in schema
+    assert "codigo VARCHAR(20)" not in schema
+    assert "fecha_inicio" not in schema
+    assert "fecha_fin" not in schema
+    assert "CREATE TABLE IF NOT EXISTS evidencia" not in schema
+    assert "CREATE TABLE IF NOT EXISTS voceria_item" not in schema
+
+
+def test_catalogos_no_usan_columna_activo(monkeypatch):
+    consultas = []
+
+    class CursorFalso:
+        def execute(self, sql, params=()):
+            consultas.append(sql.lower())
+            return None
+
+        def fetchall(self):
+            return []
+
+        def close(self):
+            pass
+
+    class ConexionFalsa:
+        def cursor(self, dictionary=True):
+            return CursorFalso()
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(db_module, "get_connection", lambda: ConexionFalsa())
+
+    db_module.AsicDAO().obtener_todos()
+    db_module.TipoActividadDAO().obtener_todos()
+    db_module.TipoVoceriaDAO().obtener_todos()
+
+    assert all("activo" not in sql for sql in consultas)
+
+
+def test_actividad_dao_no_usa_fechas_anteriores_ni_descripcion_obsoleta(monkeypatch):
+    sentencias = []
+
+    class CursorFalso:
+        lastrowid = 1
+
+        def execute(self, sql, params=()):
+            sentencias.append(sql.lower())
+            return None
+
+        def fetchall(self):
+            return []
+
+        def fetchone(self):
+            return None
+
+        def close(self):
+            pass
+
+    class ConexionFalsa:
+        def cursor(self, dictionary=True):
+            return CursorFalso()
+
+        def commit(self):
+            pass
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(db_module, "get_connection", lambda: ConexionFalsa())
+
+    dao = db_module.ActividadDAO()
+    dao.obtener_todas()
+    dao.crear(1, 1, 1, fecha="2026-09-05", tema="Prueba")
+    dao.actualizar(1, 1, 1, fecha="2026-09-05", tema="Prueba")
+
+    assert all(
+        "fecha_inicio" not in sql and "fecha_fin" not in sql and "descripcion" not in sql and "a.descripcion" not in sql and "descripcion = %s" not in sql
+        for sql in sentencias
+    )
+
+
+def test_actividad_dao_usa_nombres_de_bd_sin_aliases_de_interfaz():
+    assert not hasattr(db_module.ActividadDAO, "_normalizar_actividad")
+    aliases = getattr(db_module, "HEADER_ALIASES", {})
+    assert "descripcion" not in aliases
+    assert "fecha_inicio" not in aliases
+    assert "fecha_fin" not in aliases
+    assert aliases.get("tema") == "tema"
+    assert aliases.get("fecha") == "fecha"
 
 
 def test_generar_codigo_verificacion_es_numero_de_6_digitos():
@@ -12,6 +120,48 @@ def test_generar_codigo_verificacion_es_numero_de_6_digitos():
 
     assert codigo.isdigit()
     assert len(codigo) == 6
+
+
+def test_guardar_actividad_acepta_fecha_unica(monkeypatch):
+    controller = ActividadController()
+
+    monkeypatch.setattr(controller.auth, "obtener_usuario_actual", lambda: {"id_usuario": 1})
+    monkeypatch.setattr(controller.actividad_dao, "verificar_duplicado", lambda **kwargs: False)
+
+    creados = {}
+
+    def fake_crear(**kwargs):
+        creados.update(kwargs)
+        return 99
+
+    monkeypatch.setattr(controller.actividad_dao, "crear", fake_crear)
+
+    resultado = controller.guardar_actividad(
+        id_asic=1,
+        id_tipo=1,
+        fecha="2026-09-05",
+        estado="Táchira",
+        municipio="San Cristóbal",
+        parroquia="San José",
+        establecimiento_salud="Hospital",
+        nombre_establecimiento="Hospital Central",
+        comites_salud=1,
+        tema="Tema de prueba",
+        medicos=0,
+        promotores_salud=2,
+        voceros_comite_salud=1,
+        vocero_consejo_direccion=0,
+        coordinador_docencia=0,
+        autoridades_presentes=0,
+        otros_actores=0,
+        personas_comunidad=5,
+        estudiantes_aspirantes=0,
+        participantes=8,
+    )
+
+    assert resultado[0] is True
+    assert creados["fecha"] == "2026-09-05"
+    assert creados["tema"] == "Tema de prueba"
 
 
 def test_registrar_usuario_envia_codigo_y_marca_cuenta_no_verificada(monkeypatch):
@@ -44,6 +194,26 @@ def test_registrar_usuario_envia_codigo_y_marca_cuenta_no_verificada(monkeypatch
     assert captured["tipo"] == "verificacion"
     assert len(captured["codigo"]) == 6
     assert captured["codigo"].isdigit()
+
+
+def test_registrar_usuario_guarda_username_en_db(monkeypatch):
+    controller = AuthController()
+    captured = {}
+
+    monkeypatch.setattr(controller.usuario_dao, "obtener_por_email", lambda email: None)
+    monkeypatch.setattr(controller.usuario_dao, "obtener_por_username", lambda username: None)
+
+    def fake_crear(**kwargs):
+        captured.update(kwargs)
+        return 9
+
+    monkeypatch.setattr(controller.usuario_dao, "crear", fake_crear)
+    monkeypatch.setattr(controller, "_enviar_codigo_por_email", lambda *args, **kwargs: True)
+
+    resultado = controller.registrar_usuario("Ana", "García", "ana@test.com", "Pass123!", username="ana_user")
+
+    assert resultado["success"] is True
+    assert captured["username"] == "ana_user"
 
 
 def test_login_rechaza_usuario_no_verificado(monkeypatch):

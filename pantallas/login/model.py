@@ -8,8 +8,8 @@ class ModeloLogin:
     def login(self, email, password):
         return self.auth.login(email, password)
 
-    def registrar_usuario(self, nombre, apellido, email, password):
-        return self.auth.registrar_usuario(nombre, apellido, email, password)
+    def registrar_usuario(self, nombre, apellido, email, password, username=None):
+        return self.auth.registrar_usuario(nombre, apellido, email, password, username=username)
 
     def verificar_email(self, email, codigo):
         return self.auth.verificar_email(email, codigo)

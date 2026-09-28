@@ -12,6 +12,7 @@ class ControladorLogin:
         self.al_iniciar_sesion = al_iniciar_sesion
         self.modelo = ModeloLogin()
         self.vista = VistaLogin(root, self)
+        self._after_ids = []
 
     def intentar_login(self):
         email = self.vista.entrada_email.get().strip()
@@ -29,7 +30,8 @@ class ControladorLogin:
 
         if exito:
             self.vista.lbl_error.configure(text="✔  Acceso concedido", text_color="#317E87")
-            self.vista.root.after(400, self.al_iniciar_sesion)
+            aid = self.vista.root.after(400, self.al_iniciar_sesion)
+            self._after_ids.append(aid)
         else:
             self.vista.mostrar_error("⚠  Correo o contraseña incorrectos, o tu cuenta aún no está verificada.")
             self.vista.btn_login.configure(state="normal", text="→ Iniciar sesión")
@@ -56,6 +58,9 @@ class ControladorLogin:
         apellido = ctk.CTkEntry(frame, placeholder_text="Apellido")
         apellido.pack(fill="x", pady=(0, 8))
 
+        username = ctk.CTkEntry(frame, placeholder_text="Nombre de usuario")
+        username.pack(fill="x", pady=(0, 8))
+
         email = ctk.CTkEntry(frame, placeholder_text="Correo electrónico")
         email.pack(fill="x", pady=(0, 8))
 
@@ -65,10 +70,17 @@ class ControladorLogin:
         def registrar():
             nombre_texto = nombre.get().strip()
             apellido_texto = apellido.get().strip()
+            username_texto = username.get().strip()
             email_texto = email.get().strip()
             password_texto = password.get()
 
-            respuesta = self.modelo.registrar_usuario(nombre_texto, apellido_texto, email_texto, password_texto)
+            respuesta = self.modelo.registrar_usuario(
+                nombre_texto,
+                apellido_texto,
+                email_texto,
+                password_texto,
+                username=username_texto,
+            )
             if not respuesta["success"]:
                 messagebox.showerror("Registro", respuesta["message"])
                 return

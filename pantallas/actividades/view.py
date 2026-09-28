@@ -454,7 +454,7 @@ class VistaActividad:
         ent_comites.insert(0, "0")
 
         # --- Descripción ---
-        ctk.CTkLabel(marco_form, text="Tema Tratado / Descripción *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(8, 2))
+        ctk.CTkLabel(marco_form, text="Tema Tratado *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(8, 2))
         marco_txt = ctk.CTkFrame(marco_form, fg_color=t["bg_base"], corner_radius=6)
         marco_txt.pack(fill="x")
         txt_desc = tk.Text(marco_txt, font=("Arial", 11), bg=t["bg_base"], fg=t["text_primary"], relief="flat", height=3, insertbackground=t["text_primary"], wrap="word")
@@ -570,7 +570,7 @@ class VistaActividad:
                 except Exception:
                     pass
 
-            f_ini_val = datos_edicion.get("fecha_inicio")
+            f_ini_val = datos_edicion.get("fecha")
             if f_ini_val:
                 if isinstance(f_ini_val, (date, datetime)):
                     f_ini_val = f_ini_val.strftime("%Y-%m-%d")
@@ -629,25 +629,25 @@ class VistaActividad:
             else:
                 ent_comites.insert(0, "0")
 
-            # Cargar participantes por categoría
+            # Cargar participantes por categoría según los nombres reales de la BD
             self.ent_medicos.delete(0, tk.END)
-            self.ent_medicos.insert(0, str(datos_edicion.get("medicos", 0) or 0))
+            self.ent_medicos.insert(0, str(datos_edicion.get("cant_medicos", 0) or 0))
             self.ent_promotores.delete(0, tk.END)
-            self.ent_promotores.insert(0, str(datos_edicion.get("promotores_salud", 0) or 0))
+            self.ent_promotores.insert(0, str(datos_edicion.get("cant_promotores_salud", 0) or 0))
             self.ent_voceros_comite.delete(0, tk.END)
-            self.ent_voceros_comite.insert(0, str(datos_edicion.get("voceros_comite_salud", 0) or 0))
+            self.ent_voceros_comite.insert(0, str(datos_edicion.get("cant_voceros_comite_salud", 0) or 0))
             self.ent_vocero_consejo.delete(0, tk.END)
-            self.ent_vocero_consejo.insert(0, str(datos_edicion.get("vocero_consejo_direccion", 0) or 0))
+            self.ent_vocero_consejo.insert(0, str(datos_edicion.get("cant_vocero_consejo_direccion", 0) or 0))
             self.ent_coordinador.delete(0, tk.END)
-            self.ent_coordinador.insert(0, str(datos_edicion.get("coordinador_docencia", 0) or 0))
+            self.ent_coordinador.insert(0, str(datos_edicion.get("cant_coordinador_docencia", 0) or 0))
             self.ent_autoridades.delete(0, tk.END)
-            self.ent_autoridades.insert(0, str(datos_edicion.get("autoridades_presentes", 0) or 0))
+            self.ent_autoridades.insert(0, str(datos_edicion.get("cant_autoridades", 0) or 0))
             self.ent_otros_actores.delete(0, tk.END)
-            self.ent_otros_actores.insert(0, str(datos_edicion.get("otros_actores", 0) or 0))
+            self.ent_otros_actores.insert(0, str(datos_edicion.get("cant_otros_actores", 0) or 0))
             self.ent_personas_comunidad.delete(0, tk.END)
-            self.ent_personas_comunidad.insert(0, str(datos_edicion.get("personas_comunidad", 0) or 0))
+            self.ent_personas_comunidad.insert(0, str(datos_edicion.get("cant_personas_comunidad", 0) or 0))
             self.ent_estudiantes.delete(0, tk.END)
-            self.ent_estudiantes.insert(0, str(datos_edicion.get("estudiantes_aspirantes", 0) or 0))
+            self.ent_estudiantes.insert(0, str(datos_edicion.get("cant_estudiantes_aspirantes", 0) or 0))
 
             try:
                 self._actualizar_total_participantes()
@@ -658,7 +658,7 @@ class VistaActividad:
                 txt_desc.delete("1.0", "end")
             except Exception:
                 pass
-            desc_val = datos_edicion.get("descripcion", "") or ""
+            desc_val = str(datos_edicion.get("tema") or "").strip()
             if desc_val:
                 txt_desc.insert("1.0", desc_val)
                 try:
@@ -675,21 +675,19 @@ class VistaActividad:
         def guardar():
             id_asic = self.controlador.asic_map.get(combo_asic.get())
             id_tipo = self.controlador.tipo_map.get(combo_tipo.get())
-            f_ini   = ent_fecha_inicio.get().strip()
-            f_fin   = ent_fecha_inicio.get().strip()
+            fecha_val = ent_fecha_inicio.get().strip()
 
             ok, msg = self.controlador.modelo.guardar_actividad(
                 id_asic=id_asic,
                 id_tipo=id_tipo,
-                fecha_inicio=f_ini,
-                fecha_fin=f_fin,
+                fecha=fecha_val,
                 estado=self._valor_entry(ent_estado),
                 municipio=ent_municipio.get().strip(),
                 parroquia=self._valor_entry(ent_parroquia),
                 establecimiento_salud=self._valor_entry(ent_establecimiento),
                 nombre_establecimiento=self._valor_entry(ent_nombre_establecimiento),
                 comites_salud=self._valor_entry(ent_comites),
-                descripcion=txt_desc.get("1.0", "end-1c"),
+                tema=txt_desc.get("1.0", "end-1c"),
                 medicos=self.ent_medicos.get(),
                 promotores_salud=self.ent_promotores.get(),
                 voceros_comite_salud=self.ent_voceros_comite.get(),

@@ -180,7 +180,7 @@ class VistaReporte:
         vocerias = previo.get("vocerias", [])
         if vocerias:
             self._mini_tabla_vocerias(scroll, vocerias)
-        elif total_act == 0:
+        else:
             label(scroll, "⚠  No hay vocerías CS para el período y filtros seleccionados.", font_size=11, text_color="#c45050").pack(pady=10)
 
     def _mini_tabla(self, parent, titulo, filas, cabeceras):

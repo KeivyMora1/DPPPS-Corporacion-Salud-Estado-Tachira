@@ -224,9 +224,9 @@ class _ImportarModal:
                      text_color=color_titulo).pack(anchor="w", pady=(0, 4))
 
         if modo == "validas":
-            columnas = ("fila", "asic", "tipo", "fecha_inicio", "fecha_fin", "participantes")
+            columnas = ("fila", "asic", "tipo", "fecha", "participantes")
         else:
-            columnas = ("fila", "asic", "tipo", "fecha_inicio", "errores")
+            columnas = ("fila", "asic", "tipo", "fecha", "errores")
 
         tree_frame = ctk.CTkFrame(inner, fg_color="transparent")
         tree_frame.pack(fill="both", expand=True)
@@ -246,11 +246,9 @@ class _ImportarModal:
         tree = ttk.Treeview(tree_frame, columns=columnas, show="headings",
                             style="ImportModal.Treeview", height=min(len(filas), 8))
 
-        col_ancho = {"fila": 40, "asic": 150, "tipo": 130, "fecha_inicio": 90,
-                     "fecha_fin": 90, "participantes": 80, "errores": 320}
+        col_ancho = {"fila": 40, "asic": 150, "tipo": 130, "fecha": 90, "participantes": 80, "errores": 320}
         col_labels = {"fila": "#", "asic": "ASIC", "tipo": "Tipo Actividad",
-                      "fecha_inicio": "Fecha Inicio", "fecha_fin": "Fecha Fin",
-                      "participantes": "Partic.", "errores": "Errores detectados"}
+                      "fecha": "Fecha", "participantes": "Partic.", "errores": "Errores detectados"}
 
         for col in columnas:
             tree.heading(col, text=col_labels[col])
@@ -263,8 +261,7 @@ class _ImportarModal:
                     fila["numero_fila"],
                     dc.get("asic", ""),
                     dc.get("tipo_actividad", ""),
-                    str(fila["fecha_inicio"]) if fila["fecha_inicio"] else dc.get("fecha_inicio", ""),
-                    str(fila["fecha_fin"]) if fila["fecha_fin"] else dc.get("fecha_fin", ""),
+                    str(fila["fecha"]) if fila.get("fecha") else dc.get("fecha", ""),
                     fila["participantes"],
                 )
             else:
@@ -272,7 +269,7 @@ class _ImportarModal:
                     fila["numero_fila"],
                     dc.get("asic", ""),
                     dc.get("tipo_actividad", ""),
-                    dc.get("fecha_inicio", ""),
+                    dc.get("fecha", ""),
                     " | ".join(fila.get("errores", [])),
                 )
             tree.insert("", "end", values=valores)
@@ -428,24 +425,21 @@ class ControladorActividad:
         try:
             lista = self.modelo.listar_actividades(filtros)
             for act in lista:
-                f_ini = act["fecha_inicio"]
-                f_fin = act["fecha_fin"]
-                if isinstance(f_ini, (date, datetime)):
-                    f_ini = f_ini.strftime("%d/%m/%Y")
-                if isinstance(f_fin, (date, datetime)):
-                    f_fin = f_fin.strftime("%d/%m/%Y")
+                f = act["fecha"]
+                if isinstance(f, (date, datetime)):
+                    f = f.strftime("%d/%m/%Y")
 
                 self.vista.tabla.insert("", "end", iid=str(act["id_actividad"]), values=(
                     act["asic_nombre"],
                     act["tipo_nombre"],
-                    f_ini,
+                    f,
                     act.get("estado") or "",
                     act.get("municipio") or "",
                     act.get("parroquia") or "",
                     act.get("establecimiento_salud") or "",
                     act.get("nombre_establecimiento") or "",
                     act.get("comites_salud") or "",
-                    act.get("participantes") or 0,
+                    act.get("total_participantes", act.get("participantes") or 0),
                 ))
         except Exception as e:
             messagebox.showerror("Error", f"Ocurrio un error al cargar las actividades: {str(e)}")

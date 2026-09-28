@@ -36,17 +36,16 @@ DATABASE = {
         "database": "dppps_informes"
     }
 }
-# Carpetas donde se guardan los archivos subidos y los reportes generados
+# Carpetas donde se guardan los reportes generados
 UPLOADS_DIR = "uploads/"
 EXPORTS_DIR = "exports/"
 # Ruta de la plantilla Excel para importación de actividades
 TEMPLATE_PATH = "assets/templates/plantilla_importacion.xlsx"
 # Ruta de la plantilla Excel para importación de vocerías CS
-VOCERIA_TEMPLATE_PATH = "assets/templates/FORMATO DE DATA COMITES 2026.xlsx"
-# Tipos de archivo permitidos para evidencias
-ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".pdf", ".docx"]
-# Tamaño máximo de archivo en MB
+VOCERIA_TEMPLATE_PATH = "assets/templates/plantilla_importacion_voceria.xlsx"
+# Configuración de archivos permitidos para importación
 MAX_FILE_SIZE_MB = 10
+ALLOWED_EXTENSIONS = [".xlsx", ".xls"]
 # Catálogo base de ASIC permitidos por el sistema
 ASIC_PREDETERMINADOS = [
     ("ASIC-01", "Andrés Bello"),
@@ -117,7 +116,7 @@ VOCERIA_ASIC_OPCIONES = [nombre for _, nombre in ASIC_PREDETERMINADOS]
 def build_voceria_template(output_path=None):
     """Genera la plantilla Excel para vocerías CS con listas desplegables para Estado, Municipio y ASIC.
 
-    El formato replica exactamente el archivo de referencia 'FORMATO DE DATA COMITES 2026 N.xlsx':
+    El formato replica exactamente el archivo de referencia 'plantilla_importacion_voceria.xlsx':
     - Fila 1: título fusionado A1:R1 con fondo rojo C00000 y texto blanco, altura 36.75
     - Fila 2: encabezados con fondo rojo C00000, texto blanco, bordes thin, wrap habilitado, altura 69.75
     - Filas 3+: datos con numeración correlativa en columna A, altura 25.5
@@ -478,34 +477,59 @@ class UsuarioDAO:
 
 
 def asegurar_esquema_autenticacion():
-    """Asegura que la tabla usuario tenga las columnas necesarias para registro por correo."""
-    conn = get_connection()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("SHOW COLUMNS FROM usuario")
-    columnas = {columna["Field"] for columna in cursor.fetchall()}
-    cambios = {
-        "nombre": "ALTER TABLE usuario ADD COLUMN nombre VARCHAR(100) NULL",
-        "apellido": "ALTER TABLE usuario ADD COLUMN apellido VARCHAR(100) NULL",
-        "email_verificado": "ALTER TABLE usuario ADD COLUMN email_verificado BOOLEAN NOT NULL DEFAULT FALSE",
-        "codigo_verificacion": "ALTER TABLE usuario ADD COLUMN codigo_verificacion VARCHAR(20) NULL",
-        "codigo_verificacion_expira": "ALTER TABLE usuario ADD COLUMN codigo_verificacion_expira DATETIME NULL",
-        "codigo_recuperacion": "ALTER TABLE usuario ADD COLUMN codigo_recuperacion VARCHAR(20) NULL",
-        "codigo_recuperacion_expira": "ALTER TABLE usuario ADD COLUMN codigo_recuperacion_expira DATETIME NULL",
-    }
-    for nombre_columna, sentencia in cambios.items():
-        if nombre_columna not in columnas:
-            try:
-                cursor.execute(sentencia)
-            except Exception:
-                pass
-    conn.commit()
-    cursor.close()
-    conn.close()
+    """Asegura que la tabla usuario tenga las columnas necesarias para registro por correo.
+    Si la base aún no existe, no falla al importarse; el setup la creará antes de usarla.
+    """
+    try:
+        conn = get_connection()
+    except mysql.connector.Error:
+        return
+
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SHOW COLUMNS FROM usuario")
+        columnas = {columna["Field"] for columna in cursor.fetchall()}
+        cambios = {
+            "nombre": "ALTER TABLE usuario ADD COLUMN nombre VARCHAR(100) NULL",
+            "apellido": "ALTER TABLE usuario ADD COLUMN apellido VARCHAR(100) NULL",
+            "email_verificado": "ALTER TABLE usuario ADD COLUMN email_verificado BOOLEAN NOT NULL DEFAULT FALSE",
+            "codigo_verificacion": "ALTER TABLE usuario ADD COLUMN codigo_verificacion VARCHAR(20) NULL",
+            "codigo_verificacion_expira": "ALTER TABLE usuario ADD COLUMN codigo_verificacion_expira DATETIME NULL",
+            "codigo_recuperacion": "ALTER TABLE usuario ADD COLUMN codigo_recuperacion VARCHAR(20) NULL",
+            "codigo_recuperacion_expira": "ALTER TABLE usuario ADD COLUMN codigo_recuperacion_expira DATETIME NULL",
+        }
+        for nombre_columna, sentencia in cambios.items():
+            if nombre_columna not in columnas:
+                try:
+                    cursor.execute(sentencia)
+                except Exception:
+                    pass
+        conn.commit()
+    finally:
+        cursor.close()
+        conn.close()
 
 
 asegurar_esquema_autenticacion()
 class ActividadDAO:
     """Maneja las consultas SQL para registrar, editar, listar y eliminar actividades."""
+
+    @staticmethod
+    def _parse_fecha(fecha=None):
+        if fecha is None:
+            raise ValueError("Debe proporcionarse una fecha válida")
+        if isinstance(fecha, str):
+            fecha = fecha.strip()
+            for formato in ("%Y-%m-%d", "%d/%m/%Y"):
+                try:
+                    return datetime.strptime(fecha, formato).date()
+                except ValueError:
+                    continue
+            raise ValueError(f"Fecha inválida: {fecha}")
+        if isinstance(fecha, (datetime, date)):
+            return fecha.date() if isinstance(fecha, datetime) else fecha
+        raise ValueError("Debe proporcionarse una fecha válida")
+
     def obtener_todas(self, filtros=None):
         """
         Retorna todas las actividades activas.
@@ -515,14 +539,20 @@ class ActividadDAO:
         cursor = conn.cursor(dictionary=True)
         sql = """
             SELECT a.id_actividad, a.id_asic, a.id_tipo, a.id_usuario_registro,
-                   a.fecha_inicio, a.fecha_fin,
+                   a.fecha,
                    a.estado, a.municipio, a.parroquia, a.establecimiento_salud,
                    a.nombre_establecimiento, a.comites_salud,
-                   a.descripcion,
-                   a.medicos, a.promotores_salud, a.voceros_comite_salud,
-                   a.vocero_consejo_direccion, a.coordinador_docencia,
-                   a.autoridades_presentes, a.otros_actores,
-                   a.personas_comunidad, a.estudiantes_aspirantes, a.participantes,
+                   a.tema AS tema,
+                   a.cant_medicos,
+                   a.cant_promotores_salud,
+                   a.cant_voceros_comite_salud,
+                   a.cant_vocero_consejo_direccion,
+                   a.cant_coordinador_docencia,
+                   a.cant_autoridades,
+                   a.cant_otros_actores,
+                   a.cant_personas_comunidad,
+                   a.cant_estudiantes_aspirantes,
+                   a.total_participantes,
                    a.created_at,
                    asic.nombre AS asic_nombre,
                    ta.nombre AS tipo_nombre,
@@ -542,17 +572,18 @@ class ActividadDAO:
                 sql += " AND a.id_tipo = %s"
                 params.append(filtros["id_tipo"])
             if filtros.get("fecha_desde"):
-                sql += " AND a.fecha_inicio >= %s"
+                sql += " AND a.fecha >= %s"
                 params.append(filtros["fecha_desde"])
             if filtros.get("fecha_hasta"):
-                sql += " AND a.fecha_fin <= %s"
+                sql += " AND a.fecha <= %s"
                 params.append(filtros["fecha_hasta"])
-        sql += " ORDER BY a.fecha_inicio DESC, a.id_actividad DESC"
+        sql += " ORDER BY a.fecha DESC, a.id_actividad DESC"
         cursor.execute(sql, tuple(params))
         lista = cursor.fetchall()
         cursor.close()
         conn.close()
         return lista
+
     def obtener_por_id(self, id_actividad):
         """Retorna los detalles de una actividad específica por su ID."""
         conn = get_connection()
@@ -573,68 +604,91 @@ class ActividadDAO:
         cursor.close()
         conn.close()
         return actividad
-    def crear(self, id_asic, id_tipo, id_usuario_registro, fecha_inicio, fecha_fin,
-               estado, municipio, parroquia, establecimiento_salud, nombre_establecimiento,
-               comites_salud, descripcion,
-               medicos, promotores_salud, voceros_comite_salud, vocero_consejo_direccion,
-               coordinador_docencia, autoridades_presentes, otros_actores,
-               personas_comunidad, estudiantes_aspirantes, participantes):
+
+    def crear(self, id_asic, id_tipo, id_usuario_registro, fecha=None,
+               estado="", municipio="", parroquia="", establecimiento_salud="", nombre_establecimiento="",
+               comites_salud="", tema="",
+               medicos=0, promotores_salud=0, voceros_comite_salud=0, vocero_consejo_direccion=0,
+               coordinador_docencia=0, autoridades_presentes=0, otros_actores=0,
+               personas_comunidad=0, estudiantes_aspirantes=0, participantes=0, total_participantes=None):
         """Inserta una nueva actividad. Retorna el ID generado."""
+        fecha_bd = self._parse_fecha(fecha).strftime("%Y-%m-%d")
         conn = get_connection()
         cursor = conn.cursor()
+        tema_texto = str(tema).strip() if tema is not None else ""
         sql = """
-            INSERT INTO actividad (id_asic, id_tipo, id_usuario_registro, fecha_inicio, fecha_fin,
-                                   estado, municipio, parroquia, establecimiento_salud,
-                                   nombre_establecimiento, comites_salud, descripcion,
-                                   medicos, promotores_salud, voceros_comite_salud,
-                                   vocero_consejo_direccion, coordinador_docencia,
-                                   autoridades_presentes, otros_actores,
-                                   personas_comunidad, estudiantes_aspirantes, participantes)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO actividad (
+                id_asic, id_tipo, id_usuario_registro,
+                fecha,
+                estado, municipio, parroquia, establecimiento_salud,
+                nombre_establecimiento, comites_salud,
+                tema,
+                cant_medicos, cant_promotores_salud, cant_voceros_comite_salud,
+                cant_vocero_consejo_direccion, cant_coordinador_docencia,
+                cant_autoridades, cant_otros_actores,
+                cant_personas_comunidad, cant_estudiantes_aspirantes,
+                total_participantes
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
-        cursor.execute(sql, (id_asic, id_tipo, id_usuario_registro, fecha_inicio, fecha_fin,
-                             estado, municipio, parroquia, establecimiento_salud, nombre_establecimiento,
-                             comites_salud, descripcion,
-                             medicos, promotores_salud, voceros_comite_salud, vocero_consejo_direccion,
-                             coordinador_docencia, autoridades_presentes, otros_actores,
-                             personas_comunidad, estudiantes_aspirantes, participantes))
+        cursor.execute(sql, (
+            id_asic, id_tipo, id_usuario_registro,
+            fecha_bd,
+            estado, municipio, parroquia, establecimiento_salud,
+            nombre_establecimiento, comites_salud,
+            tema_texto,
+            medicos, promotores_salud, voceros_comite_salud,
+            vocero_consejo_direccion, coordinador_docencia,
+            autoridades_presentes, otros_actores,
+            personas_comunidad, estudiantes_aspirantes,
+            total_participantes if total_participantes is not None else participantes,
+        ))
         conn.commit()
         nuevo_id = cursor.lastrowid
         cursor.close()
         conn.close()
         return nuevo_id
-    def actualizar(self, id_actividad, id_asic, id_tipo, fecha_inicio, fecha_fin,
-                     estado, municipio, parroquia, establecimiento_salud,
-                     nombre_establecimiento, comites_salud, descripcion,
-                     medicos, promotores_salud, voceros_comite_salud,
-                     vocero_consejo_direccion, coordinador_docencia,
-                     autoridades_presentes, otros_actores,
-                     personas_comunidad, estudiantes_aspirantes, participantes):
+
+    def actualizar(self, id_actividad, id_asic, id_tipo, fecha=None,
+                  estado="", municipio="", parroquia="", establecimiento_salud="",
+                  nombre_establecimiento="", comites_salud="", tema="",
+                  medicos=0, promotores_salud=0, voceros_comite_salud=0, vocero_consejo_direccion=0,
+                  coordinador_docencia=0, autoridades_presentes=0, otros_actores=0,
+                  personas_comunidad=0, estudiantes_aspirantes=0, participantes=0, total_participantes=None):
         """Actualiza los datos de una actividad existente."""
+        fecha_bd = self._parse_fecha(fecha).strftime("%Y-%m-%d")
         conn = get_connection()
         cursor = conn.cursor()
+        tema_texto = str(tema).strip() if tema is not None else ""
         sql = """
             UPDATE actividad
-            SET id_asic = %s, id_tipo = %s, fecha_inicio = %s, fecha_fin = %s,
+            SET id_asic = %s, id_tipo = %s, fecha = %s,
                 estado = %s, municipio = %s, parroquia = %s, establecimiento_salud = %s,
-                nombre_establecimiento = %s, comites_salud = %s, descripcion = %s,
-                medicos = %s, promotores_salud = %s, voceros_comite_salud = %s,
-                vocero_consejo_direccion = %s, coordinador_docencia = %s,
-                autoridades_presentes = %s, otros_actores = %s,
-                personas_comunidad = %s, estudiantes_aspirantes = %s, participantes = %s
+                nombre_establecimiento = %s, comites_salud = %s,
+                tema = %s,
+                cant_medicos = %s, cant_promotores_salud = %s, cant_voceros_comite_salud = %s,
+                cant_vocero_consejo_direccion = %s, cant_coordinador_docencia = %s,
+                cant_autoridades = %s, cant_otros_actores = %s,
+                cant_personas_comunidad = %s, cant_estudiantes_aspirantes = %s,
+                total_participantes = %s
             WHERE id_actividad = %s
         """
-        cursor.execute(sql, (id_asic, id_tipo, fecha_inicio, fecha_fin,
-                             estado, municipio, parroquia, establecimiento_salud,
-                             nombre_establecimiento, comites_salud, descripcion,
-                             medicos, promotores_salud, voceros_comite_salud,
-                             vocero_consejo_direccion, coordinador_docencia,
-                             autoridades_presentes, otros_actores,
-                             personas_comunidad, estudiantes_aspirantes, participantes,
-                             id_actividad))
+        cursor.execute(sql, (
+            id_asic, id_tipo, fecha_bd,
+            estado, municipio, parroquia, establecimiento_salud,
+            nombre_establecimiento, comites_salud,
+            tema_texto,
+            medicos, promotores_salud, voceros_comite_salud,
+            vocero_consejo_direccion, coordinador_docencia,
+            autoridades_presentes, otros_actores,
+            personas_comunidad, estudiantes_aspirantes,
+            total_participantes if total_participantes is not None else participantes,
+            id_actividad,
+        ))
         conn.commit()
         cursor.close()
         conn.close()
+
     def eliminar(self, id_actividad):
         """Borrado lógico (soft delete): marca el registro como eliminado."""
         conn = get_connection()
@@ -643,20 +697,19 @@ class ActividadDAO:
         conn.commit()
         cursor.close()
         conn.close()
-    def verificar_duplicado(self, id_asic, id_tipo, fecha_inicio, descripcion, excluir_id=None):
-        """
-        Comprueba si ya existe una actividad con el mismo ASIC, Tipo, Fecha de inicio
-        y descripción similar. Retorna True si es duplicado.
-        """
-        desc_normalizada = " ".join(descripcion.lower().strip().split())[:100]
+
+    def verificar_duplicado(self, id_asic, id_tipo, fecha, tema=None, excluir_id=None):
+        """Comprueba si ya existe una actividad con el mismo ASIC, tipo, fecha y tema."""
+        tema_normalizado = str(tema).strip() if tema is not None else ""
+        desc_normalizada = " ".join(tema_normalizado.lower().split())[:100]
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
         sql = """
-            SELECT id_actividad, descripcion
+            SELECT id_actividad, tema
             FROM actividad
-            WHERE id_asic = %s AND id_tipo = %s AND fecha_inicio = %s AND eliminado = FALSE
+            WHERE id_asic = %s AND id_tipo = %s AND fecha = %s AND eliminado = FALSE
         """
-        params = [id_asic, id_tipo, fecha_inicio]
+        params = [id_asic, id_tipo, fecha]
         if excluir_id is not None:
             sql += " AND id_actividad != %s"
             params.append(excluir_id)
@@ -665,17 +718,17 @@ class ActividadDAO:
         cursor.close()
         conn.close()
         for registro in resultados:
-            reg_desc = " ".join(registro["descripcion"].lower().strip().split())[:100]
+            reg_desc = " ".join((registro.get("tema") or "").lower().strip().split())[:100]
             if reg_desc == desc_normalizada:
                 return True
         return False
 class AsicDAO:
     """Maneja todas las consultas relacionadas con la tabla 'asic'."""
     def obtener_todos(self):
-        """Retorna lista de todos los ASIC activos."""
+        """Retorna lista de todos los ASIC según el esquema final."""
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM asic WHERE activo = TRUE ORDER BY nombre")
+        cursor.execute("SELECT * FROM asic ORDER BY nombre")
         lista = cursor.fetchall()
         cursor.close()
         conn.close()
@@ -690,53 +743,56 @@ class AsicDAO:
         conn.close()
         return asic
     def obtener_por_codigo(self, codigo):
-        """Busca un ASIC por su código único. Útil para validar duplicados."""
+        """Compatibilidad: el esquema final no usa código, así que se busca por nombre."""
+        codigo = (codigo or "").strip()
+        if not codigo:
+            return None
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM asic WHERE codigo = %s", (codigo,))
+        cursor.execute("SELECT * FROM asic WHERE nombre = %s ORDER BY nombre LIMIT 1", (codigo,))
         asic = cursor.fetchone()
         cursor.close()
         conn.close()
         return asic
-    def crear(self, codigo, nombre, municipio="", parroquia=""):
-        """Inserta un nuevo ASIC. Retorna el ID generado."""
+    def crear(self, codigo=None, nombre=None, municipio="", parroquia=""):
+        """Inserta un nuevo ASIC. El parámetro codigo se mantiene solo por compatibilidad."""
+        nombre = (nombre or codigo or "").strip()
+        if not nombre:
+            raise ValueError("El nombre del ASIC es obligatorio.")
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO asic (codigo, nombre, municipio, parroquia) VALUES (%s, %s, %s, %s)",
-            (codigo, nombre, municipio, parroquia)
-        )
+        cursor.execute("INSERT INTO asic (nombre) VALUES (%s)", (nombre,))
         conn.commit()
         nuevo_id = cursor.lastrowid
         cursor.close()
         conn.close()
         return nuevo_id
-    def actualizar(self, id_asic, codigo, nombre, municipio="", parroquia=""):
+    def actualizar(self, id_asic, codigo=None, nombre=None, municipio="", parroquia=""):
         """Actualiza los datos de un ASIC existente."""
+        nombre = (nombre or codigo or "").strip()
+        if not nombre:
+            raise ValueError("El nombre del ASIC es obligatorio.")
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute(
-            "UPDATE asic SET codigo=%s, nombre=%s, municipio=%s, parroquia=%s WHERE id_asic=%s",
-            (codigo, nombre, municipio, parroquia, id_asic)
-        )
+        cursor.execute("UPDATE asic SET nombre=%s WHERE id_asic=%s", (nombre, id_asic))
         conn.commit()
         cursor.close()
         conn.close()
     def desactivar(self, id_asic):
-        """Soft delete: marca el ASIC como inactivo."""
+        """Elimina lógicamente el ASIC, manteniendo compatibilidad con la versión antigua."""
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("UPDATE asic SET activo = FALSE WHERE id_asic = %s", (id_asic,))
+        cursor.execute("DELETE FROM asic WHERE id_asic = %s", (id_asic,))
         conn.commit()
         cursor.close()
         conn.close()
 class TipoActividadDAO:
     """Maneja todas las consultas relacionadas con la tabla 'tipo_actividad'."""
     def obtener_todos(self):
-        """Retorna todos los tipos de actividad activos."""
+        """Retorna todos los tipos de actividad según el esquema final."""
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM tipo_actividad WHERE activo = TRUE ORDER BY nombre")
+        cursor.execute("SELECT * FROM tipo_actividad ORDER BY nombre")
         lista = cursor.fetchall()
         cursor.close()
         conn.close()
@@ -751,177 +807,253 @@ class TipoActividadDAO:
         conn.close()
         return tipo
     def obtener_por_codigo(self, codigo):
-        """Busca un tipo por su código único."""
+        """Compatibilidad: el esquema final no usa código, así que se busca por nombre."""
+        codigo = (codigo or "").strip()
+        if not codigo:
+            return None
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM tipo_actividad WHERE codigo = %s", (codigo,))
+        cursor.execute("SELECT * FROM tipo_actividad WHERE nombre = %s ORDER BY nombre LIMIT 1", (codigo,))
         tipo = cursor.fetchone()
         cursor.close()
         conn.close()
         return tipo
-    def crear(self, codigo, nombre):
-        """Inserta un nuevo tipo de actividad. Retorna el ID generado."""
+    def crear(self, codigo=None, nombre=None):
+        """Inserta un nuevo tipo de actividad. El parámetro codigo se mantiene por compatibilidad."""
+        nombre = (nombre or codigo or "").strip()
+        if not nombre:
+            raise ValueError("El nombre del tipo de actividad es obligatorio.")
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO tipo_actividad (nombre) VALUES (%s)", (nombre,))
+        conn.commit()
+        nuevo_id = cursor.lastrowid
+        cursor.close()
+        conn.close()
+        return nuevo_id
+    def actualizar(self, id_tipo, codigo=None, nombre=None):
+        """Actualiza un tipo de actividad existente."""
+        nombre = (nombre or codigo or "").strip()
+        if not nombre:
+            raise ValueError("El nombre del tipo de actividad es obligatorio.")
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE tipo_actividad SET nombre=%s WHERE id_tipo=%s", (nombre, id_tipo))
+        conn.commit()
+        cursor.close()
+        conn.close()
+    def desactivar(self, id_tipo):
+        """Elimina lógicamente el tipo de actividad, manteniendo compatibilidad con la versión antigua."""
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM tipo_actividad WHERE id_tipo = %s", (id_tipo,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+class ComiteDAO:
+    """Maneja la cabecera del comité de salud."""
+
+    def obtener_todos(self, filtros=None):
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        sql = """
+            SELECT c.*, a.nombre AS asic_nombre, u.nombre_completo AS usuario_nombre
+            FROM comite c
+            JOIN asic a ON c.id_asic = a.id_asic
+            JOIN usuario u ON c.id_usuario_registro = u.id_usuario
+            WHERE c.eliminado = FALSE
+        """
+        params = []
+        if filtros:
+            if filtros.get("id_asic"):
+                sql += " AND c.id_asic = %s"
+                params.append(filtros["id_asic"])
+        sql += " ORDER BY c.created_at DESC, c.id_comite DESC"
+        cursor.execute(sql, tuple(params))
+        items = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return items
+
+    def obtener_por_id(self, id_comite):
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM comite WHERE id_comite = %s AND eliminado = FALSE", (id_comite,))
+        item = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        return item
+
+    def crear(self, id_asic, id_usuario_registro, estado="", municipio="", parroquia="", centro_dispensador="", nombre_centro="", nombre_comite=""):
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO tipo_actividad (codigo, nombre) VALUES (%s, %s)",
-            (codigo, nombre)
+            """
+            INSERT INTO comite (id_asic, id_usuario_registro, estado, municipio, parroquia, centro_dispensador, nombre_centro, nombre_comite)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (id_asic, id_usuario_registro, estado, municipio, parroquia, centro_dispensador, nombre_centro, nombre_comite)
         )
         conn.commit()
         nuevo_id = cursor.lastrowid
         cursor.close()
         conn.close()
         return nuevo_id
-    def actualizar(self, id_tipo, codigo, nombre):
-        """Actualiza un tipo de actividad existente."""
+
+    def actualizar(self, id_comite, id_asic, id_usuario_registro, estado="", municipio="", parroquia="", centro_dispensador="", nombre_centro="", nombre_comite=""):
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "UPDATE tipo_actividad SET codigo=%s, nombre=%s WHERE id_tipo=%s",
-            (codigo, nombre, id_tipo)
+            """
+            UPDATE comite
+            SET id_asic = %s, id_usuario_registro = %s, estado = %s, municipio = %s, parroquia = %s,
+                centro_dispensador = %s, nombre_centro = %s, nombre_comite = %s
+            WHERE id_comite = %s
+            """,
+            (id_asic, id_usuario_registro, estado, municipio, parroquia, centro_dispensador, nombre_centro, nombre_comite, id_comite)
         )
         conn.commit()
         cursor.close()
         conn.close()
-    def desactivar(self, id_tipo):
-        """Soft delete: marca el tipo como inactivo."""
+        return True
+
+    def eliminar(self, id_comite):
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("UPDATE tipo_actividad SET activo = FALSE WHERE id_tipo = %s", (id_tipo,))
+        cursor.execute("UPDATE comite SET eliminado = TRUE WHERE id_comite = %s", (id_comite,))
         conn.commit()
         cursor.close()
         conn.close()
+        return True
+
 
 class VoceriaDAO:
-    """Maneja las consultas SQL para vocerías CS (cabecera)."""
+    """Maneja el detalle de voceros asociados a un comité."""
+
     def obtener_todas(self, filtros=None):
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
         sql = """
-            SELECT v.id_voceria, v.id_asic, v.id_tipo, v.id_usuario_registro,
-                   v.created_at AS fecha_registro, v.estado, v.municipio, v.parroquia, v.centro_dispensador, v.nombre_centro, v.nombre_comite,
+            SELECT c.id_comite AS id_voceria,
+                   c.created_at AS fecha_registro,
+                   COUNT(v.id_voceria) AS cantidad_vocerias,
+                   c.estado,
+                   c.municipio,
+                   c.parroquia,
+                   c.nombre_comite,
+                   c.nombre_centro,
+                   c.centro_dispensador,
                    a.nombre AS asic_nombre,
-                   tv.nombre AS tipo_nombre,
-                   u.nombre_completo AS usuario_nombre,
-                   COUNT(vi.id_item) AS cantidad_vocerias
-            FROM voceria v
-            JOIN asic a ON v.id_asic = a.id_asic
-            JOIN tipo_voceria tv ON v.id_tipo = tv.id_tipo
-            JOIN usuario u ON v.id_usuario_registro = u.id_usuario
-            LEFT JOIN voceria_item vi ON vi.id_voceria = v.id_voceria AND vi.eliminado = FALSE
-            WHERE v.eliminado = FALSE
-            GROUP BY v.id_voceria, v.id_asic, v.id_tipo, v.id_usuario_registro,
-                     v.created_at, v.estado, v.municipio, v.parroquia, v.centro_dispensador, v.nombre_centro, v.nombre_comite,
-                     a.nombre, tv.nombre, u.nombre_completo
+                   u.nombre_completo AS usuario_nombre
+            FROM comite c
+            JOIN asic a ON c.id_asic = a.id_asic
+            JOIN usuario u ON c.id_usuario_registro = u.id_usuario
+            LEFT JOIN voceria v ON v.id_comite = c.id_comite AND v.eliminado = FALSE
+            WHERE c.eliminado = FALSE
         """
         params = []
         if filtros:
             if filtros.get("id_asic"):
-                sql += " AND v.id_asic = %s"
+                sql += " AND c.id_asic = %s"
                 params.append(filtros["id_asic"])
             if filtros.get("id_tipo"):
-                sql += " AND v.id_tipo = %s"
+                sql += " AND EXISTS (SELECT 1 FROM voceria v2 WHERE v2.id_comite = c.id_comite AND v2.id_tipo_voceria = %s AND v2.eliminado = FALSE)"
                 params.append(filtros["id_tipo"])
             if filtros.get("fecha_desde"):
-                sql += " AND v.created_at >= %s"
+                sql += " AND DATE(c.created_at) >= %s"
                 params.append(filtros["fecha_desde"])
             if filtros.get("fecha_hasta"):
-                sql += " AND v.created_at <= %s"
+                sql += " AND DATE(c.created_at) <= %s"
                 params.append(filtros["fecha_hasta"])
-        sql += " ORDER BY v.created_at DESC, v.id_voceria DESC"
+        sql += " GROUP BY c.id_comite ORDER BY c.created_at DESC, c.id_comite DESC"
         cursor.execute(sql, tuple(params))
-        lista = cursor.fetchall()
+        items = cursor.fetchall()
         cursor.close()
         conn.close()
-        return lista
+        return items
 
     def obtener_por_id(self, id_voceria):
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
         sql = """
-            SELECT v.id_voceria, v.id_asic, v.id_tipo, v.id_usuario_registro,
-                   v.created_at, v.estado, v.municipio, v.parroquia, v.centro_dispensador, v.nombre_centro, v.nombre_comite,
-                   a.nombre AS asic_nombre,
-                   tv.nombre AS tipo_nombre,
-                   u.nombre_completo AS usuario_nombre
+            SELECT v.*, c.*, tv.nombre AS tipo_nombre, a.nombre AS asic_nombre, u.nombre_completo AS usuario_nombre
             FROM voceria v
-            JOIN asic a ON v.id_asic = a.id_asic
-            JOIN tipo_voceria tv ON v.id_tipo = tv.id_tipo
-            JOIN usuario u ON v.id_usuario_registro = u.id_usuario
-            WHERE v.id_voceria = %s AND v.eliminado = FALSE
+            JOIN comite c ON v.id_comite = c.id_comite
+            JOIN tipo_voceria tv ON v.id_tipo_voceria = tv.id_tipo
+            JOIN asic a ON c.id_asic = a.id_asic
+            JOIN usuario u ON c.id_usuario_registro = u.id_usuario
+            WHERE v.id_voceria = %s AND v.eliminado = FALSE AND c.eliminado = FALSE
         """
         cursor.execute(sql, (id_voceria,))
-        voc = cursor.fetchone()
+        item = cursor.fetchone()
         cursor.close()
         conn.close()
-        return voc
+        return item
 
-    def obtener_con_items(self, id_voceria):
-        """Obtiene la vocería con todos sus items (voceros)."""
+    def obtener_con_items(self, id_comite):
+        """Retorna el comité con los datos de la cabecera y la lista de voceros asociados."""
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
-        # Cabecera
-        sql = """
-            SELECT v.id_voceria, v.id_asic, v.id_tipo, v.id_usuario_registro,
-                   v.created_at, v.estado, v.municipio, v.parroquia, v.centro_dispensador, v.nombre_centro, v.nombre_comite,
-                   a.nombre AS asic_nombre,
-                   tv.nombre AS tipo_nombre,
-                   u.nombre_completo AS usuario_nombre
-            FROM voceria v
-            JOIN asic a ON v.id_asic = a.id_asic
-            JOIN tipo_voceria tv ON v.id_tipo = tv.id_tipo
-            JOIN usuario u ON v.id_usuario_registro = u.id_usuario
-            WHERE v.id_voceria = %s AND v.eliminado = FALSE
-        """
-        cursor.execute(sql, (id_voceria,))
-        voc = cursor.fetchone()
-        if not voc:
+        # Obtener datos del comité
+        cursor.execute("""
+            SELECT c.*, a.nombre AS asic_nombre, u.nombre_completo AS usuario_nombre
+            FROM comite c
+            JOIN asic a ON c.id_asic = a.id_asic
+            JOIN usuario u ON c.id_usuario_registro = u.id_usuario
+            WHERE c.id_comite = %s AND c.eliminado = FALSE
+        """, (id_comite,))
+        comite = cursor.fetchone()
+        if not comite:
             cursor.close()
             conn.close()
             return None
-        # Items
-        sql_items = """
-            SELECT vi.*, tv.nombre AS tipo_voceria_nombre
-            FROM voceria_item vi
-            JOIN tipo_voceria tv ON vi.id_tipo_voceria = tv.id_tipo
-            WHERE vi.id_voceria = %s AND vi.eliminado = FALSE
-            ORDER BY vi.id_item
-        """
-        cursor.execute(sql_items, (id_voceria,))
-        items = cursor.fetchall()
-        voc["items"] = items
+        
+        # Obtener voceros del comité
+        cursor.execute("""
+            SELECT v.*, tv.nombre AS tipo_voceria_nombre
+            FROM voceria v
+            JOIN tipo_voceria tv ON v.id_tipo_voceria = tv.id_tipo
+            WHERE v.id_comite = %s AND v.eliminado = FALSE
+        """, (id_comite,))
+        voceros = cursor.fetchall()
         cursor.close()
         conn.close()
-        return voc
+        
+        comite["items"] = voceros
+        comite["id_voceria"] = comite["id_comite"]  # Para compatibilidad
+        # Agregar tipo_nombre como lista de tipos únicos de los voceros
+        tipos_unicos = list(dict.fromkeys(v.get("tipo_voceria_nombre", "") for v in voceros if v.get("tipo_voceria_nombre")))
+        comite["tipo_nombre"] = ", ".join(tipos_unicos) if tipos_unicos else ""
+        return comite
 
     def crear(self, id_asic, id_tipo, id_usuario_registro, estado, municipio, parroquia,
               centro_dispensador, nombre_centro, nombre_comite, items):
-        """
-        Crea vocería cabecera + items en una transacción.
-        items: lista de dicts con los campos de voceria_item
-        """
+        """Crea un comité y luego registra los voceros asociados."""
+        comite_dao = ComiteDAO()
+        id_comite = comite_dao.crear(
+            id_asic=id_asic,
+            id_usuario_registro=id_usuario_registro,
+            estado=estado or "",
+            municipio=municipio or "",
+            parroquia=parroquia or "",
+            centro_dispensador=centro_dispensador or "",
+            nombre_centro=nombre_centro or "",
+            nombre_comite=nombre_comite or "",
+        )
         conn = get_connection()
         cursor = conn.cursor()
         try:
-            # 1. Crear cabecera
-            sql = """
-                INSERT INTO voceria (id_asic, id_tipo, id_usuario_registro, estado, municipio, parroquia, centro_dispensador, nombre_centro, nombre_comite)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """
-            cursor.execute(sql, (id_asic, id_tipo, id_usuario_registro, estado, municipio, parroquia, centro_dispensador, nombre_centro, nombre_comite))
-            id_voceria = cursor.lastrowid
-
-            # 2. Crear items (sin nombre_comite y nombre_centro que ahora son generales)
             if items:
-                sql_item = """
-                    INSERT INTO voceria_item (id_voceria, id_tipo_voceria, nombres, ci, telefono, fecha_nacimiento, edad,
-                                             sexo, profesion, correo, fechas_eleccion)
+                sql = """
+                    INSERT INTO voceria (id_comite, id_tipo_voceria, nombres, ci, telefono, fecha_nacimiento, edad,
+                                        sexo, profesion, correo, fechas_eleccion)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """
                 for item in items:
-                    cursor.execute(sql_item, (
-                        id_voceria,
-                        item.get("id_tipo_voceria"),
+                    cursor.execute(sql, (
+                        id_comite,
+                        item.get("id_tipo_voceria") or id_tipo,
                         item.get("nombres"),
                         item.get("ci"),
                         item.get("telefono"),
@@ -930,14 +1062,13 @@ class VoceriaDAO:
                         item.get("sexo"),
                         item.get("profesion"),
                         item.get("correo"),
-                        item.get("fechas_eleccion")
+                        item.get("fechas_eleccion"),
                     ))
-
             conn.commit()
-            return id_voceria
-        except Exception as e:
+            return id_comite
+        except Exception:
             conn.rollback()
-            raise e
+            raise
         finally:
             cursor.close()
             conn.close()
@@ -947,29 +1078,26 @@ class VoceriaDAO:
         conn = get_connection()
         cursor = conn.cursor()
         try:
-            # 1. Actualizar cabecera
-            sql = """
-                UPDATE voceria
-                SET id_asic = %s, id_tipo = %s, estado = %s, municipio = %s, parroquia = %s, centro_dispensador = %s, nombre_centro = %s, nombre_comite = %s
-                WHERE id_voceria = %s
-            """
-            cursor.execute(sql, (id_asic, id_tipo, estado, municipio, parroquia, centro_dispensador, nombre_centro, nombre_comite,
-                                 id_voceria))
-
-            # 2. Soft delete items existentes
-            cursor.execute("UPDATE voceria_item SET eliminado = TRUE WHERE id_voceria = %s", (id_voceria,))
-
-            # 3. Crear nuevos items (sin nombre_comite y nombre_centro que ahora son generales)
+            cursor.execute(
+                """
+                UPDATE comite
+                SET id_asic = %s, estado = %s, municipio = %s, parroquia = %s,
+                    centro_dispensador = %s, nombre_centro = %s, nombre_comite = %s
+                WHERE id_comite = %s
+                """,
+                (id_asic, estado, municipio, parroquia, centro_dispensador, nombre_centro, nombre_comite, id_voceria)
+            )
+            cursor.execute("UPDATE voceria SET eliminado = TRUE WHERE id_comite = %s", (id_voceria,))
             if items:
-                sql_item = """
-                    INSERT INTO voceria_item (id_voceria, id_tipo_voceria, nombres, ci, telefono, fecha_nacimiento, edad,
-                                             sexo, profesion, correo, fechas_eleccion)
+                sql = """
+                    INSERT INTO voceria (id_comite, id_tipo_voceria, nombres, ci, telefono, fecha_nacimiento, edad,
+                                        sexo, profesion, correo, fechas_eleccion)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """
                 for item in items:
-                    cursor.execute(sql_item, (
+                    cursor.execute(sql, (
                         id_voceria,
-                        item.get("id_tipo_voceria"),
+                        item.get("id_tipo_voceria") or id_tipo,
                         item.get("nombres"),
                         item.get("ci"),
                         item.get("telefono"),
@@ -978,14 +1106,13 @@ class VoceriaDAO:
                         item.get("sexo"),
                         item.get("profesion"),
                         item.get("correo"),
-                        item.get("fechas_eleccion")
+                        item.get("fechas_eleccion"),
                     ))
-
             conn.commit()
             return True
-        except Exception as e:
+        except Exception:
             conn.rollback()
-            raise e
+            return False
         finally:
             cursor.close()
             conn.close()
@@ -994,8 +1121,8 @@ class VoceriaDAO:
         conn = get_connection()
         cursor = conn.cursor()
         try:
-            cursor.execute("UPDATE voceria SET eliminado = TRUE WHERE id_voceria = %s", (id_voceria,))
-            cursor.execute("UPDATE voceria_item SET eliminado = TRUE WHERE id_voceria = %s", (id_voceria,))
+            cursor.execute("UPDATE comite SET eliminado = TRUE WHERE id_comite = %s", (id_voceria,))
+            cursor.execute("UPDATE voceria SET eliminado = TRUE WHERE id_comite = %s", (id_voceria,))
             conn.commit()
             return True
         except Exception:
@@ -1011,7 +1138,7 @@ class TipoVoceriaDAO:
     def obtener_todos(self):
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM tipo_voceria WHERE activo = TRUE ORDER BY nombre")
+        cursor.execute("SELECT * FROM tipo_voceria ORDER BY nombre")
         lista = cursor.fetchall()
         cursor.close()
         conn.close()
@@ -1027,28 +1154,37 @@ class TipoVoceriaDAO:
         return tipo
 
     def obtener_por_codigo(self, codigo):
+        codigo = (codigo or "").strip()
+        if not codigo:
+            return None
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM tipo_voceria WHERE codigo = %s", (codigo,))
+        cursor.execute("SELECT * FROM tipo_voceria WHERE nombre = %s ORDER BY nombre LIMIT 1", (codigo,))
         tipo = cursor.fetchone()
         cursor.close()
         conn.close()
         return tipo
 
-    def crear(self, codigo, nombre):
+    def crear(self, codigo=None, nombre=None):
+        nombre = (nombre or codigo or "").strip()
+        if not nombre:
+            raise ValueError("El nombre del tipo de vocería es obligatorio.")
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO tipo_voceria (codigo, nombre) VALUES (%s, %s)", (codigo, nombre))
+        cursor.execute("INSERT INTO tipo_voceria (nombre) VALUES (%s)", (nombre,))
         conn.commit()
         nuevo_id = cursor.lastrowid
         cursor.close()
         conn.close()
         return nuevo_id
 
-    def actualizar(self, id_tipo, codigo, nombre):
+    def actualizar(self, id_tipo, codigo=None, nombre=None):
+        nombre = (nombre or codigo or "").strip()
+        if not nombre:
+            raise ValueError("El nombre del tipo de vocería es obligatorio.")
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("UPDATE tipo_voceria SET codigo=%s, nombre=%s WHERE id_tipo=%s", (codigo, nombre, id_tipo))
+        cursor.execute("UPDATE tipo_voceria SET nombre=%s WHERE id_tipo=%s", (nombre, id_tipo))
         conn.commit()
         cursor.close()
         conn.close()
@@ -1056,68 +1192,11 @@ class TipoVoceriaDAO:
     def desactivar(self, id_tipo):
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("UPDATE tipo_voceria SET activo = FALSE WHERE id_tipo = %s", (id_tipo,))
+        cursor.execute("DELETE FROM tipo_voceria WHERE id_tipo = %s", (id_tipo,))
         conn.commit()
         cursor.close()
         conn.close()
 
-
-class EvidenciaDAO:
-    """Maneja la inserción, consulta y eliminación de evidencias en la base de datos."""
-    def obtener_por_actividad(self, id_actividad):
-        """Retorna la lista de todas las evidencias de una actividad."""
-        conn = get_connection()
-        cursor = conn.cursor(dictionary=True)
-        sql = """
-            SELECT id_evidencia, id_actividad, nombre_archivo, ruta_archivo, tipo_archivo, tamano_bytes, created_at
-            FROM evidencia
-            WHERE id_actividad = %s
-            ORDER BY id_evidencia ASC
-        """
-        cursor.execute(sql, (id_actividad,))
-        lista = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        return lista
-    def obtener_por_id(self, id_evidencia):
-        """Retorna la información de una evidencia específica."""
-        conn = get_connection()
-        cursor = conn.cursor(dictionary=True)
-        sql = """
-            SELECT id_evidencia, id_actividad, nombre_archivo, ruta_archivo, tipo_archivo, tamano_bytes, created_at
-            FROM evidencia
-            WHERE id_evidencia = %s
-        """
-        cursor.execute(sql, (id_evidencia,))
-        evidencia = cursor.fetchone()
-        cursor.close()
-        conn.close()
-        return evidencia
-    def crear(self, id_actividad, nombre_archivo, ruta_archivo, tipo_archivo, tamano_bytes):
-        """Inserta una nueva referencia de evidencia. Retorna el ID generado."""
-        conn = get_connection()
-        cursor = conn.cursor()
-        sql = """
-            INSERT INTO evidencia (id_actividad, nombre_archivo, ruta_archivo, tipo_archivo, tamano_bytes)
-            VALUES (%s, %s, %s, %s, %s)
-        """
-        cursor.execute(sql, (id_actividad, nombre_archivo, ruta_archivo, tipo_archivo, tamano_bytes))
-        conn.commit()
-        nuevo_id = cursor.lastrowid
-        cursor.close()
-        conn.close()
-        return nuevo_id
-    def eliminar(self, id_evidencia):
-        """
-        Elimina el registro de una evidencia de la BD.
-        Nota: no elimina el archivo físico del disco, eso lo hace ActividadController.
-        """
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM evidencia WHERE id_evidencia = %s", (id_evidencia,))
-        conn.commit()
-        cursor.close()
-        conn.close()
 # ============================================================
 # SECCIÓN 4 — CONTROLADORES
 # Lógica de negocio y validaciones.
@@ -1170,25 +1249,33 @@ class AuthController:
             print(f"[WARN] No se pudo enviar el correo: {exc}")
             return False
 
-    def registrar_usuario(self, nombre, apellido, email, password):
+    def registrar_usuario(self, nombre, apellido, email, password, username=None):
         """Crea un usuario nuevo y exige validación por correo."""
         email = (email or "").strip().lower()
         nombre = (nombre or "").strip()
         apellido = (apellido or "").strip()
-        if not nombre or not apellido or not email or not password:
+        username = (username or email).strip().lower()
+
+        if not nombre or not apellido or not email or not password or not username:
             return {"success": False, "message": "Completa todos los campos."}
         if "@" not in email or "." not in email.split("@")[-1]:
             return {"success": False, "message": "Ingresa un correo válido."}
+        if len(username) < 3:
+            return {"success": False, "message": "El nombre de usuario debe tener al menos 3 caracteres."}
+        if any(caracter.isspace() for caracter in username):
+            return {"success": False, "message": "El nombre de usuario no puede contener espacios."}
         if len(password) < 6:
             return {"success": False, "message": "La contraseña debe tener al menos 6 caracteres."}
         if self.usuario_dao.obtener_por_email(email):
             return {"success": False, "message": "Este correo ya está registrado."}
+        if self.usuario_dao.obtener_por_username(username):
+            return {"success": False, "message": "Este nombre de usuario ya está en uso."}
 
         codigo = self._generar_codigo()
         expiracion = datetime.now() + timedelta(minutes=10)
         try:
             self.usuario_dao.crear(
-                username=email.lower().strip(),
+                username=username,
                 password=password,
                 nombre_completo=f"{nombre.strip()} {apellido.strip()}".strip(),
                 email=email.lower().strip(),
@@ -1323,7 +1410,6 @@ class ActividadController:
         self.actividad_dao = ActividadDAO()
         self.asic_dao = AsicDAO()
         self.tipo_dao = TipoActividadDAO()
-        self.evidencia_dao = EvidenciaDAO()
         self.auth = AuthController()
     def listar_actividades(self, filtros=None):
         """Retorna la lista de actividades registradas, aplicando filtros si los hay."""
@@ -1378,37 +1464,32 @@ class ActividadController:
         tipos = self.tipo_dao.obtener_todos()
         nombres_permitidos = {normalizar(nombre) for _, nombre in tipos_predeterminados}
         return [t for t in tipos if normalizar(t["nombre"]) in nombres_permitidos]
-    def guardar_actividad(self, id_asic, id_tipo, fecha_inicio, fecha_fin,
-                           estado, municipio, parroquia, establecimiento_salud,
-                           nombre_establecimiento, comites_salud, descripcion,
-                           medicos, promotores_salud, voceros_comite_salud,
-                           vocero_consejo_direccion, coordinador_docencia,
-                           autoridades_presentes, otros_actores,
-                           personas_comunidad, estudiantes_aspirantes, participantes,
-                           id_actividad=None,
-                           evidencias_temporales=None):
-        """
-        Registra una nueva actividad o actualiza una existente.
-        Valida que los datos cumplan con las reglas de negocio.
-        Retorna: (True, "mensaje exito") o (False, "mensaje error")
-        """
-        # 1. Validar ASIC y tipo
+    def guardar_actividad(self, id_asic, id_tipo, fecha=None, estado=None, municipio=None, parroquia=None,
+                           establecimiento_salud=None, nombre_establecimiento=None, comites_salud=None,
+                           tema="", medicos=0, promotores_salud=0, voceros_comite_salud=0,
+                           vocero_consejo_direccion=0, coordinador_docencia=0, autoridades_presentes=0,
+                           otros_actores=0, personas_comunidad=0, estudiantes_aspirantes=0,
+                           participantes=0, id_actividad=None, **kwargs):
+        """Registra o actualiza una actividad con una sola fecha."""
+        if fecha is None:
+            return False, "La fecha es obligatoria."
+
         if not id_asic:
             return False, "Debes seleccionar un ASIC."
         if not id_tipo:
             return False, "Debes seleccionar un tipo de actividad."
-        # 2. Validar descripción (tema tratado)
-        descripcion = descripcion.strip() if descripcion else ""
-        if not descripcion:
-            return False, "La descripcion de la actividad (Tema Tratado) es obligatoria."
-        # 3. Validar participantes (total asistencia)
+
+        tema_texto = str(tema or "").strip()
+        if not tema_texto:
+            return False, "El tema tratado de la actividad es obligatorio."
+
         try:
             cant_participantes = int(participantes)
             if cant_participantes < 0:
                 return False, "La cantidad de participantes no puede ser menor a 0."
         except (ValueError, TypeError):
             return False, "La cantidad de participantes debe ser un numero entero valido."
-        # 4. Validar campos numéricos de participantes por categoría
+
         for campo, valor in [
             ("medicos", medicos), ("promotores_salud", promotores_salud),
             ("voceros_comite_salud", voceros_comite_salud),
@@ -1425,178 +1506,66 @@ class ActividadController:
                     return False, f"El campo {campo} no puede ser menor a 0."
             except (ValueError, TypeError):
                 return False, f"El campo {campo} debe ser un numero entero valido."
-        # 5. Convertir y validar fechas
-        f_ini = None
-        f_fin = None
-        if isinstance(fecha_inicio, str):
-            try:
-                if "/" in fecha_inicio:
-                    f_ini = datetime.strptime(fecha_inicio, "%d/%m/%Y").date()
-                else:
-                    f_ini = datetime.strptime(fecha_inicio, "%Y-%m-%d").date()
-            except ValueError:
-                return False, "El formato de la fecha es inválido."
-        elif isinstance(fecha_inicio, (datetime, date)):
-            f_ini = fecha_inicio if isinstance(fecha_inicio, date) else fecha_inicio.date()
-        else:
-            return False, "La fecha es inválida."
-        if isinstance(fecha_fin, str):
-            try:
-                if "/" in fecha_fin:
-                    f_fin = datetime.strptime(fecha_fin, "%d/%m/%Y").date()
-                else:
-                    f_fin = datetime.strptime(fecha_fin, "%Y-%m-%d").date()
-            except ValueError:
-                return False, "El formato de la fecha es inválido."
-        elif isinstance(fecha_fin, (datetime, date)):
-            f_fin = fecha_fin if isinstance(fecha_fin, date) else fecha_fin.date()
-        else:
-            return False, "La fecha es inválida."
-        if f_ini > f_fin:
-            return False, "La fecha no puede ser posterior a la fecha final."
-        fecha_inicio_bd = f_ini.strftime("%Y-%m-%d")
-        fecha_fin_bd    = f_fin.strftime("%Y-%m-%d")
-        # 6. Validar duplicidad
+
+        try:
+            fecha_obj = ActividadDAO._parse_fecha(fecha)
+            fecha_bd = fecha_obj.strftime("%Y-%m-%d")
+        except (TypeError, ValueError):
+            return False, "El formato de la fecha es inválido."
+
         es_duplicado = self.actividad_dao.verificar_duplicado(
             id_asic=id_asic,
             id_tipo=id_tipo,
-            fecha_inicio=fecha_inicio_bd,
-            descripcion=descripcion,
-            excluir_id=id_actividad
+            fecha=fecha_bd,
+            tema=tema_texto,
+            excluir_id=id_actividad,
         )
         if es_duplicado:
-            return False, "Ya existe una actividad registrada para este ASIC, tipo, fecha y descripción similar."
-        # 7. Obtener usuario actual
+            return False, "Ya existe una actividad registrada para este ASIC, tipo, fecha y tema similares."
+
         usuario = self.auth.obtener_usuario_actual()
         if not usuario:
             return False, "No hay una sesion de usuario activa."
         id_usuario = usuario["id_usuario"]
-        # 8. Guardar en base de datos
+
+        argumentos_actividad = dict(
+            id_asic=id_asic,
+            id_tipo=id_tipo,
+            id_usuario_registro=id_usuario,
+            fecha=fecha_bd,
+            estado=estado or "",
+            municipio=municipio or "",
+            parroquia=parroquia or "",
+            establecimiento_salud=establecimiento_salud or "",
+            nombre_establecimiento=nombre_establecimiento or "",
+            comites_salud=comites_salud or "",
+            tema=tema_texto,
+            medicos=int(medicos) if medicos else 0,
+            promotores_salud=int(promotores_salud) if promotores_salud else 0,
+            voceros_comite_salud=int(voceros_comite_salud) if voceros_comite_salud else 0,
+            vocero_consejo_direccion=int(vocero_consejo_direccion) if vocero_consejo_direccion else 0,
+            coordinador_docencia=int(coordinador_docencia) if coordinador_docencia else 0,
+            autoridades_presentes=int(autoridades_presentes) if autoridades_presentes else 0,
+            otros_actores=int(otros_actores) if otros_actores else 0,
+            personas_comunidad=int(personas_comunidad) if personas_comunidad else 0,
+            estudiantes_aspirantes=int(estudiantes_aspirantes) if estudiantes_aspirantes else 0,
+            participantes=cant_participantes,
+            total_participantes=cant_participantes,
+        )
+
         if id_actividad is None:
-            nuevo_id = self.actividad_dao.crear(
-                id_asic=id_asic,
-                id_tipo=id_tipo,
-                id_usuario_registro=id_usuario,
-                fecha_inicio=fecha_inicio_bd,
-                fecha_fin=fecha_fin_bd,
-                estado=estado or "",
-                municipio=municipio or "",
-                parroquia=parroquia or "",
-                establecimiento_salud=establecimiento_salud or "",
-                nombre_establecimiento=nombre_establecimiento or "",
-                comites_salud=comites_salud or "",
-                descripcion=descripcion,
-                medicos=int(medicos) if medicos else 0,
-                promotores_salud=int(promotores_salud) if promotores_salud else 0,
-                voceros_comite_salud=int(voceros_comite_salud) if voceros_comite_salud else 0,
-                vocero_consejo_direccion=int(vocero_consejo_direccion) if vocero_consejo_direccion else 0,
-                coordinador_docencia=int(coordinador_docencia) if coordinador_docencia else 0,
-                autoridades_presentes=int(autoridades_presentes) if autoridades_presentes else 0,
-                otros_actores=int(otros_actores) if otros_actores else 0,
-                personas_comunidad=int(personas_comunidad) if personas_comunidad else 0,
-                estudiantes_aspirantes=int(estudiantes_aspirantes) if estudiantes_aspirantes else 0,
-                participantes=cant_participantes
-            )
-            errores_adjuntos = []
-            if evidencias_temporales:
-                for ruta in evidencias_temporales:
-                    ok_ev, msg_ev = self.procesar_y_guardar_evidencia(nuevo_id, ruta)
-                    if not ok_ev:
-                        errores_adjuntos.append(f"{os.path.basename(ruta)} ({msg_ev})")
-            if errores_adjuntos:
-                errores_str = ", ".join(errores_adjuntos)
-                return True, f"Actividad registrada, pero no se pudieron subir algunos archivos: {errores_str}"
+            self.actividad_dao.crear(**argumentos_actividad)
             return True, "Actividad registrada exitosamente."
-        else:
-            self.actividad_dao.actualizar(
-                id_actividad=id_actividad,
-                id_asic=id_asic,
-                id_tipo=id_tipo,
-                fecha_inicio=fecha_inicio_bd,
-                fecha_fin=fecha_fin_bd,
-                estado=estado or "",
-                municipio=municipio or "",
-                parroquia=parroquia or "",
-                establecimiento_salud=establecimiento_salud or "",
-                nombre_establecimiento=nombre_establecimiento or "",
-                comites_salud=comites_salud or "",
-                descripcion=descripcion,
-                medicos=int(medicos) if medicos else 0,
-                promotores_salud=int(promotores_salud) if promotores_salud else 0,
-                voceros_comite_salud=int(voceros_comite_salud) if voceros_comite_salud else 0,
-                vocero_consejo_direccion=int(vocero_consejo_direccion) if vocero_consejo_direccion else 0,
-                coordinador_docencia=int(coordinador_docencia) if coordinador_docencia else 0,
-                autoridades_presentes=int(autoridades_presentes) if autoridades_presentes else 0,
-                otros_actores=int(otros_actores) if otros_actores else 0,
-                personas_comunidad=int(personas_comunidad) if personas_comunidad else 0,
-                estudiantes_aspirantes=int(estudiantes_aspirantes) if estudiantes_aspirantes else 0,
-                participantes=cant_participantes
-            )
-            return True, "Actividad actualizada exitosamente."
-            _ = None
+
+        argumentos_actualizar = {k: v for k, v in argumentos_actividad.items() if k != "id_usuario_registro"}
+        argumentos_actualizar["id_actividad"] = id_actividad
+        self.actividad_dao.actualizar(**argumentos_actualizar)
+        return True, "Actividad actualizada exitosamente."
+
     def eliminar_actividad(self, id_actividad):
         """Elimina de forma lógica una actividad."""
         self.actividad_dao.eliminar(id_actividad)
         return True, "Actividad eliminada correctamente."
-    # ── Gestión de Evidencias ──────────────────────────────────────────
-    def listar_evidencias_de_actividad(self, id_actividad):
-        """Retorna la lista de archivos adjuntos de una actividad."""
-        return self.evidencia_dao.obtener_por_actividad(id_actividad)
-    def procesar_y_guardar_evidencia(self, id_actividad, ruta_origen):
-        """
-        Valida y copia físicamente una evidencia a la carpeta 'uploads'
-        e inserta la referencia en la base de datos.
-        """
-        if not os.path.exists(ruta_origen):
-            return False, "El archivo de origen no existe."
-        _, ext = os.path.splitext(ruta_origen)
-        ext = ext.lower()
-        if ext not in ALLOWED_EXTENSIONS:
-            return False, f"Extension no permitida ({ext}). Permitidas: {', '.join(ALLOWED_EXTENSIONS)}"
-        tamano_bytes = os.path.getsize(ruta_origen)
-        max_bytes = MAX_FILE_SIZE_MB * 1024 * 1024
-        if tamano_bytes > max_bytes:
-            return False, f"El archivo supera el tamano maximo de {MAX_FILE_SIZE_MB} MB."
-        if not os.path.exists(UPLOADS_DIR):
-            os.makedirs(UPLOADS_DIR)
-        nombre_original = os.path.basename(ruta_origen)
-        nombre_limpio = "".join(c for c in nombre_original if c.isalnum() or c in (".", "-", "_")).strip()
-        timestamp = int(time.time())
-        nombre_destino = f"actividad_{id_actividad}_{timestamp}_{nombre_limpio}"
-        ruta_destino = os.path.join(UPLOADS_DIR, nombre_destino).replace("\\", "/")
-        try:
-            shutil.copy2(ruta_origen, ruta_destino)
-            tipo_archivo, _ = mimetypes.guess_type(ruta_origen)
-            if not tipo_archivo:
-                tipo_archivo = "application/octet-stream"
-            self.evidencia_dao.crear(
-                id_actividad=id_actividad,
-                nombre_archivo=nombre_original,
-                ruta_archivo=ruta_destino,
-                tipo_archivo=tipo_archivo,
-                tamano_bytes=tamano_bytes
-            )
-            return True, "Archivo adjuntado correctamente."
-        except Exception as e:
-            if os.path.exists(ruta_destino):
-                try:
-                    os.remove(ruta_destino)
-                except:
-                    pass
-            return False, f"Error al guardar el archivo: {str(e)}"
-    def eliminar_evidencia(self, id_evidencia):
-        """Elimina el registro de evidencia de la BD y borra el archivo físico."""
-        evidencia = self.evidencia_dao.obtener_por_id(id_evidencia)
-        if not evidencia:
-            return False, "Evidencia no encontrada."
-        try:
-            self.evidencia_dao.eliminar(id_evidencia)
-            ruta_archivo = evidencia["ruta_archivo"]
-            if os.path.exists(ruta_archivo):
-                os.remove(ruta_archivo)
-            return True, "Evidencia eliminada correctamente."
-        except Exception as e:
-            return False, f"Error al eliminar la evidencia: {str(e)}"
 class CatalogoController:
     """Maneja la lógica de negocio para los catálogos (ASIC y Tipos de Actividad)."""
     def __init__(self):
@@ -1611,20 +1580,24 @@ class CatalogoController:
         Crea o actualiza un ASIC.
         Retorna: (True, "mensaje ok") o (False, "mensaje error")
         """
-        codigo = codigo.strip().upper()
-        nombre = nombre.strip()
-        if not codigo:
-            return False, "El codigo del ASIC es obligatorio."
+        codigo = (codigo or "").strip()
+        nombre = (nombre or "").strip()
         if not nombre:
             return False, "El nombre del ASIC es obligatorio."
-        existente = self.asic_dao.obtener_por_codigo(codigo)
-        if existente and existente["id_asic"] != id_asic:
-            return False, f"Ya existe un ASIC con el codigo '{codigo}'."
+
+        existente = None
+        for asic in self.asic_dao.obtener_todos():
+            if asic["nombre"].strip().lower() == nombre.lower() and asic["id_asic"] != id_asic:
+                existente = asic
+                break
+        if existente:
+            return False, f"Ya existe un ASIC con el nombre '{nombre}'."
+
         if id_asic is None:
-            self.asic_dao.crear(codigo, nombre, municipio.strip(), parroquia.strip())
+            self.asic_dao.crear(codigo=codigo, nombre=nombre, municipio=municipio.strip(), parroquia=parroquia.strip())
             return True, f"ASIC '{nombre}' creado correctamente."
         else:
-            self.asic_dao.actualizar(id_asic, codigo, nombre, municipio.strip(), parroquia.strip())
+            self.asic_dao.actualizar(id_asic, codigo=codigo, nombre=nombre, municipio=municipio.strip(), parroquia=parroquia.strip())
             return True, f"ASIC '{nombre}' actualizado correctamente."
     def eliminar_asic(self, id_asic):
         """Desactiva un ASIC. Retorna (True, mensaje) o (False, error)."""
@@ -1642,20 +1615,24 @@ class CatalogoController:
         Crea o actualiza un tipo de actividad.
         Retorna: (True, "mensaje ok") o (False, "mensaje error")
         """
-        codigo = codigo.strip().upper()
-        nombre = nombre.strip()
-        if not codigo:
-            return False, "El codigo del tipo es obligatorio."
+        codigo = (codigo or "").strip()
+        nombre = (nombre or "").strip()
         if not nombre:
             return False, "El nombre del tipo es obligatorio."
-        existente = self.tipo_dao.obtener_por_codigo(codigo)
-        if existente and existente["id_tipo"] != id_tipo:
-            return False, f"Ya existe un tipo con el codigo '{codigo}'."
+
+        existente = None
+        for tipo in self.tipo_dao.obtener_todos():
+            if tipo["nombre"].strip().lower() == nombre.lower() and tipo["id_tipo"] != id_tipo:
+                existente = tipo
+                break
+        if existente:
+            return False, f"Ya existe un tipo con el nombre '{nombre}'."
+
         if id_tipo is None:
-            self.tipo_dao.crear(codigo, nombre)
+            self.tipo_dao.crear(codigo=codigo, nombre=nombre)
             return True, f"Tipo '{nombre}' creado correctamente."
         else:
-            self.tipo_dao.actualizar(id_tipo, codigo, nombre)
+            self.tipo_dao.actualizar(id_tipo, codigo=codigo, nombre=nombre)
             return True, f"Tipo '{nombre}' actualizado correctamente."
     def eliminar_tipo(self, id_tipo):
         """Desactiva un tipo de actividad. Retorna (True, mensaje) o (False, error)."""
@@ -1714,7 +1691,11 @@ class VoceriaController:
         if not nombre_comite or not str(nombre_comite).strip():
             return False, "El nombre del comité es obligatorio."
         if not items:
-            return False, "Debe agregar al menos 1 vocería."
+            return False, "Debe agregar al menos 7 vocerías (máx. 10)."
+        if len(items) < 7:
+            return False, f"Debe agregar al menos 7 vocerías (actual: {len(items)})."
+        if len(items) > 10:
+            return False, f"Máximo 10 vocerías permitidas (actual: {len(items)})."
 
         tipos_voceria = self.tipo_voceria_dao.obtener_todos()
         if not id_tipo and tipos_voceria:
@@ -1762,11 +1743,9 @@ class VoceriaController:
         except Exception as e:
             return False, f"Error al guardar: {str(e)}"
 
-    def eliminar_voceria(self, id_voceria):
-        voc = self.voceria_dao.obtener_por_id(id_voceria)
-        if not voc:
-            return False, "No se encontró la vocería."
-        self.voceria_dao.eliminar(id_voceria)
+    def eliminar_voceria(self, id_comite):
+        """Elimina un comité y sus vocerías asociadas (soft delete)."""
+        self.voceria_dao.eliminar(id_comite)
         return True, "Vocería eliminada correctamente."
 
 
@@ -1817,7 +1796,7 @@ class ConsolidacionService:
         """
         actividades = self._obtener_actividades(fecha_inicio, fecha_fin, id_asic)
         total_act  = len(actividades)
-        total_part = sum(a["participantes"] for a in actividades)
+        total_part = sum(a["total_participantes"] for a in actividades)
         resumen_tipo = self._agrupar(actividades, "tipo_nombre")
         resumen_asic = self._agrupar(actividades, "asic_nombre")
         
@@ -1872,7 +1851,7 @@ class ConsolidacionService:
             filtros["id_asic"] = aid
             for act in self._actividad_dao.obtener_todas(filtros):
                 vistas[act["id_actividad"]] = act
-        return sorted(vistas.values(), key=lambda a: (str(a.get("fecha_inicio", "")), a["id_actividad"]), reverse=True)
+        return sorted(vistas.values(), key=lambda a: (str(a.get("fecha", "")), a["id_actividad"]), reverse=True)
     def _obtener_vocerias(self, fecha_inicio, fecha_fin, id_asic) -> list:
         """Obtiene vocerías CS con filtros de fecha y ASIC.
         id_asic puede ser None, un entero o una lista de enteros.
@@ -1908,21 +1887,20 @@ class ConsolidacionService:
             if clave not in grupos:
                 grupos[clave] = {"nombre": clave, "total_actividades": 0, "total_participantes": 0}
             grupos[clave]["total_actividades"]  += 1
-            grupos[clave]["total_participantes"] += act.get("participantes", 0)
+            grupos[clave]["total_participantes"] += act.get("total_participantes", 0)
         return sorted(grupos.values(), key=lambda x: x["nombre"])
 # Columnas requeridas en el Excel de importación
-# NOTA: "participantes" puede venir como columna única, como "total_asistencia",
-# o sumarse desde PARTICIPANTES_CATEGORIAS.
+# El esquema final usa `fecha` y `tema`; se aceptan sinónimos heredados para compatibilidad.
 COLUMNAS_REQUERIDAS = [
-    "asic", "tipo_actividad", "fecha_inicio", "descripcion",
+    "asic", "tipo_actividad", "fecha", "tema",
     "participantes",
 ]
 HEADER_ALIASES = {
     # Fecha
-    "fecha": "fecha_inicio",
-    "fecha inicio": "fecha_inicio",
-    "fecha inicio yyyy mm dd": "fecha_inicio",
-    "fecha fin": "fecha_fin",
+    "fecha": "fecha",
+    "fecha inicio": "fecha",
+    "fecha inicio yyyy mm dd": "fecha",
+    "fecha fin": "fecha",
     # Ubicación
     "estado": "estado",
     "municipio": "municipio",
@@ -1942,10 +1920,9 @@ HEADER_ALIASES = {
     "tipo actividad": "tipo_actividad",
     "tipo de actividad nombre exacto": "tipo_actividad",
     "asic nombre exacto": "asic",
-    # Descripción / tema
-    "tema tratado": "descripcion",
-    "descripcion": "descripcion",
-    "descripcion numero": "descripcion",
+    # Tema
+    "tema tratado": "tema",
+    "tema": "tema",
     # Participantes y totales
     "participantes": "participantes",
     "participantes numero": "participantes",
@@ -2036,7 +2013,7 @@ class ExcelService:
             errores = []
             asic_nombre  = str(datos_crudos["asic"]).strip()          if datos_crudos["asic"]          else ""
             tipo_nombre  = str(datos_crudos["tipo_actividad"]).strip() if datos_crudos["tipo_actividad"] else ""
-            descripcion  = str(datos_crudos["descripcion"]).strip()    if datos_crudos["descripcion"]    else ""
+            tema = str(datos_crudos.get("tema") or "").strip()
             try:
                 participantes = self._calcular_total_asistencia(fila, idx, datos_crudos)
                 if participantes is None or participantes < 0:
@@ -2044,14 +2021,14 @@ class ExcelService:
             except (TypeError, ValueError):
                 participantes = None
                 errores.append("'TOTAL DE ASISTENCIA' no es un número entero válido.")
-            fecha_inicio = self._parsear_fecha(datos_crudos["fecha_inicio"])
-            if fecha_inicio is None:
+            fecha_actividad = self._parsear_fecha(datos_crudos.get("fecha"))
+            if fecha_actividad is None:
                 errores.append("'FECHA' no tiene formato de fecha válido (YYYY-MM-DD o DD/MM/YYYY).")
             if not asic_nombre:
                 errores.append("El campo 'ASIC' está vacío.")
             if not tipo_nombre:
                 errores.append("El campo 'ACTIVIDAD DESARROLLADA' está vacío.")
-            if not descripcion:
+            if not tema:
                 errores.append("El campo 'TEMA TRATADO' está vacío.")
             id_asic = None
             id_tipo = None
@@ -2062,26 +2039,25 @@ class ExcelService:
             if tipo_nombre:
                 id_tipo = self._resolver_tipo(tipo_nombre)
                 if id_tipo is None:
-                    errores.append(f"Tipo de actividad no encontrado en BD: «{tipo_nombre}».")
-            if id_asic and id_tipo and fecha_inicio and descripcion and not errores:
+                    errores.append(f"Tipo de actividad no encontrado en BD: «{tipo_nombre}»." )
+            if id_asic and id_tipo and fecha_actividad and tema and not errores:
                 es_duplicado = self._actividad_dao.verificar_duplicado(
-                    id_asic, id_tipo, fecha_inicio, descripcion
+                    id_asic, id_tipo, fecha_actividad, tema=tema
                 )
                 if es_duplicado:
-                    errores.append("Duplicado: ya existe una actividad con el mismo ASIC, tipo, fecha e inicio de descripción.")
+                    errores.append("Duplicado: ya existe una actividad con el mismo ASIC, tipo, fecha y tema.")
             fila_procesada = {
                 "numero_fila": numero_fila,
                 "id_asic": id_asic,
                 "id_tipo": id_tipo,
-                "fecha_inicio": fecha_inicio,
-                "fecha_fin": fecha_inicio,
+                "fecha": fecha_actividad,
                 "estado": self._obtener_valor_columna(fila, idx, "estado"),
                 "municipio": self._obtener_valor_columna(fila, idx, "municipio"),
                 "parroquia": self._obtener_valor_columna(fila, idx, "parroquia"),
                 "establecimiento_salud": self._obtener_valor_columna(fila, idx, "establecimiento_salud"),
                 "nombre_establecimiento": self._obtener_valor_columna(fila, idx, "nombre_establecimiento_salud"),
                 "comites_salud": self._obtener_valor_columna(fila, idx, "comites_de_salud"),
-                "descripcion": descripcion,
+                "tema": tema,
                 "medicos": self._parse_int(self._obtener_valor_columna(fila, idx, "medicos")),
                 "promotores_salud": self._parse_int(self._obtener_valor_columna(fila, idx, "promotores_en_salud")),
                 "voceros_comite_salud": self._parse_int(self._obtener_valor_columna(fila, idx, "voceros_de_comite_de_salud")),
@@ -2117,15 +2093,14 @@ class ExcelService:
                     id_asic=fila["id_asic"],
                     id_tipo=fila["id_tipo"],
                     id_usuario_registro=self.id_usuario_registro,
-                    fecha_inicio=fila["fecha_inicio"],
-                    fecha_fin=fila["fecha_fin"],
+                    fecha=fila.get("fecha"),
                     estado=fila.get("estado") or "",
                     municipio=fila.get("municipio") or "",
                     parroquia=fila.get("parroquia") or "",
                     establecimiento_salud=fila.get("establecimiento_salud") or "",
                     nombre_establecimiento=fila.get("nombre_establecimiento") or "",
                     comites_salud=fila.get("comites_salud") or "",
-                    descripcion=fila["descripcion"],
+                    tema=fila.get("tema") or "",
                     medicos=fila.get("medicos") or 0,
                     promotores_salud=fila.get("promotores_salud") or 0,
                     voceros_comite_salud=fila.get("voceros_comite_salud") or 0,
@@ -2234,6 +2209,354 @@ class ExcelService:
                 return tipo["id_tipo"]
         self._cache_tipo[key] = None
         return None
+
+
+class ExcelServiceVoceria:
+    """
+    Servicio encargado de leer un archivo Excel de vocerías y convertir sus filas
+    en registros, con validación detallada por comité.
+    """
+    # Encabezados esperados en la plantilla (fila 2)
+    VOCERIA_HEADERS = [
+        "nro",
+        "estado",
+        "municipio",
+        "parroquia",
+        "asic",
+        "nombre_comite",
+        "centro_dispensador",
+        "nombre_centro",
+        "nombres",
+        "ci",
+        "telefono",
+        "voceria",
+        "fecha_nacimiento",
+        "edad",
+        "sexo",
+        "profesion",
+        "correo",
+        "fechas_eleccion",
+    ]
+
+    HEADER_ALIASES_VOCERIA = {
+        "nro": "nro",
+        "n": "nro",
+        "numero": "nro",
+        "estado": "estado",
+        "municipio": "municipio",
+        "parroquia": "parroquia",
+        "asic": "asic",
+        "nombre del comite": "nombre_comite",
+        "nombre del comité": "nombre_comite",
+        "indique que centro dispensador de salud es sri hospital cat cdi clinica popular consultorio medico popular ambulatorio u otro": "centro_dispensador",
+        "indique que centro dispensador de salud es": "centro_dispensador",
+        "centro dispensador": "centro_dispensador",
+        "nombre del centro dispensador de salud": "nombre_centro",
+        "nombre del centro": "nombre_centro",
+        "nombres y apellido": "nombres",
+        "nombres": "nombres",
+        "c i": "ci",
+        "c.i.": "ci",
+        "ci": "ci",
+        "telefono": "telefono",
+        "teléfono": "telefono",
+        "voceria": "voceria",
+        "vocería": "voceria",
+        "fecha de nacimiento": "fecha_nacimiento",
+        "edad": "edad",
+        "sexo": "sexo",
+        "profesion oficio": "profesion",
+        "profesion/oficio": "profesion",
+        "profesion": "profesion",
+        "profesión": "profesion",
+        "correo": "correo",
+        "fechas de eleccion": "fechas_eleccion",
+        "fechas de elección": "fechas_eleccion",
+        "fecha de eleccion": "fechas_eleccion",
+        "fecha de elección": "fechas_eleccion",
+    }
+
+    CAMPOS_OBLIGATORIOS = [
+        "estado", "municipio", "parroquia", "asic", "nombre_comite",
+        "centro_dispensador", "nombre_centro", "nombres", "ci",
+        "telefono", "voceria", "fecha_nacimiento", "edad",
+        "sexo", "profesion", "correo", "fechas_eleccion"
+    ]
+
+    def __init__(self, id_usuario_registro: int):
+        self.id_usuario_registro = id_usuario_registro
+        self._asic_dao = AsicDAO()
+        self._tipo_voceria_dao = TipoVoceriaDAO()
+        self._cache_asic: dict = {}
+        self._cache_tipo_voceria: dict = {}
+
+    def previsualizar(self, ruta_archivo: str) -> dict:
+        """
+        Lee el Excel y valida cada fila SIN insertar en BD.
+        Agrupa por 'nombre_comite' y valida reglas de negocio.
+        Retorna: {columnas, comites_validos, comites_error, total_filas, total_comites}
+        """
+        import openpyxl
+        from datetime import date, datetime, timedelta
+
+        wb = openpyxl.load_workbook(ruta_archivo, data_only=True)
+        ws = wb.active
+
+        # Try row 2 first (standard template)
+        raw_header_row = next(ws.iter_rows(min_row=2, max_row=2, values_only=True))
+        cabecera_raw = [str(c).strip() if c is not None else "" for c in raw_header_row]
+        cabecera_normalizada = [self._normalizar_encabezado(c) for c in cabecera_raw]
+        idx = {cab: i for i, cab in enumerate(cabecera_normalizada) if cab}
+
+        # Fallback: if row 2 doesn't have valid headers, try row 1
+        # (handles cases where template was modified)
+        claves_esperadas = {"estado", "municipio", "parroquia", "asic", "nombre_comite",
+                           "centro_dispensador", "nombre_centro", "nombres", "ci",
+                           "telefono", "voceria", "fecha_nacimiento", "edad",
+                           "sexo", "profesion", "correo", "fechas_eleccion"}
+        if not claves_esperadas.intersection(idx.keys()):
+            raw_header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True))
+            cabecera_raw = [str(c).strip() if c is not None else "" for c in raw_header_row]
+            cabecera_normalizada = [self._normalizar_encabezado(c) for c in cabecera_raw]
+            idx = {cab: i for i, cab in enumerate(cabecera_normalizada) if cab}
+            data_start = 2
+        else:
+            data_start = 3
+
+        if not idx:
+            raise ValueError("No se detectaron encabezados válidos en el archivo.")
+
+        filas_por_comite: dict = {}
+        errores_globales = []
+
+        for numero_fila, fila in enumerate(ws.iter_rows(min_row=data_start, values_only=True), start=data_start):
+            if all(v is None or str(v).strip() == "" for v in fila):
+                continue
+
+            datos_crudos = self._extraer_datos_fila(fila, idx, cabecera_raw)
+            errores_fila = self._validar_fila(datos_crudos, numero_fila)
+
+            nombre_comite = (datos_crudos.get("nombre_comite") or "").strip()
+            if not nombre_comite:
+                errores_fila.append("El campo 'NOMBRE DEL COMITÉ' está vacío.")
+
+            if errores_fila:
+                errores_globales.append({
+                    "numero_fila": numero_fila,
+                    "nombre_comite": nombre_comite or "(sin comité)",
+                    "errores": errores_fila,
+                    "datos_crudos": datos_crudos
+                })
+            else:
+                if nombre_comite not in filas_por_comite:
+                    filas_por_comite[nombre_comite] = []
+                filas_por_comite[nombre_comite].append({
+                    "numero_fila": numero_fila,
+                    "datos": datos_crudos
+                })
+
+        comites_validos = []
+        comites_error = []
+
+        for nombre_comite, filas in filas_por_comite.items():
+            errores_comite = self._validar_comite(nombre_comite, filas)
+            if errores_comite:
+                for f in filas:
+                    comites_error.append({
+                        "numero_fila": f["numero_fila"],
+                        "nombre_comite": nombre_comite,
+                        "errores": errores_comite,
+                        "datos_crudos": f["datos"]
+                    })
+            else:
+                comites_validos.append({
+                    "nombre_comite": nombre_comite,
+                    "filas": filas
+                })
+
+        return {
+            "columnas": cabecera_raw,
+            "comites_validos": comites_validos,
+            "comites_error": comites_error,
+            "filas_error_sin_comite": errores_globales,
+            "total_filas_procesadas": sum(len(c["filas"]) for c in comites_validos) + len(comites_error) + len(errores_globales),
+            "total_comites_validos": len(comites_validos),
+            "total_comites_error": len(set(c["nombre_comite"] for c in comites_error)),
+        }
+
+    def _normalizar_encabezado(self, texto):
+        if texto is None:
+            return ""
+        valor = str(texto).strip().lower()
+        import unicodedata
+        valor = unicodedata.normalize("NFKD", valor)
+        valor = "".join(ch for ch in valor if not unicodedata.combining(ch))
+        import re
+        valor = re.sub(r"[^a-z0-9]+", " ", valor)
+        valor = " ".join(valor.split())
+        return self.HEADER_ALIASES_VOCERIA.get(valor, valor)
+
+    def _extraer_datos_fila(self, fila, idx, cabecera_raw):
+        datos = {}
+        for campo in self.VOCERIA_HEADERS:
+            if campo in idx and idx[campo] < len(fila):
+                valor = fila[idx[campo]]
+                datos[campo] = str(valor).strip() if valor is not None else ""
+            else:
+                datos[campo] = ""
+        return datos
+
+    def _validar_fila(self, datos, numero_fila):
+        errores = []
+        for campo in self.CAMPOS_OBLIGATORIOS:
+            valor = (datos.get(campo) or "").strip()
+            if not valor or valor.lower() in ("aaaa-mm-dd", "edad", "seleccionar...", "(sin opciones disponibles)"):
+                nombre_campo = campo.replace("_", " ").upper()
+                errores.append(f"Fila {numero_fila}: El campo '{nombre_campo}' es obligatorio.")
+        correo = (datos.get("correo") or "").strip()
+        if correo and "@" not in correo:
+            errores.append(f"Fila {numero_fila}: Correo electrónico no válido (debe incluir '@').")
+        return errores
+
+    def _validar_comite(self, nombre_comite, filas):
+        errores = []
+
+        if len(filas) < 7:
+            errores.append(f"El comité '{nombre_comite}' debe tener mínimo 7 vocerías (actual: {len(filas)}).")
+        if len(filas) > 10:
+            errores.append(f"El comité '{nombre_comite}' debe tener máximo 10 vocerías (actual: {len(filas)}).")
+
+        vocerias_vistas = set()
+        for f in filas:
+            datos = f["datos"]
+            voceria = (datos.get("voceria") or "").strip().lower()
+            if voceria in vocerias_vistas:
+                errores.append(f"Comité '{nombre_comite}': Vocería duplicada '{datos.get('voceria')}'.")
+            vocerias_vistas.add(voceria)
+
+            fecha_eleccion_str = (datos.get("fechas_eleccion") or "").strip()
+            fecha_eleccion = self._parsear_fecha(fecha_eleccion_str)
+            if fecha_eleccion:
+                hace_dos_anos = date.today() - timedelta(days=730)
+                if fecha_eleccion < hace_dos_anos:
+                    errores.append(
+                        f"Comité '{nombre_comite}', fila {f['numero_fila']}: "
+                        f"La fecha de elección ({fecha_eleccion_str}) tiene más de 2 años de antigüedad."
+                    )
+
+        return errores
+
+    def _parsear_fecha(self, valor):
+        if valor is None:
+            return None
+        if isinstance(valor, datetime):
+            return valor.date()
+        if isinstance(valor, date):
+            return valor
+        texto = str(valor).strip()
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
+            try:
+                return datetime.strptime(texto, fmt).date()
+            except ValueError:
+                pass
+        return None
+
+    def importar(self, comites_validos: list) -> dict:
+        """
+        Inserta en BD todos los comités ya validados.
+        Retorna: {comites_insertados, voceros_insertados, errores_al_insertar}
+        """
+        from db import VoceriaController
+        voceria_ctrl = VoceriaController()
+
+        comites_insertados = 0
+        voceros_insertados = 0
+        errores_al_insertar = []
+
+        for comite in comites_validos:
+            try:
+                primera_fila = comite["filas"][0]["datos"]
+                id_asic = self._resolver_asic(primera_fila.get("asic", ""))
+                if not id_asic:
+                    raise ValueError(f"ASIC no encontrado: {primera_fila.get('asic')}")
+
+                id_tipo_voceria = self._resolver_tipo_voceria(primera_fila.get("voceria", ""))
+                if not id_tipo_voceria:
+                    tipos = self._tipo_voceria_dao.obtener_todos()
+                    if tipos:
+                        id_tipo_voceria = tipos[0]["id_tipo"]
+                    else:
+                        raise ValueError("No hay tipos de vocería configurados en el sistema.")
+
+                items = []
+                for f in comite["filas"]:
+                    d = f["datos"]
+                    item = {
+                        "nombres": d.get("nombres", ""),
+                        "ci": d.get("ci", ""),
+                        "telefono": d.get("telefono", ""),
+                        "fecha_nacimiento": d.get("fecha_nacimiento", ""),
+                        "edad": d.get("edad", ""),
+                        "id_tipo_voceria": self._resolver_tipo_voceria(d.get("voceria", "")) or id_tipo_voceria,
+                        "sexo": d.get("sexo", ""),
+                        "profesion": d.get("profesion", ""),
+                        "correo": d.get("correo", ""),
+                        "fechas_eleccion": d.get("fechas_eleccion", ""),
+                    }
+                    items.append(item)
+
+                ok, msg = voceria_ctrl.guardar_voceria(
+                    id_asic=id_asic,
+                    id_tipo=id_tipo_voceria,
+                    estado=primera_fila.get("estado", ""),
+                    municipio=primera_fila.get("municipio", ""),
+                    parroquia=primera_fila.get("parroquia", ""),
+                    centro_dispensador=primera_fila.get("centro_dispensador", ""),
+                    nombre_centro=primera_fila.get("nombre_centro", ""),
+                    nombre_comite=primera_fila.get("nombre_comite", ""),
+                    items=items,
+                )
+                if ok:
+                    comites_insertados += 1
+                    voceros_insertados += len(items)
+                else:
+                    raise Exception(msg)
+
+            except Exception as exc:
+                errores_al_insertar.append({
+                    "nombre_comite": comite["nombre_comite"],
+                    "error": str(exc)
+                })
+
+        return {
+            "comites_insertados": comites_insertados,
+            "voceros_insertados": voceros_insertados,
+            "errores_al_insertar": errores_al_insertar
+        }
+
+    def _resolver_asic(self, nombre: str):
+        key = nombre.lower().strip()
+        if key in self._cache_asic:
+            return self._cache_asic[key]
+        for asic in self._asic_dao.obtener_todos():
+            if asic["nombre"].lower().strip() == key:
+                self._cache_asic[key] = asic["id_asic"]
+                return asic["id_asic"]
+        self._cache_asic[key] = None
+        return None
+
+    def _resolver_tipo_voceria(self, nombre: str):
+        key = nombre.lower().strip()
+        if key in self._cache_tipo_voceria:
+            return self._cache_tipo_voceria[key]
+        for tipo in self._tipo_voceria_dao.obtener_todos():
+            if tipo["nombre"].lower().strip() == key:
+                self._cache_tipo_voceria[key] = tipo["id_tipo"]
+                return tipo["id_tipo"]
+        self._cache_tipo_voceria[key] = None
+        return None
+
+
 class PDFService:
     """Genera el PDF y Excel del informe consolidado usando ReportLab y openpyxl."""
     TEMPLATE_WORD_OFICIO = os.path.join("assets", "templates", "Oficio de entrega de informe de FEBRERO 2026.docx")
@@ -2516,12 +2839,15 @@ class PDFService:
         if datos.get("actividades"):
             lineas.append(p("Detalle de actividades:", True))
             for i, act in enumerate(datos["actividades"], start=1):
+                fecha_ini = act.get("fecha") or ""
+                fecha_fin = act.get("fecha_fin") or fecha_ini
+                tema = str(act.get("tema") or "").strip()
                 lineas.append(
                     p(
                         f"{i}. {act.get('asic_nombre', '')} - {act.get('tipo_nombre', '')} - "
-                        f"{act.get('fecha_inicio', '')} a {act.get('fecha_fin', '')} - "
+                        f"{fecha_ini} a {fecha_fin} - "
                         f"Participantes: {act.get('participantes', 0)} - "
-                        f"Descripción: {act.get('descripcion', '')}"
+                        f"Tema: {tema}"
                     )
                 )
 
@@ -2626,14 +2952,17 @@ class PDFService:
                ["#", "ASIC", "Tipo", "Fecha Inicio", "Fecha Fin", "Participantes", "Descripción"]]
         filas = [cab]
         for i, act in enumerate(actividades, start=1):
+            fecha_ini = act.get("fecha") or ""
+            fecha_fin = act.get("fecha_fin") or fecha_ini
+            tema = str(act.get("tema") or "").strip()
             filas.append([
                 Paragraph(str(i),                          estilos["td_centro"]),
                 Paragraph(act.get("asic_nombre", ""),      estilos["td_pequeño"]),
                 Paragraph(act.get("tipo_nombre", ""),      estilos["td_pequeño"]),
-                Paragraph(str(act.get("fecha_inicio", "")), estilos["td_centro"]),
-                Paragraph(str(act.get("fecha_fin",   "")), estilos["td_centro"]),
+                Paragraph(str(fecha_ini),                   estilos["td_centro"]),
+                Paragraph(str(fecha_fin),                   estilos["td_centro"]),
                 Paragraph(str(act.get("participantes", 0)), estilos["td_centro"]),
-                Paragraph(act.get("descripcion", "")[:120], estilos["td_pequeño"]),
+                Paragraph(tema[:120], estilos["td_pequeño"]),
             ])
         tabla = Table(filas, colWidths=["4%","13%","12%","9%","9%","8%","45%"], repeatRows=1)
         tabla.setStyle(TableStyle([
@@ -2739,14 +3068,17 @@ class PDFService:
         ws.row_dimensions[1].height = 22
         for i, act in enumerate(datos.get("actividades", []), start=1):
             fila_idx = i + 1
+            fecha_ini = act.get("fecha") or ""
+            fecha_fin = act.get("fecha_fin") or fecha_ini
+            tema = str(act.get("tema") or "").strip()
             valores = [
                 i,
                 act.get("asic_nombre", ""),
                 act.get("tipo_nombre", ""),
-                str(act.get("fecha_inicio", "")),
-                str(act.get("fecha_fin", "")),
+                str(fecha_ini),
+                str(fecha_fin),
                 act.get("participantes", 0),
-                act.get("descripcion", ""),
+                tema,
             ]
             for col, val in enumerate(valores, 1):
                 c = ws.cell(fila_idx, col, val)
@@ -2763,8 +3095,8 @@ class PDFService:
         cabecera = datos.get("cabecera", {})
         tipo = cabecera.get("periodo_tipo") or datos.get("tipo_periodo", "")
         anio = cabecera.get("periodo_anio") or datos.get("anio_periodo", "")
-        f_ini = cabecera.get("periodo_fecha_inicio") or datos.get("fecha_inicio", "")
-        f_fin = cabecera.get("periodo_fecha_fin")    or datos.get("fecha_fin", "")
+        f_ini = cabecera.get("periodo_fecha_inicio") or datos.get("fecha") or datos.get("fecha_inicio", "")
+        f_fin = cabecera.get("periodo_fecha_fin") or datos.get("fecha_fin") or f_ini
         if tipo and anio:
             return f"Período {tipo.capitalize()} {anio}"
         if f_ini and f_fin:
@@ -2829,42 +3161,11 @@ def _setup_ejecutar_schema():
     cursor.close()
     conn.close()
     print("[OK] Tablas creadas correctamente.")
-def _setup_crear_usuario_admin():
-    """Crea el usuario admin con contraseña cifrada si no existe."""
-    params = DATABASE[MODO]
-    print("\n--- Configuración del usuario administrador ---")
-    password = input("Ingrese la contraseña para el usuario 'admin': ").strip()
-    if not password:
-        password = "admin123"
-        print("[INFO] Se usó la contraseña por defecto: admin123")
-    password_bytes = password.encode("utf-8")
-    hash_password  = bcrypt.hashpw(password_bytes, bcrypt.gensalt()).decode("utf-8")
-    conn   = mysql.connector.connect(**params)
-    cursor = conn.cursor()
-    cursor.execute("SELECT id_usuario FROM usuario WHERE username = 'admin'")
-    existe = cursor.fetchone()
-    if existe:
-        cursor.execute(
-            "UPDATE usuario SET password_hash = %s WHERE username = 'admin'",
-            (hash_password,)
-        )
-        print("[OK] Contraseña del admin actualizada.")
-    else:
-        cursor.execute(
-            """INSERT INTO usuario (username, password_hash, nombre_completo, email)
-               VALUES (%s, %s, %s, %s)""",
-            ("admin", hash_password, "Administrador del Sistema", "admin@dppps.gob.ve")
-        )
-        print("[OK] Usuario admin creado.")
-    conn.commit()
-    cursor.close()
-    conn.close()
 if __name__ == "__main__":
     print("=== Setup inicial del Sistema DPPPS ===\n")
     try:
         _setup_crear_base_de_datos()
         _setup_ejecutar_schema()
-        _setup_crear_usuario_admin()
         print("\n[LISTO] Setup completado exitosamente.")
         print("   Ya puedes ejecutar la aplicacion con: python main.py")
     except Exception as e:

@@ -7,6 +7,7 @@ class VistaLogin:
     def __init__(self, root, controlador):
         self.root = root
         self.controlador = controlador
+        self._after_ids = []
 
         self.root.title("DPPPS — Iniciar Sesión")
         self.root.geometry("460x620")
@@ -142,7 +143,8 @@ class VistaLogin:
         def paso(i=0):
             if i < len(movs):
                 self.root.geometry(f"+{x0 + movs[i]}+{y0}")
-                self.root.after(35, lambda: paso(i + 1))
+                aid = self.root.after(35, lambda: paso(i + 1))
+                self._after_ids.append(aid)
             else:
                 self.root.geometry(f"+{x0}+{y0}")
 
