@@ -7,7 +7,6 @@ __all__ = [
     "login",
     "principal",
     "actividades",
-    "catalogos",
     "reportes",
     "vocerias",
 ]
