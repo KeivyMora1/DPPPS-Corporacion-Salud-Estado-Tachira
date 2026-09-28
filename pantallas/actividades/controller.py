@@ -502,7 +502,7 @@ class ControladorActividad:
         destino = filedialog.asksaveasfilename(
             title="Guardar plantilla como...",
             defaultextension=".xlsx",
-            initialfile="plantilla_importacion.xlsx",
+            initialfile="plantilla_importacion_actividad.xlsx",
             filetypes=[("Archivos Excel", "*.xlsx")],
         )
         if destino:

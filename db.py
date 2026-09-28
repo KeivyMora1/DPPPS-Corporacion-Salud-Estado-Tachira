@@ -36,11 +36,8 @@ DATABASE = {
         "database": "dppps_informes"
     }
 }
-# Carpetas donde se guardan los reportes generados
-UPLOADS_DIR = "uploads/"
-EXPORTS_DIR = "exports/"
 # Ruta de la plantilla Excel para importación de actividades
-TEMPLATE_PATH = "assets/templates/plantilla_importacion.xlsx"
+TEMPLATE_PATH = "assets/templates/plantilla_importacion_actividad.xlsx"
 # Ruta de la plantilla Excel para importación de vocerías CS
 VOCERIA_TEMPLATE_PATH = "assets/templates/plantilla_importacion_voceria.xlsx"
 # Configuración de archivos permitidos para importación
@@ -2562,7 +2559,7 @@ class ExcelServiceVoceria:
 
 class PDFService:
     """Genera el PDF y Excel del informe consolidado usando ReportLab y openpyxl."""
-    TEMPLATE_WORD_OFICIO = os.path.join("assets", "templates", "Oficio de entrega de informe de FEBRERO 2026.docx")
+    TEMPLATE_WORD_OFICIO = os.path.join("assets", "templates", "plantilla_reporte.docx")
 
     def generar_pdf(self, datos: dict, ruta_salida: str) -> str:
         """
