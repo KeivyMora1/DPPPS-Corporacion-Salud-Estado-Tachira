@@ -74,6 +74,9 @@ class ControladorLogin:
             email_texto = email.get().strip()
             password_texto = password.get()
 
+            btn.configure(state="disabled", text="⏳ Cargando...")
+            ventana.update_idletasks()
+
             respuesta = self.modelo.registrar_usuario(
                 nombre_texto,
                 apellido_texto,
@@ -82,6 +85,7 @@ class ControladorLogin:
                 username=username_texto,
             )
             if not respuesta["success"]:
+                btn.configure(state="normal", text="Registrarme")
                 messagebox.showerror("Registro", respuesta["message"])
                 return
             messagebox.showinfo("Registro", respuesta["message"])

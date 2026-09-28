@@ -48,7 +48,7 @@ class VistaLogin:
             inner,
             font=("Segoe UI", 12),
             corner_radius=6,
-            placeholder_text="Correo electrónico",
+            placeholder_text="Nombre de usuario o correo",
             height=38,
         )
         self.entrada_email.pack(fill="x", pady=(0, 14))

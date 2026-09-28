@@ -1576,6 +1576,22 @@ class VoceriaController:
         self.asic_dao = AsicDAO()
         self.auth = AuthController()
 
+    def _parsear_fecha(self, valor):
+        """Acepta objetos date/datetime o strings YYYY-MM-DD / DD/MM/YYYY."""
+        if valor is None:
+            return None
+        if isinstance(valor, datetime):
+            return valor.date()
+        if isinstance(valor, date):
+            return valor
+        texto = str(valor).strip()
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
+            try:
+                return datetime.strptime(texto, fmt).date()
+            except ValueError:
+                pass
+        return None
+
     def listar_vocerias(self, filtros=None):
         return self.voceria_dao.obtener_todas(filtros)
 
@@ -1652,6 +1668,11 @@ class VoceriaController:
                 return False, f"Vocería #{idx}: Correo electrónico no válido (debe incluir '@')."
             if not item.get("fechas_eleccion") or not str(item.get("fechas_eleccion")).strip() or str(item.get("fechas_eleccion")).strip() == "AAAA-MM-DD":
                 return False, f"Vocería #{idx}: Fechas de Elección es obligatoria."
+            fecha_eleccion = self._parsear_fecha(item.get("fechas_eleccion"))
+            if fecha_eleccion:
+                hace_dos_anos = date.today().replace(year=date.today().year - 2)
+                if fecha_eleccion < hace_dos_anos:
+                    return False, f"Vocería #{idx}: La fecha de elección ({item.get('fechas_eleccion')}) tiene más de 2 años de antigüedad."
 
         id_usuario = self.auth.obtener_usuario_actual()
         id_usuario_registro = id_usuario["id_usuario"] if id_usuario else 1
