@@ -486,7 +486,7 @@ class ControladorVoceria:
 
     def aplicar_filtros(self):
         asic_sel = self.vista.combo_filtro_asic.get()
-        tipo_sel = self.vista.combo_filtro_tipo.get()
+        nombre_comite = self.vista.ent_filtro_nombre_comite.get().strip()
         f_desde = self.vista.ent_filtro_desde.get().strip()
         f_hasta = self.vista.ent_filtro_hasta.get().strip()
 
@@ -494,8 +494,8 @@ class ControladorVoceria:
 
         if asic_sel != "Todos":
             filtros["id_asic"] = self.asic_map.get(asic_sel)
-        if tipo_sel != "Todos":
-            filtros["id_tipo"] = self.tipo_map.get(tipo_sel)
+        if nombre_comite:
+            filtros["nombre_comite"] = nombre_comite
 
         if f_desde and f_desde != "AAAA-MM-DD":
             try:
@@ -517,7 +517,7 @@ class ControladorVoceria:
 
     def limpiar_filtros(self):
         self.vista.combo_filtro_asic.set("Todos")
-        self.vista.combo_filtro_tipo.set("Todos")
+        self.vista.ent_filtro_nombre_comite.delete(0, "end")
         self.vista.ent_filtro_desde.set_date("")
         self.vista.ent_filtro_hasta.set_date("")
         self.cargar_datos_tabla()
@@ -536,13 +536,13 @@ class ControladorVoceria:
                 cantidad = voc.get("cantidad_vocerias", 0)
 
                 self.vista.tabla.insert("", "end", iid=str(voc["id_voceria"]), values=(
-                    voc["id_voceria"],
                     voc.get("asic_nombre", ""),
                     f_ini,
                     cantidad,
                     voc.get("estado", ""),
                     voc.get("municipio", ""),
                     voc.get("parroquia", ""),
+                    voc.get("nombre_comite", ""),
                 ))
         except Exception as e:
             messagebox.showerror("Error", f"Ocurrió un error al cargar las vocerías: {str(e)}")
@@ -572,11 +572,11 @@ class ControladorVoceria:
             return
         id_voceria = int(seleccion[0])
         valores = self.vista.tabla.item(seleccion[0])["values"]
-        tipo_act = valores[1]
-        fecha_act = valores[2]
+        comite_nombre = valores[6] if len(valores) > 6 else ""
+        asic_nombre = valores[0]
 
         if messagebox.askyesno("Confirmar eliminación",
-                               f"¿Deseas eliminar la vocería '{tipo_act}' del día {fecha_act}?\nEsta acción no se puede deshacer."):
+                               f"¿Deseas eliminar el comité '{comite_nombre}' ({asic_nombre})?\nEsta acción no se puede deshacer."):
             try:
                 ok, msg = self.modelo.eliminar_voceria(id_voceria)
                 if ok:
@@ -589,9 +589,10 @@ class ControladorVoceria:
 
     def on_seleccion_cambio(self, event=None):
         seleccion = self.vista.tabla.selection()
-        estado = "normal" if seleccion else "disabled"
-        self.vista.btn_editar.configure(state=estado)
-        self.vista.btn_eliminar.configure(state=estado)
+        if seleccion:
+            self.vista._mostrar_botones_accion()
+        else:
+            self.vista._ocultar_botones_accion()
 
     def abrir_detalle_voceria(self, event=None):
         seleccion = self.vista.tabla.selection()
@@ -695,14 +696,14 @@ class ControladorVoceria:
         try:
             filtros = {}
             asic_sel = self.vista.combo_filtro_asic.get()
-            tipo_sel = self.vista.combo_filtro_tipo.get()
+            nombre_comite = self.vista.ent_filtro_nombre_comite.get().strip()
             f_desde = self.vista.ent_filtro_desde.get().strip()
             f_hasta = self.vista.ent_filtro_hasta.get().strip()
 
             if asic_sel != "Todos":
                 filtros["id_asic"] = self.asic_map.get(asic_sel)
-            if tipo_sel != "Todos":
-                filtros["id_tipo"] = self.tipo_map.get(tipo_sel)
+            if nombre_comite:
+                filtros["nombre_comite"] = nombre_comite
             if f_desde and f_desde != "AAAA-MM-DD":
                 filtros["fecha_desde"] = f_desde
             if f_hasta and f_hasta != "AAAA-MM-DD":

@@ -43,6 +43,16 @@ class ModeloPrincipal:
             return self.usuario["nombre_completo"]
         return "Usuario"
 
+    def get_username(self):
+        if self.usuario:
+            return self.usuario.get("username", "Usuario")
+        return "Usuario"
+
+    def get_email(self):
+        if self.usuario:
+            return self.usuario.get("email", "")
+        return ""
+
 
 # ─────────────────────────────────────────────────────────────
 # VISTA
@@ -152,6 +162,8 @@ class VistaPrincipal:
         self.header_right.pack(side="right", padx=24)
 
         nombre = self.controlador.modelo.get_nombre_usuario()
+        username = self.controlador.modelo.get_username()
+        email = self.controlador.modelo.get_email()
 
         self.user_info_frame = frame_transparent(self.header_right)
         self.user_info_frame.pack(side="right")
@@ -163,10 +175,10 @@ class VistaPrincipal:
         self.user_text_frame = frame_transparent(self.user_info_frame)
         self.user_text_frame.pack(side="right", padx=(0, 10))
 
-        self.lbl_user_name = label(self.user_text_frame, nombre, font_size=12, bold=True)
+        self.lbl_user_name = label(self.user_text_frame, username, font_size=12, bold=True)
         self.lbl_user_name.pack(anchor="e")
 
-        self.lbl_user_email = label(self.user_text_frame, "admin@dppps.gob", font_size=10)
+        self.lbl_user_email = label(self.user_text_frame, email, font_size=10)
         self.lbl_user_email.pack(anchor="e")
 
         # ── Separator below header ─────────────────────────
@@ -177,7 +189,7 @@ class VistaPrincipal:
         self.area_contenido.pack(fill="both", expand=True)
 
         self._draw_status_dot()
-        self._draw_avatar(nombre)
+        self._draw_avatar(username)
 
     def _draw_logo_letter_fallback(self):
         """Fallback: dibuja un círculo con la letra D si no se puede cargar la imagen."""
@@ -198,9 +210,9 @@ class VistaPrincipal:
         self.status_dot.delete("all")
         self.status_dot.create_oval(1, 1, 7, 7, fill="#317E87", outline="")
 
-    def _draw_avatar(self, nombre):
+    def _draw_avatar(self, username):
         self.avatar_canvas.delete("all")
-        inicial = nombre[0].upper() if nombre else "U"
+        inicial = username[0].upper() if username else "U"
         self.avatar_canvas.create_oval(0, 0, 44, 44, fill="#613BE3", outline="")
         self.avatar_canvas.create_text(22, 22, text=inicial,
                                        font=("Segoe UI", 15, "bold"),

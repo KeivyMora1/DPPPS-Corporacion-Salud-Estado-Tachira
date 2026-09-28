@@ -960,6 +960,9 @@ class VoceriaDAO:
             if filtros.get("id_tipo"):
                 sql += " AND EXISTS (SELECT 1 FROM voceria v2 WHERE v2.id_comite = c.id_comite AND v2.id_tipo_voceria = %s AND v2.eliminado = FALSE)"
                 params.append(filtros["id_tipo"])
+            if filtros.get("nombre_comite"):
+                sql += " AND c.nombre_comite LIKE %s"
+                params.append(f"%{filtros['nombre_comite']}%")
             if filtros.get("fecha_desde"):
                 sql += " AND DATE(c.created_at) >= %s"
                 params.append(filtros["fecha_desde"])

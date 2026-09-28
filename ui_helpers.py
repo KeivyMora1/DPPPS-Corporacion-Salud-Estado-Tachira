@@ -224,7 +224,7 @@ class CTkDatePicker(ctk.CTkFrame):
         self.entry = ctk.CTkEntry(
             self,
             font=font,
-            fg_color="transparent",
+            fg_color=fg_color,
             text_color=text_color,
             border_width=0,
             height=height - 4,

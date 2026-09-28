@@ -487,9 +487,10 @@ class ControladorActividad:
 
     def on_seleccion_cambio(self, event=None):
         seleccion = self.vista.tabla.selection()
-        estado = "normal" if seleccion else "disabled"
-        self.vista.btn_editar.configure(state=estado)
-        self.vista.btn_eliminar.configure(state=estado)
+        if seleccion:
+            self.vista._mostrar_botones_accion()
+        else:
+            self.vista._ocultar_botones_accion()
 
     def descargar_plantilla(self):
         if not os.path.exists(TEMPLATE_PATH):

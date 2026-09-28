@@ -135,16 +135,14 @@ class VistaActividad:
         self.btn_editar = ctk.CTkButton(marco_acciones_top, text="Editar",
                       font=("Arial", 9), fg_color=t["accent_dim"],
                       hover_color=t["accent"], corner_radius=8,
-                      command=self.controlador.editar_seleccionada,
-                      state="disabled")
-        self.btn_editar.pack(side="left", padx=5)
+                      command=self.controlador.editar_seleccionada)
 
         self.btn_eliminar = ctk.CTkButton(marco_acciones_top, text="Eliminar",
                       font=("Arial", 9), fg_color=t["red_bg"],
                       hover_color=t["red"], corner_radius=8,
-                      command=self.controlador.eliminar_seleccionada,
-                      state="disabled")
-        self.btn_eliminar.pack(side="left", padx=5)
+                      command=self.controlador.eliminar_seleccionada)
+
+        self._ocultar_botones_accion()
 
         ctk.CTkButton(marco_acciones_top, text="⬇ Descargar Plantilla",
                       font=("Arial", 9), fg_color=t["bg_card"],
@@ -222,6 +220,16 @@ class VistaActividad:
         item = tree.identify_row(event.y)
         if not item:
             tree.selection_remove(tree.selection())
+
+    def _mostrar_botones_accion(self):
+        """Muestra los botones Editar y Eliminar."""
+        self.btn_editar.pack(side="left", padx=5)
+        self.btn_eliminar.pack(side="left", padx=5)
+
+    def _ocultar_botones_accion(self):
+        """Oculta los botones Editar y Eliminar."""
+        self.btn_editar.pack_forget()
+        self.btn_eliminar.pack_forget()
 
     # ── Helpers de placeholder y total (lógica puramente de UI) ──
 

@@ -73,20 +73,18 @@ class VistaVoceria:
         )
         self.combo_filtro_asic.grid(row=0, column=1, padx=5, pady=5)
 
-        ctk.CTkLabel(marco_filtros, text="Tipo:", font=("Arial", 9, "bold"), text_color=t["text_muted"]).grid(row=0, column=2, padx=5, pady=5, sticky="w")
-        self.combo_filtro_tipo = ctk.CTkOptionMenu(
+        ctk.CTkLabel(marco_filtros, text="Nombre de comité:", font=("Arial", 9, "bold"), text_color=t["text_muted"]).grid(row=0, column=2, padx=5, pady=5, sticky="w")
+        self.ent_filtro_nombre_comite = ctk.CTkEntry(
             marco_filtros,
-            values=["Todos"],
-            fg_color=t["bg_base"],
-            button_color=t["bg_card"],
-            button_hover_color=t["bg_hover"],
-            text_color=t["text_primary"],
-            dropdown_fg_color=t["bg_base"],
-            dropdown_text_color=t["text_primary"],
+            placeholder_text="Nombre de comité",
             font=("Arial", 10),
+            fg_color=t["bg_base"],
+            text_color=t["text_primary"],
+            border_color=t["border"],
+            corner_radius=6,
             width=180,
         )
-        self.combo_filtro_tipo.grid(row=0, column=3, padx=5, pady=5)
+        self.ent_filtro_nombre_comite.grid(row=0, column=3, padx=5, pady=5)
 
         ctk.CTkLabel(marco_filtros, text="Desde:", font=("Arial", 9, "bold"), text_color=t["text_muted"]).grid(row=0, column=4, padx=5, pady=5, sticky="w")
         self.ent_filtro_desde = date_picker(marco_filtros, placeholder="AAAA-MM-DD", width=140, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], default_today=False)
@@ -97,11 +95,8 @@ class VistaVoceria:
         self.ent_filtro_hasta.grid(row=0, column=7, padx=5, pady=5)
 
         nombres_asic = ["Todos"] + sorted(list(self.controlador.asic_map.keys()))
-        nombres_tipo = ["Todos"] + sorted(list(self.controlador.tipo_map.keys()))
         self.combo_filtro_asic.configure(values=nombres_asic)
         self.combo_filtro_asic.set("Todos")
-        self.combo_filtro_tipo.configure(values=nombres_tipo)
-        self.combo_filtro_tipo.set("Todos")
 
         ctk.CTkButton(marco_filtros, text="Buscar", font=("Arial", 9, "bold"), fg_color=t["accent"], hover_color=t["accent_dim"], corner_radius=8, command=self.controlador.aplicar_filtros).grid(row=0, column=8, padx=10, pady=5)
         ctk.CTkButton(marco_filtros, text="Limpiar", font=("Arial", 9), fg_color=t["bg_hover"], hover_color=t["border"], corner_radius=8, command=self.controlador.limpiar_filtros).grid(row=0, column=9, padx=2, pady=5)
@@ -112,11 +107,10 @@ class VistaVoceria:
         ctk.CTkButton(marco_acciones_top, text="+ Registrar Nueva Vocería", font=("Arial", 10, "bold"), fg_color=t["accent"], hover_color=t["accent_dim"], corner_radius=8, command=self.controlador.abrir_form_nueva).pack(side="left")
         ctk.CTkButton(marco_acciones_top, text="Actualizar Tabla", font=("Arial", 9), fg_color=t["bg_card"], hover_color=t["bg_hover"], corner_radius=8, command=self.controlador.cargar_datos_tabla).pack(side="left", padx=10)
 
-        self.btn_editar = ctk.CTkButton(marco_acciones_top, text="Editar", font=("Arial", 9), fg_color=t["accent_dim"], hover_color=t["accent"], corner_radius=8, command=self.controlador.editar_seleccionada, state="disabled")
-        self.btn_editar.pack(side="left", padx=5)
+        self.btn_editar = ctk.CTkButton(marco_acciones_top, text="Editar", font=("Arial", 9), fg_color=t["accent_dim"], hover_color=t["accent"], corner_radius=8, command=self.controlador.editar_seleccionada)
+        self.btn_eliminar = ctk.CTkButton(marco_acciones_top, text="Eliminar", font=("Arial", 9), fg_color=t["red_bg"], hover_color=t["red"], corner_radius=8, command=self.controlador.eliminar_seleccionada)
 
-        self.btn_eliminar = ctk.CTkButton(marco_acciones_top, text="Eliminar", font=("Arial", 9), fg_color=t["red_bg"], hover_color=t["red"], corner_radius=8, command=self.controlador.eliminar_seleccionada, state="disabled")
-        self.btn_eliminar.pack(side="left", padx=5)
+        self._ocultar_botones_accion()
 
         ctk.CTkButton(marco_acciones_top, text="⬇ Descargar Plantilla", font=("Arial", 9), fg_color=t["bg_card"], hover_color=t["bg_hover"], corner_radius=8, command=self.controlador.descargar_plantilla).pack(side="right", padx=5)
         ctk.CTkButton(marco_acciones_top, text="📊 Exportar Consolidado", font=("Arial", 9, "bold"), fg_color=t["accent"], hover_color=t["accent_dim"], corner_radius=8, command=self.controlador.exportar_consolidado).pack(side="right", padx=5)
@@ -132,24 +126,24 @@ class VistaVoceria:
         style.map("Voc.Treeview.Heading", background=[("active", t["bg_card"])], foreground=[("active", t["text_primary"])])
         style.map("Voc.Treeview", background=[("selected", t["accent"])], foreground=[("selected", t["text_primary"])])
 
-        columnas = ("id", "asic", "fecha", "cantidad", "estado", "municipio", "parroquia")
+        columnas = ("asic", "fecha", "cantidad", "estado", "municipio", "parroquia", "nombre_comite")
         self.tabla = ttk.Treeview(marco_tabla, columns=columnas, show="headings", height=12, style="Voc.Treeview")
 
-        self.tabla.heading("id", text="ID", anchor="center")
         self.tabla.heading("asic", text="ASIC", anchor="w")
         self.tabla.heading("fecha", text="Fecha del registro", anchor="w")
         self.tabla.heading("cantidad", text="Cantidad Vocerías", anchor="w")
         self.tabla.heading("estado", text="Estado", anchor="w")
         self.tabla.heading("municipio", text="Municipio", anchor="w")
         self.tabla.heading("parroquia", text="Parroquia", anchor="w")
+        self.tabla.heading("nombre_comite", text="Nombre Comité", anchor="w")
 
-        self.tabla.column("id", width=40, anchor="center")
         self.tabla.column("asic", width=150, anchor="w")
         self.tabla.column("fecha", width=90, anchor="w")
         self.tabla.column("cantidad", width=100, anchor="w")
         self.tabla.column("estado", width=90, anchor="w")
         self.tabla.column("municipio", width=110, anchor="w")
         self.tabla.column("parroquia", width=110, anchor="w")
+        self.tabla.column("nombre_comite", width=180, anchor="w")
 
         scroll_y = ttk.Scrollbar(marco_tabla, orient="vertical", command=self.tabla.yview)
         self.tabla.configure(yscrollcommand=scroll_y.set)
@@ -165,6 +159,16 @@ class VistaVoceria:
         item = tree.identify_row(event.y)
         if not item:
             tree.selection_remove(tree.selection())
+
+    def _mostrar_botones_accion(self):
+        """Muestra los botones Editar y Eliminar."""
+        self.btn_editar.pack(side="left", padx=5)
+        self.btn_eliminar.pack(side="left", padx=5)
+
+    def _ocultar_botones_accion(self):
+        """Oculta los botones Editar y Eliminar."""
+        self.btn_editar.pack_forget()
+        self.btn_eliminar.pack_forget()
 
     def _poner_placeholder_entry(self, entry_widget, placeholder):
         if not entry_widget.get():
