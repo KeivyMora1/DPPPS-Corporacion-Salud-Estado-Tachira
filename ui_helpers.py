@@ -183,12 +183,6 @@ def spinbox_numeric(parent, label_text="", default=0, on_change=None, max_digits
     return ent
 
 
-def form_field_row(parent, fields, label_width=10):
-    """Crea una fila de campos de formulario (label + entry) en columnas."""
-    # fields: lista de dicts con keys: label, placeholder, width, etc.
-    pass  # placeholder for future use
-
-
 class CTkDatePicker(ctk.CTkFrame):
     """
     Selector de fecha interactivo con apariencia y dimensiones idénticas a un CTkEntry,

@@ -170,24 +170,6 @@ class VistaVoceria:
         self.btn_editar.pack_forget()
         self.btn_eliminar.pack_forget()
 
-    def _poner_placeholder_entry(self, entry_widget, placeholder):
-        if not entry_widget.get():
-            entry_widget.insert(0, placeholder)
-            entry_widget.configure(text_color=self.t["text_dim"])
-        entry_widget._placeholder_text = placeholder
-
-    def _limpiar_placeholder_entry(self, entry_widget, placeholder):
-        if entry_widget.get() == placeholder:
-            entry_widget.delete(0, tk.END)
-        entry_widget.configure(text_color=self.t["text_primary"])
-
-    def _poner_placeholder_fecha(self, entry_widget):
-        placeholder = "AAAA-MM-DD"
-        if not entry_widget.get():
-            entry_widget.insert(0, placeholder)
-            entry_widget.configure(text_color=self.t["text_dim"])
-        entry_widget._placeholder_text = placeholder
-
     def _bind_click_recursive(self, widget, callback):
         try:
             widget.bind("<Button-1>", callback)

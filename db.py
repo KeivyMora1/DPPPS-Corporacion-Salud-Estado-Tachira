@@ -1566,81 +1566,6 @@ class ActividadController:
         """Elimina de forma lógica una actividad."""
         self.actividad_dao.eliminar(id_actividad)
         return True, "Actividad eliminada correctamente."
-class CatalogoController:
-    """Maneja la lógica de negocio para los catálogos (ASIC y Tipos de Actividad)."""
-    def __init__(self):
-        self.asic_dao = AsicDAO()
-        self.tipo_dao = TipoActividadDAO()
-    # ── ASIC ──────────────────────────────────────────────────────────
-    def listar_asic(self):
-        """Retorna todos los ASIC activos."""
-        return self.asic_dao.obtener_todos()
-    def guardar_asic(self, codigo, nombre, municipio="", parroquia="", id_asic=None):
-        """
-        Crea o actualiza un ASIC.
-        Retorna: (True, "mensaje ok") o (False, "mensaje error")
-        """
-        codigo = (codigo or "").strip()
-        nombre = (nombre or "").strip()
-        if not nombre:
-            return False, "El nombre del ASIC es obligatorio."
-
-        existente = None
-        for asic in self.asic_dao.obtener_todos():
-            if asic["nombre"].strip().lower() == nombre.lower() and asic["id_asic"] != id_asic:
-                existente = asic
-                break
-        if existente:
-            return False, f"Ya existe un ASIC con el nombre '{nombre}'."
-
-        if id_asic is None:
-            self.asic_dao.crear(codigo=codigo, nombre=nombre, municipio=municipio.strip(), parroquia=parroquia.strip())
-            return True, f"ASIC '{nombre}' creado correctamente."
-        else:
-            self.asic_dao.actualizar(id_asic, codigo=codigo, nombre=nombre, municipio=municipio.strip(), parroquia=parroquia.strip())
-            return True, f"ASIC '{nombre}' actualizado correctamente."
-    def eliminar_asic(self, id_asic):
-        """Desactiva un ASIC. Retorna (True, mensaje) o (False, error)."""
-        asic = self.asic_dao.obtener_por_id(id_asic)
-        if not asic:
-            return False, "No se encontro el ASIC."
-        self.asic_dao.desactivar(id_asic)
-        return True, f"ASIC '{asic['nombre']}' eliminado correctamente."
-    # ── Tipos de Actividad ────────────────────────────────────────────
-    def listar_tipos(self):
-        """Retorna todos los tipos de actividad activos."""
-        return self.tipo_dao.obtener_todos()
-    def guardar_tipo(self, codigo, nombre, id_tipo=None):
-        """
-        Crea o actualiza un tipo de actividad.
-        Retorna: (True, "mensaje ok") o (False, "mensaje error")
-        """
-        codigo = (codigo or "").strip()
-        nombre = (nombre or "").strip()
-        if not nombre:
-            return False, "El nombre del tipo es obligatorio."
-
-        existente = None
-        for tipo in self.tipo_dao.obtener_todos():
-            if tipo["nombre"].strip().lower() == nombre.lower() and tipo["id_tipo"] != id_tipo:
-                existente = tipo
-                break
-        if existente:
-            return False, f"Ya existe un tipo con el nombre '{nombre}'."
-
-        if id_tipo is None:
-            self.tipo_dao.crear(codigo=codigo, nombre=nombre)
-            return True, f"Tipo '{nombre}' creado correctamente."
-        else:
-            self.tipo_dao.actualizar(id_tipo, codigo=codigo, nombre=nombre)
-            return True, f"Tipo '{nombre}' actualizado correctamente."
-    def eliminar_tipo(self, id_tipo):
-        """Desactiva un tipo de actividad. Retorna (True, mensaje) o (False, error)."""
-        tipo = self.tipo_dao.obtener_por_id(id_tipo)
-        if not tipo:
-            return False, "No se encontro el tipo de actividad."
-        self.tipo_dao.desactivar(id_tipo)
-        return True, f"Tipo '{tipo['nombre']}' eliminado correctamente."
 
 
 class VoceriaController:
@@ -2558,54 +2483,9 @@ class ExcelServiceVoceria:
 
 
 class PDFService:
-    """Genera el PDF y Excel del informe consolidado usando ReportLab y openpyxl."""
+    """Genera el documento Word del informe consolidado usando plantilla oficial."""
     TEMPLATE_WORD_OFICIO = os.path.join("assets", "templates", "plantilla_reporte.docx")
 
-    def generar_pdf(self, datos: dict, ruta_salida: str) -> str:
-        """
-        Genera el PDF del informe y lo guarda en ruta_salida.
-        datos: dict de ConsolidacionService.obtener_informe_completo() o generar_previo().
-        Retorna ruta_salida.
-        """
-        os.makedirs(os.path.dirname(ruta_salida) if os.path.dirname(ruta_salida) else ".", exist_ok=True)
-        doc = SimpleDocTemplate(
-            ruta_salida,
-            pagesize=landscape(A4),
-            leftMargin=2*cm, rightMargin=2*cm,
-            topMargin=2*cm,  bottomMargin=2*cm,
-            title=datos.get("titulo", "Informe Consolidado"),
-        )
-        estilos  = self._estilos()
-        historia = []
-        historia += self._encabezado(datos, estilos)
-        historia.append(Spacer(1, 0.4*cm))
-        historia.append(HRFlowable(width="100%", thickness=2, color=_AZUL_OSCURO))
-        historia.append(Spacer(1, 0.3*cm))
-        historia += self._tarjetas_resumen(datos, estilos)
-        historia.append(Spacer(1, 0.5*cm))
-        if datos.get("resumen_por_asic"):
-            historia += self._tabla_resumen_generica("Resumen por ASIC", datos["resumen_por_asic"], estilos, _AZUL_OSCURO)
-            historia.append(Spacer(1, 0.5*cm))
-        if datos.get("resumen_por_tipo"):
-            historia += self._tabla_resumen_generica("Resumen por Tipo de Actividad", datos["resumen_por_tipo"], estilos, _AZUL_MEDIO)
-            historia.append(Spacer(1, 0.5*cm))
-        if datos.get("actividades"):
-            historia.append(PageBreak())
-            historia += self._tabla_detalle(datos["actividades"], estilos)
-        obs = datos.get("observaciones", "")
-        if obs and obs.strip():
-            historia.append(Spacer(1, 0.5*cm))
-            historia.append(Paragraph("Observaciones", estilos["subtitulo"]))
-            historia.append(Paragraph(obs, estilos["normal"]))
-        historia.append(Spacer(1, 0.5*cm))
-        historia.append(HRFlowable(width="100%", thickness=1, color=_GRIS_BORDE))
-        historia.append(Paragraph(
-            f"Generado el {datetime.now().strftime('%d/%m/%Y a las %H:%M')} — "
-            f"{APP_TITLE} v{APP_VERSION}",
-            estilos["pie"],
-        ))
-        doc.build(historia)
-        return ruta_salida
     def generar_word(self, datos: dict, ruta_salida: str) -> str:
         """Genera el documento Word exportado usando la plantilla oficial del oficio."""
         if not ruta_salida.lower().endswith(".docx"):
@@ -2663,21 +2543,6 @@ class PDFService:
             archivo.writestr("word/document.xml", document_xml)
             archivo.writestr("word/styles.xml", self._word_styles_xml())
 
-        return ruta_salida
-
-    def generar_excel(self, datos: dict, ruta_salida: str) -> str:
-        """
-        Genera un Excel con dos hojas: Resumen y Detalle de actividades.
-        Retorna ruta_salida.
-        """
-        os.makedirs(os.path.dirname(ruta_salida) if os.path.dirname(ruta_salida) else ".", exist_ok=True)
-        wb = openpyxl.Workbook()
-        ws_res = wb.active
-        ws_res.title = "Resumen"
-        self._excel_hoja_resumen(ws_res, datos)
-        ws_det = wb.create_sheet("Detalle de Actividades")
-        self._excel_hoja_detalle(ws_det, datos)
-        wb.save(ruta_salida)
         return ruta_salida
 
     @staticmethod
@@ -2981,145 +2846,6 @@ class PDFService:
         ]))
         elems.append(tabla)
         return elems
-    # ── Hojas Excel ────────────────────────────────────────────────────
-    def _excel_hoja_resumen(self, ws, datos: dict):
-        """Hoja 1: encabezado + totales + resúmenes por ASIC y tipo."""
-        h_fill = PatternFill("solid", fgColor="FF0F3460")
-        h_font = Font(color="FFFFFFFF", bold=True, size=11)
-        r_fill = PatternFill("solid", fgColor="FFF4F6F8")
-        border = Border(
-            left=Side(style="thin", color="FFCCCCCC"),
-            right=Side(style="thin", color="FFCCCCCC"),
-            top=Side(style="thin", color="FFCCCCCC"),
-            bottom=Side(style="thin", color="FFCCCCCC"),
-        )
-        titulo = datos.get("titulo", "Informe Consolidado")
-        ws.merge_cells("A1:F1")
-        ws["A1"] = titulo
-        ws["A1"].font = Font(bold=True, size=14, color="FF0F3460")
-        ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
-        ws.row_dimensions[1].height = 30
-        subtitulo = self._subtitulo_periodo(datos)
-        ws.merge_cells("A2:F2")
-        ws["A2"] = subtitulo
-        ws["A2"].font = Font(size=10, color="FF888888", italic=True)
-        ws["A2"].alignment = Alignment(horizontal="center")
-        ws["A4"] = "Total Actividades"
-        ws["B4"] = datos.get("total_actividades", 0)
-        ws["D4"] = "Total Participantes"
-        ws["E4"] = datos.get("total_participantes", 0)
-        for cell in ["A4", "D4"]:
-            ws[cell].font = Font(bold=True, color="FF0F3460")
-        for cell in ["B4", "E4"]:
-            ws[cell].font = Font(bold=True, size=14)
-        fila = 6
-        ws.cell(fila, 1, "RESUMEN POR ASIC").font = Font(bold=True, size=11, color="FF0F3460")
-        fila += 1
-        for col, cab in enumerate(["ASIC", "Actividades", "Participantes"], 1):
-            c = ws.cell(fila, col, cab)
-            c.fill = h_fill; c.font = h_font
-            c.alignment = Alignment(horizontal="center")
-            c.border = border
-        fila += 1
-        for i, row in enumerate(datos.get("resumen_por_asic", [])):
-            nombre = row.get("nombre") or row.get("asic_nombre", "")
-            for col, val in enumerate([nombre, row["total_actividades"], row["total_participantes"]], 1):
-                c = ws.cell(fila, col, val)
-                c.border = border
-                if i % 2 == 0:
-                    c.fill = r_fill
-            fila += 1
-        fila += 1
-        ws.cell(fila, 1, "RESUMEN POR TIPO DE ACTIVIDAD").font = Font(bold=True, size=11, color="FF0F3460")
-        fila += 1
-        for col, cab in enumerate(["Tipo de Actividad", "Actividades", "Participantes"], 1):
-            c = ws.cell(fila, col, cab)
-            c.fill = h_fill; c.font = h_font
-            c.alignment = Alignment(horizontal="center")
-            c.border = border
-        fila += 1
-        for i, row in enumerate(datos.get("resumen_por_tipo", [])):
-            for col, val in enumerate([row["nombre"], row["total_actividades"], row["total_participantes"]], 1):
-                c = ws.cell(fila, col, val)
-                c.border = border
-                if i % 2 == 0:
-                    c.fill = r_fill
-            fila += 1
-        for col, w in zip(["A", "B", "C", "D", "E", "F"], [45, 15, 15, 30, 15, 15]):
-            ws.column_dimensions[col].width = w
-    def _excel_hoja_detalle(self, ws, datos: dict):
-        """Hoja 2: todas las actividades una por fila."""
-        h_fill = PatternFill("solid", fgColor="FF0F3460")
-        h_font = Font(color="FFFFFFFF", bold=True, size=10)
-        r_fill = PatternFill("solid", fgColor="FFF4F6F8")
-        border = Border(
-            left=Side(style="thin", color="FFCCCCCC"),
-            right=Side(style="thin", color="FFCCCCCC"),
-            top=Side(style="thin", color="FFCCCCCC"),
-            bottom=Side(style="thin", color="FFCCCCCC"),
-        )
-        cabeceras = ["#", "ASIC", "Tipo", "Fecha Inicio", "Fecha Fin",
-                     "Participantes", "Descripción"]
-        for col, cab in enumerate(cabeceras, 1):
-            c = ws.cell(1, col, cab)
-            c.fill = h_fill; c.font = h_font
-            c.alignment = Alignment(horizontal="center", vertical="center")
-            c.border = border
-        ws.row_dimensions[1].height = 22
-        for i, act in enumerate(datos.get("actividades", []), start=1):
-            fila_idx = i + 1
-            fecha_ini = act.get("fecha") or ""
-            fecha_fin = act.get("fecha_fin") or fecha_ini
-            tema = str(act.get("tema") or "").strip()
-            valores = [
-                i,
-                act.get("asic_nombre", ""),
-                act.get("tipo_nombre", ""),
-                str(fecha_ini),
-                str(fecha_fin),
-                act.get("participantes", 0),
-                tema,
-            ]
-            for col, val in enumerate(valores, 1):
-                c = ws.cell(fila_idx, col, val)
-                c.border = border
-                c.alignment = Alignment(vertical="top", wrap_text=(col == 7))
-                if i % 2 == 0:
-                    c.fill = r_fill
-        anchos = [5, 25, 22, 13, 13, 13, 60]
-        for col_idx, w in enumerate(anchos, 1):
-            ws.column_dimensions[get_column_letter(col_idx)].width = w
-    # ── Helpers ────────────────────────────────────────────────────────
-    def _subtitulo_periodo(self, datos: dict) -> str:
-        """Construye el texto del período a partir del dict de datos."""
-        cabecera = datos.get("cabecera", {})
-        tipo = cabecera.get("periodo_tipo") or datos.get("tipo_periodo", "")
-        anio = cabecera.get("periodo_anio") or datos.get("anio_periodo", "")
-        f_ini = cabecera.get("periodo_fecha_inicio") or datos.get("fecha") or datos.get("fecha_inicio", "")
-        f_fin = cabecera.get("periodo_fecha_fin") or datos.get("fecha_fin") or f_ini
-        if tipo and anio:
-            return f"Período {tipo.capitalize()} {anio}"
-        if f_ini and f_fin:
-            return f"Del {f_ini} al {f_fin}"
-        return ""
-    @staticmethod
-    def _estilos() -> dict:
-        base = getSampleStyleSheet()
-        return {
-            "institucion":    ParagraphStyle("institucion",    parent=base["Normal"],  fontSize=10, textColor=_AZUL_OSCURO, fontName="Helvetica-Bold", alignment=TA_CENTER),
-            "dependencia":    ParagraphStyle("dependencia",    parent=base["Normal"],  fontSize=8,  textColor=_AZUL_MEDIO, alignment=TA_CENTER),
-            "titulo":         ParagraphStyle("titulo",         parent=base["Title"],   fontSize=14, textColor=_AZUL_OSCURO, fontName="Helvetica-Bold", alignment=TA_CENTER, spaceAfter=2),
-            "subtitulo_gris": ParagraphStyle("subtitulo_gris", parent=base["Normal"],  fontSize=9,  textColor=colors.HexColor("#888888"), alignment=TA_CENTER),
-            "subtitulo":      ParagraphStyle("subtitulo",      parent=base["Heading2"],fontSize=10, textColor=_AZUL_OSCURO, fontName="Helvetica-Bold", spaceBefore=6, spaceAfter=4),
-            "normal":         ParagraphStyle("normal",         parent=base["Normal"],  fontSize=9,  leading=13),
-            "th":             ParagraphStyle("th",             parent=base["Normal"],  fontSize=8,  textColor=_BLANCO, fontName="Helvetica-Bold", alignment=TA_CENTER),
-            "td":             ParagraphStyle("td",             parent=base["Normal"],  fontSize=8,  leading=11),
-            "td_centro":      ParagraphStyle("td_centro",      parent=base["Normal"],  fontSize=8,  alignment=TA_CENTER, leading=11),
-            "td_pequeño":     ParagraphStyle("td_pequeño",     parent=base["Normal"],  fontSize=7,  leading=10),
-            "chip_label":     ParagraphStyle("chip_label",     parent=base["Normal"],  fontSize=8,  textColor=_BLANCO, fontName="Helvetica-Bold", alignment=TA_CENTER),
-            "chip_valor":     ParagraphStyle("chip_valor",     parent=base["Normal"],  fontSize=22, textColor=_BLANCO, fontName="Helvetica-Bold", alignment=TA_CENTER),
-            "pie":            ParagraphStyle("pie",            parent=base["Normal"],  fontSize=7,  textColor=colors.HexColor("#aaaaaa"), alignment=TA_RIGHT),
-        }
 # ============================================================
 # SECCIÓN 6 — SETUP INICIAL DE LA BASE DE DATOS
 # (antes en db/setup.py)
