@@ -1,9 +1,3 @@
-# ============================================================
-# pantallas/principal.py
-# Ventana principal con sidebar y área de contenido.
-# Estructura MVC: ModeloPrincipal / VistaPrincipal / ControladorPrincipal
-# ============================================================
-
 import os
 import tkinter as tk
 import customtkinter as ctk
@@ -29,11 +23,6 @@ CONTROLADORES = {
 }
 
 
-# ─────────────────────────────────────────────────────────────
-# MODELO
-# Gestiona el estado de sesión y el usuario actual.
-# Sin referencias a tkinter.
-# ─────────────────────────────────────────────────────────────
 class ModeloPrincipal:
     def __init__(self):
         self.auth = AuthController()
@@ -58,11 +47,6 @@ class ModeloPrincipal:
         return ""
 
 
-# ─────────────────────────────────────────────────────────────
-# VISTA
-# Solo construye la interfaz. No tiene lógica de negocio.
-# Recibe al controlador para asignarle las acciones.
-# ─────────────────────────────────────────────────────────────
 class VistaPrincipal:
 
     MENU_ITEMS = [
@@ -87,7 +71,6 @@ class VistaPrincipal:
         self._after_ids.append(aid)
 
     def _construir_ui(self):
-        # ── Sidebar (left, full height) ───────────────────
         self.panel_menu = frame(
             self.root,
             fg_color="#2d2d2d",
@@ -102,16 +85,13 @@ class VistaPrincipal:
         self.sidebar_inner = frame(self.panel_menu, fg_color="#2d2d2d", corner_radius=0)
         self.sidebar_inner.pack(side="left", fill="both", expand=True)
 
-        # ── Logo ───────────────────────────────────────────
         self.logo_area = frame(self.sidebar_inner, fg_color="#2d2d2d", corner_radius=0)
         self.logo_area.pack(fill="x", padx=20, pady=(20, 28))
 
-        # Cargar logo2.png - centrado arriba, texto abajo
         logo_path = os.path.join(os.path.dirname(__file__), "..", "assets", "images", "logo2.png")
         if os.path.exists(logo_path):
             try:
                 img = Image.open(logo_path)
-                # Imagen más grande (140x140) ya que el texto está abajo
                 logo_img = ctk.CTkImage(light_image=img, dark_image=img, size=(140, 140))
                 self.logo_label = ctk.CTkLabel(self.logo_area, image=logo_img, text="")
                 self.logo_label.pack(anchor="center", pady=(0, 16))
@@ -129,10 +109,8 @@ class VistaPrincipal:
         self.lbl_logo_sub = label_subtitle(self.logo_text_frame, "SISTEMA DE INFORMES")
         self.lbl_logo_sub.pack(anchor="center", pady=0)
 
-        # ── Separator ──────────────────────────────────────
         separator(self.sidebar_inner, horizontal=True, fg_color="gray40").pack(fill="x", padx=20, pady=(0, 12))
 
-        # ── Navigation ─────────────────────────────────────
         self.nav_frame = frame(self.sidebar_inner, fg_color="#2d2d2d", corner_radius=0)
         self.nav_frame.pack(fill="x", padx=10)
 
@@ -141,11 +119,9 @@ class VistaPrincipal:
             btn.pack(fill="x", pady=3, padx=4)
             self.frames_menu[clave] = {"button": btn}
 
-        # ── Main area ──────────────────────────────────────
         self.main_area = frame(self.root, corner_radius=0)
         self.main_area.pack(fill="both", expand=True)
 
-        # ── Header ─────────────────────────────────────────
         self.barra_top = frame(self.main_area, fg_color="gray15", height=64, corner_radius=0)
         self.barra_top.pack(fill="x", side="top")
         self.barra_top.pack_propagate(False)
@@ -185,10 +161,8 @@ class VistaPrincipal:
         self.lbl_user_email = label(self.user_text_frame, email, font_size=10)
         self.lbl_user_email.pack(anchor="e")
 
-        # ── Separator below header ─────────────────────────
         separator(self.main_area, horizontal=True, fg_color="gray40").pack(fill="x", side="top")
 
-        # ── Content area ───────────────────────────────────
         self.area_contenido = frame(self.main_area, corner_radius=0)
         self.area_contenido.pack(fill="both", expand=True)
 
@@ -196,7 +170,7 @@ class VistaPrincipal:
         self._draw_avatar(username)
 
     def _draw_logo_letter_fallback(self):
-        """Fallback: dibuja un círculo con la letra D si no se puede cargar la imagen."""
+        """Dibuja un círculo con la letra D si no se puede cargar la imagen."""
         canvas = canvas_circle(self.logo_area, 140, bg="#613BE3")
         canvas.pack(anchor="center", pady=(0, 16))
         canvas.create_text(70, 70, text="D", font=("Segoe UI", 48, "bold"), fill="#ffffff")
@@ -262,7 +236,7 @@ class VistaPrincipal:
             pass
 
     def actualizar_nav(self, seccion):
-        """Resalta el botón activo en el menú lateral."""
+        """Resalta el botón activo en el menú."""
         for clave, data in self.frames_menu.items():
             btn = data["button"]
             if clave == seccion:
@@ -273,8 +247,6 @@ class VistaPrincipal:
 
 # ─────────────────────────────────────────────────────────────
 # CONTROLADOR
-# Instancia al Modelo y la Vista. Maneja la navegación y acciones.
-# ─────────────────────────────────────────────────────────────
 class ControladorPrincipal:
     def __init__(self, root):
         self.root = root
@@ -318,10 +290,6 @@ class ControladorPrincipal:
             main.iniciar_app()
 
 
-# ─────────────────────────────────────────────────────────────
-# PUNTO DE ENTRADA PÚBLICO
-# Mantiene la misma interfaz que antes: MainView(root)
-# ─────────────────────────────────────────────────────────────
 class MainView:
     def __init__(self, root):
         self._controlador = ControladorPrincipal(root)

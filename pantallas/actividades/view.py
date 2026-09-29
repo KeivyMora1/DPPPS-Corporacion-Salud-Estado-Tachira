@@ -1,9 +1,3 @@
-# ============================================================
-# pantallas/actividades.py
-# Vista para gestionar las Actividades de Salud del sistema.
-# Estructura MVC: ModeloActividad / VistaActividad / ControladorActividad
-# ============================================================
-
 import customtkinter as ctk
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
@@ -27,11 +21,6 @@ from ui_helpers import (
 )
 
 
-# ─────────────────────────────────────────────────────────────
-# MODELO
-# Toda la comunicación con la base de datos va aquí.
-# Sin referencias a tkinter.
-# ─────────────────────────────────────────────────────────────
 class VistaActividad:
     def __init__(self, parent, controlador):
         self.parent     = parent
@@ -722,10 +711,5 @@ class VistaActividad:
                       hover_color=t["accent_dim"], corner_radius=8, command=guardar
                   ).pack(fill="x", ipady=8)
 
-
-# ─────────────────────────────────────────────────────────────
-# CONTROLADOR
-# Instancia al Modelo y la Vista. Maneja las acciones del usuario.
-# ─────────────────────────────────────────────────────────────
 
 __all__ = ['VistaActividad']

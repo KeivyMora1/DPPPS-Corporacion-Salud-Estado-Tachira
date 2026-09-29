@@ -1,49 +1,27 @@
-# ============================================================
-# db.py
-# Archivo único de base de datos y lógica del sistema DPPPS.
-#
-# Contiene (en orden):
-#   1. Configuración general (antes en config/settings.py)
-#   2. Conexión a la BD (antes en db/connection.py)
-#   3. DAOs — consultas SQL (antes en models/)
-#   4. Controladores — lógica y validación (antes en controllers/)
-#   5. Servicios — Excel, PDF, Consolidación (antes en services/)
-#   6. Setup inicial de BD (antes en db/setup.py)
-#
-# Para configurar la BD por primera vez ejecuta:
-#   python db.py
-# ============================================================
-# ============================================================
-# SECCIÓN 1 — CONFIGURACIÓN GENERAL
-# (antes en config/settings.py)
-# ============================================================
-# Modo de conexión: "local" usa localhost, "lan" usa una IP de red
 MODO = "local"
-# Parámetros de conexión para cada modo
 DATABASE = {
     "local": {
         "host": "localhost",
         "port": 3306,
         "user": "root",
-        "password": "",          # Cambia esto si tu MariaDB/MySQL tiene contraseña
+        "password": "",
         "database": "dppps_informes"
     },
     "lan": {
-        "host": "192.168.1.100", # Cambia esto por la IP del servidor en la red
+        "host": "192.168.1.100",
         "port": 3306,
         "user": "dppps_app",
         "password": "contraseña_segura",
         "database": "dppps_informes"
     }
 }
-# Ruta de la plantilla Excel para importación de actividades
+
 TEMPLATE_PATH = "assets/templates/plantilla_importacion_actividad.xlsx"
-# Ruta de la plantilla Excel para importación de vocerías CS
 VOCERIA_TEMPLATE_PATH = "assets/templates/plantilla_importacion_voceria.xlsx"
-# Configuración de archivos permitidos para importación
+
 MAX_FILE_SIZE_MB = 10
 ALLOWED_EXTENSIONS = [".xlsx", ".xls"]
-# Catálogo base de ASIC permitidos por el sistema
+
 ASIC_PREDETERMINADOS = [
     ("ASIC-01", "Andrés Bello"),
     ("ASIC-02", "Antonio Rómulo Costa"),
@@ -111,14 +89,7 @@ VOCERIA_ASIC_OPCIONES = [nombre for _, nombre in ASIC_PREDETERMINADOS]
 
 
 def build_voceria_template(output_path=None):
-    """Genera la plantilla Excel para vocerías CS con listas desplegables para Estado, Municipio y ASIC.
-
-    El formato replica exactamente el archivo de referencia 'plantilla_importacion_voceria.xlsx':
-    - Fila 1: título fusionado A1:R1 con fondo rojo C00000 y texto blanco, altura 36.75
-    - Fila 2: encabezados con fondo rojo C00000, texto blanco, bordes thin, wrap habilitado, altura 69.75
-    - Filas 3+: datos con numeración correlativa en columna A, altura 25.5
-    - Listas desplegables en columnas B (Estado), C (Municipio) y E (ASIC)
-    """
+    """Genera la plantilla Excel para vocerías CS con listas desplegables."""
     if output_path is None:
         output_path = VOCERIA_TEMPLATE_PATH
 
@@ -132,35 +103,28 @@ def build_voceria_template(output_path=None):
     ws = wb.active
     ws.title = "hoja1"
 
-    # ── Colores y estilos del archivo de referencia ──────────────────────────
-    RED_FILL    = "C00000"   # Rojo oscuro idéntico al original (FFC00000)
-    WHITE_FONT  = "FFFFFFFF" # Blanco puro
-    thin_side   = Side(border_style="thin", color="000000")
+    RED_FILL = "C00000"
+    WHITE_FONT = "FFFFFFFF"
+    thin_side = Side(border_style="thin", color="000000")
     thin_border = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
 
-    title_fill  = PatternFill("solid", fgColor=RED_FILL)
-    title_font  = Font(bold=True, color=WHITE_FONT, size=12, name="Calibri")
+    title_fill = PatternFill("solid", fgColor=RED_FILL)
+    title_font = Font(bold=True, color=WHITE_FONT, size=12, name="Calibri")
     title_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
-    header_fill  = PatternFill("solid", fgColor=RED_FILL)
-    header_font  = Font(bold=True, color=WHITE_FONT, size=12, name="Calibri")
+    header_fill = PatternFill("solid", fgColor=RED_FILL)
+    header_font = Font(bold=True, color=WHITE_FONT, size=12, name="Calibri")
     header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
-    # ── Fila 1: Título fusionado A1:R1 ───────────────────────────────────────
     ws.merge_cells("A1:R1")
     ws["A1"] = "DATAS DE LOS VOCEROS Y VOCERAS DE LOS COMITES DE SALUD  2026"
-    ws["A1"].fill      = title_fill
-    ws["A1"].font      = title_font
+    ws["A1"].fill = title_fill
+    ws["A1"].font = title_font
     ws["A1"].alignment = title_align
     ws.row_dimensions[1].height = 36.75
 
-    # ── Fila 2: Encabezados de columnas (idénticos al original) ──────────────
     headers = [
-        "Nro",
-        "ESTADO",
-        "MUNICIPIO",
-        "PARROQUIA",
-        "ASIC",
+        "Nro", "ESTADO", "MUNICIPIO", "PARROQUIA", "ASIC",
         "NOMBRE DEL COMITÉ",
         "INDIQUE QUE CENTRO DISPENSADOR DE SALUD ES  ( SRI, HOSPITAL, CAT, CDI, CLINICA POPULAR, CONSULTORIO MEDICO POPULAR, AMBULATORIO U OTRO )",
         "NOMBRE DEL CENTRO DISPENSADOR DE SALUD",
@@ -178,55 +142,38 @@ def build_voceria_template(output_path=None):
 
     for col_idx, header in enumerate(headers, start=1):
         cell = ws.cell(row=2, column=col_idx, value=header)
-        cell.fill      = header_fill
-        cell.font      = header_font
+        cell.fill = header_fill
+        cell.font = header_font
         cell.alignment = header_align
-        cell.border    = thin_border
+        cell.border = thin_border
     ws.row_dimensions[2].height = 69.75
 
-    # ── Filas de datos vacías (3 en adelante) con altura y numeración ─────────
     data_align = Alignment(horizontal="center", vertical="center")
-    data_font  = Font(size=11, name="Calibri")
+    data_font = Font(size=11, name="Calibri")
     for row_idx in range(3, 33):
         ws.row_dimensions[row_idx].height = 25.5
-        # Columna A: número de fila correlativo (igual que el original)
         cell_a = ws.cell(row=row_idx, column=1, value=row_idx - 2)
         cell_a.alignment = data_align
-        cell_a.font      = data_font
-        # Celdas restantes con alineación centrada
+        cell_a.font = data_font
         for col_idx in range(2, len(headers) + 1):
             cell = ws.cell(row=row_idx, column=col_idx)
             cell.alignment = data_align
-            cell.font      = data_font
+            cell.font = data_font
 
-    # ── Anchos de columna exactos del archivo de referencia ───────────────────
     col_widths = {
-        "A": 8.28515625,
-        "B": 14.5703125,
-        "C": 14.0,
-        "D": 16.85546875,
-        "E": 15.7109375,
-        "F": 26.85546875,
-        "G": 45.42578125,
-        "H": 25.7109375,
-        "I": 26.7109375,
-        "J": 17.0,
-        "K": 17.5703125,
-        "L": 18.140625,
-        "M": 20.7109375,
-        "N": 20.7109375,
-        "O": 8.0,
-        "P": 22.85546875,
-        "Q": 20.42578125,
-        "R": 23.7109375,
+        "A": 8.28515625, "B": 14.5703125, "C": 14.0, "D": 16.85546875,
+        "E": 15.7109375, "F": 26.85546875, "G": 45.42578125,
+        "H": 25.7109375, "I": 26.7109375, "J": 17.0,
+        "K": 17.5703125, "L": 18.140625, "M": 20.7109375,
+        "N": 20.7109375, "O": 8.0, "P": 22.85546875,
+        "Q": 20.42578125, "R": 23.7109375,
     }
     for col_letter, width in col_widths.items():
         ws.column_dimensions[col_letter].width = width
 
-    # ── Listas desplegables en B (Estado), C (Municipio), E (ASIC) ───────────
-    estado_options    = ",".join(VOCERIA_ESTADO_OPCIONES)
+    estado_options = ",".join(VOCERIA_ESTADO_OPCIONES)
     municipio_options = ",".join(VOCERIA_MUNICIPIO_OPCIONES)
-    asic_options      = ",".join(VOCERIA_ASIC_OPCIONES)
+    asic_options = ",".join(VOCERIA_ASIC_OPCIONES)
 
     dv_estado = DataValidation(type="list", formula1=f'"{estado_options}"', allow_blank=True)
     dv_estado.promptTitle = "Estado"
@@ -250,7 +197,6 @@ def build_voceria_template(output_path=None):
     return output_path
 
 
-# Catálogo base de tipos de actividad permitidos por el sistema
 TIPOS_ACTIVIDAD_PREDETERMINADOS = [
     ("TIPO-01", "Salud toca tu puerta"),
     ("TIPO-02", "Sesiones educativas"),
@@ -260,13 +206,8 @@ TIPOS_ACTIVIDAD_PREDETERMINADOS = [
     ("TIPO-06", "Participación Activa en Inmunizaciones"),
     ("TIPO-07", "Entrevista servicio social"),
 ]
-# Título de la aplicación (se muestra en la barra de la ventana)
 APP_TITLE = "DPPPS — Sistema de Consolidación de Informes"
 APP_VERSION = "1.0.0"
-# ============================================================
-# SECCIÓN 2 — CONEXIÓN A LA BASE DE DATOS
-# (antes en db/connection.py)
-# ============================================================
 import mysql.connector
 import random
 import smtplib
@@ -280,15 +221,7 @@ from xml.etree import ElementTree as ET
 from xml.sax.saxutils import escape
 
 def get_connection():
-    """
-    Crea y devuelve una conexión a la base de datos.
-    Usa el modo definido en MODO (local o lan).
-    Ejemplo de uso:
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM usuario")
-        conn.close()
-    """
+    """Crea y devuelve una conexión a la base de datos usando el modo actual."""
     params = DATABASE[MODO]
     try:
         conn = mysql.connector.connect(
@@ -303,20 +236,12 @@ def get_connection():
     except mysql.connector.Error as error:
         print(f"[ERROR] No se pudo conectar a la base de datos: {error}")
         raise
-# ============================================================
-# SECCIÓN 3 — DAOs (Data Access Objects)
-# Cada clase maneja las consultas SQL de una tabla.
-# (antes en models/)
-# ============================================================
+
 import bcrypt
 from datetime import date, datetime, timedelta, timezone
+
 class UsuarioDAO:
-    """
-    Maneja todas las operaciones de la tabla 'usuario'.
-    Cada método realiza una operación específica en la base de datos.
-    """
     def obtener_por_username(self, username):
-        """Busca un usuario por su nombre de usuario. Retorna dict o None."""
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
         cursor.execute(
@@ -329,7 +254,6 @@ class UsuarioDAO:
         return usuario
 
     def obtener_por_email(self, email):
-        """Busca un usuario por correo. Retorna dict o None."""
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
         cursor.execute(
@@ -342,14 +266,12 @@ class UsuarioDAO:
         return usuario
 
     def verificar_password(self, password_plano, password_hash):
-        """Verifica si una contraseña en texto plano coincide con el hash guardado."""
         return bcrypt.checkpw(
             password_plano.encode("utf-8"),
             password_hash.encode("utf-8")
         )
 
     def obtener_todos(self):
-        """Retorna una lista con todos los usuarios activos del sistema."""
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
         cursor.execute(
@@ -362,7 +284,6 @@ class UsuarioDAO:
         return usuarios
 
     def crear(self, username=None, password=None, nombre_completo=None, email="", **kwargs):
-        """Crea un nuevo usuario con compatibilidad para ambos flujos del sistema."""
         if username is None:
             username = kwargs.get("username") or (email or "").lower().strip()
         if password is None:
@@ -412,7 +333,6 @@ class UsuarioDAO:
         return nuevo_id
 
     def crear_usuario(self, nombre, apellido, email, password, codigo_verificacion="", codigo_verificacion_expira=None):
-        """Crea un usuario nuevo para el flujo de registro con correo verificado."""
         return self.crear(
             username=email.lower().strip(),
             password=password,
@@ -425,7 +345,6 @@ class UsuarioDAO:
         )
 
     def guardar_codigo_verificacion(self, email, codigo, expiracion):
-        """Guarda el código de verificación en el usuario."""
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute(
@@ -437,7 +356,6 @@ class UsuarioDAO:
         conn.close()
 
     def guardar_codigo_recuperacion(self, email, codigo, expiracion):
-        """Guarda el código de recuperación de contraseña."""
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute(
@@ -449,7 +367,6 @@ class UsuarioDAO:
         conn.close()
 
     def cambiar_password(self, id_usuario, nueva_password):
-        """Cambia la contraseña de un usuario existente."""
         hash_pw = bcrypt.hashpw(nueva_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
         conn = get_connection()
         cursor = conn.cursor()
@@ -462,7 +379,6 @@ class UsuarioDAO:
         conn.close()
 
     def desactivar(self, id_usuario):
-        """Desactiva un usuario (no lo borra, solo lo marca como inactivo)."""
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute(
@@ -475,9 +391,6 @@ class UsuarioDAO:
 
 
 def asegurar_esquema_autenticacion():
-    """Asegura que la tabla usuario tenga las columnas necesarias para registro por correo.
-    Si la base aún no existe, no falla al importarse; el setup la creará antes de usarla.
-    """
     try:
         conn = get_connection()
     except mysql.connector.Error:
@@ -509,9 +422,8 @@ def asegurar_esquema_autenticacion():
 
 
 asegurar_esquema_autenticacion()
-class ActividadDAO:
-    """Maneja las consultas SQL para registrar, editar, listar y eliminar actividades."""
 
+class ActividadDAO:
     @staticmethod
     def _parse_fecha(fecha=None):
         if fecha is None:
@@ -529,10 +441,6 @@ class ActividadDAO:
         raise ValueError("Debe proporcionarse una fecha válida")
 
     def obtener_todas(self, filtros=None):
-        """
-        Retorna todas las actividades activas.
-        filtros: dict con claves opcionales {id_asic, id_tipo, fecha_desde, fecha_hasta}
-        """
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
         sql = """
@@ -583,7 +491,6 @@ class ActividadDAO:
         return lista
 
     def obtener_por_id(self, id_actividad):
-        """Retorna los detalles de una actividad específica por su ID."""
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
         sql = """
@@ -609,7 +516,6 @@ class ActividadDAO:
                medicos=0, promotores_salud=0, voceros_comite_salud=0, vocero_consejo_direccion=0,
                coordinador_docencia=0, autoridades_presentes=0, otros_actores=0,
                personas_comunidad=0, estudiantes_aspirantes=0, participantes=0, total_participantes=None):
-        """Inserta una nueva actividad. Retorna el ID generado."""
         fecha_bd = self._parse_fecha(fecha).strftime("%Y-%m-%d")
         conn = get_connection()
         cursor = conn.cursor()
@@ -653,7 +559,6 @@ class ActividadDAO:
                   medicos=0, promotores_salud=0, voceros_comite_salud=0, vocero_consejo_direccion=0,
                   coordinador_docencia=0, autoridades_presentes=0, otros_actores=0,
                   personas_comunidad=0, estudiantes_aspirantes=0, participantes=0, total_participantes=None):
-        """Actualiza los datos de una actividad existente."""
         fecha_bd = self._parse_fecha(fecha).strftime("%Y-%m-%d")
         conn = get_connection()
         cursor = conn.cursor()
@@ -688,12 +593,12 @@ class ActividadDAO:
         conn.close()
 
     def eliminar(self, id_actividad):
-        """Borrado lógico (soft delete): marca el registro como eliminado."""
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("UPDATE actividad SET eliminado = TRUE WHERE id_actividad = %s", (id_actividad,))
         conn.commit()
         cursor.close()
+        conn.close()
         conn.close()
 
     def verificar_duplicado(self, id_asic, id_tipo, fecha, tema=None, excluir_id=None):
@@ -720,10 +625,9 @@ class ActividadDAO:
             if reg_desc == desc_normalizada:
                 return True
         return False
+
 class AsicDAO:
-    """Maneja todas las consultas relacionadas con la tabla 'asic'."""
     def obtener_todos(self):
-        """Retorna lista de todos los ASIC según el esquema final."""
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
         cursor.execute("SELECT * FROM asic ORDER BY nombre")
@@ -732,7 +636,6 @@ class AsicDAO:
         conn.close()
         return lista
     def obtener_por_id(self, id_asic):
-        """Busca un ASIC por su ID. Retorna dict o None."""
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
         cursor.execute("SELECT * FROM asic WHERE id_asic = %s", (id_asic,))
@@ -741,7 +644,6 @@ class AsicDAO:
         conn.close()
         return asic
     def obtener_por_codigo(self, codigo):
-        """Compatibilidad: el esquema final no usa código, así que se busca por nombre."""
         codigo = (codigo or "").strip()
         if not codigo:
             return None
@@ -753,7 +655,6 @@ class AsicDAO:
         conn.close()
         return asic
     def crear(self, codigo=None, nombre=None, municipio="", parroquia=""):
-        """Inserta un nuevo ASIC. El parámetro codigo se mantiene solo por compatibilidad."""
         nombre = (nombre or codigo or "").strip()
         if not nombre:
             raise ValueError("El nombre del ASIC es obligatorio.")
@@ -766,7 +667,6 @@ class AsicDAO:
         conn.close()
         return nuevo_id
     def actualizar(self, id_asic, codigo=None, nombre=None, municipio="", parroquia=""):
-        """Actualiza los datos de un ASIC existente."""
         nombre = (nombre or codigo or "").strip()
         if not nombre:
             raise ValueError("El nombre del ASIC es obligatorio.")
@@ -777,17 +677,15 @@ class AsicDAO:
         cursor.close()
         conn.close()
     def desactivar(self, id_asic):
-        """Elimina lógicamente el ASIC, manteniendo compatibilidad con la versión antigua."""
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("DELETE FROM asic WHERE id_asic = %s", (id_asic,))
         conn.commit()
         cursor.close()
         conn.close()
+
 class TipoActividadDAO:
-    """Maneja todas las consultas relacionadas con la tabla 'tipo_actividad'."""
     def obtener_todos(self):
-        """Retorna todos los tipos de actividad según el esquema final."""
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
         cursor.execute("SELECT * FROM tipo_actividad ORDER BY nombre")
@@ -796,7 +694,6 @@ class TipoActividadDAO:
         conn.close()
         return lista
     def obtener_por_id(self, id_tipo):
-        """Busca un tipo por su ID. Retorna dict o None."""
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
         cursor.execute("SELECT * FROM tipo_actividad WHERE id_tipo = %s", (id_tipo,))
@@ -805,7 +702,6 @@ class TipoActividadDAO:
         conn.close()
         return tipo
     def obtener_por_codigo(self, codigo):
-        """Compatibilidad: el esquema final no usa código, así que se busca por nombre."""
         codigo = (codigo or "").strip()
         if not codigo:
             return None
@@ -817,7 +713,6 @@ class TipoActividadDAO:
         conn.close()
         return tipo
     def crear(self, codigo=None, nombre=None):
-        """Inserta un nuevo tipo de actividad. El parámetro codigo se mantiene por compatibilidad."""
         nombre = (nombre or codigo or "").strip()
         if not nombre:
             raise ValueError("El nombre del tipo de actividad es obligatorio.")
@@ -830,7 +725,6 @@ class TipoActividadDAO:
         conn.close()
         return nuevo_id
     def actualizar(self, id_tipo, codigo=None, nombre=None):
-        """Actualiza un tipo de actividad existente."""
         nombre = (nombre or codigo or "").strip()
         if not nombre:
             raise ValueError("El nombre del tipo de actividad es obligatorio.")
@@ -841,7 +735,6 @@ class TipoActividadDAO:
         cursor.close()
         conn.close()
     def desactivar(self, id_tipo):
-        """Elimina lógicamente el tipo de actividad, manteniendo compatibilidad con la versión antigua."""
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("DELETE FROM tipo_actividad WHERE id_tipo = %s", (id_tipo,))
@@ -849,9 +742,8 @@ class TipoActividadDAO:
         cursor.close()
         conn.close()
 
-class ComiteDAO:
-    """Maneja la cabecera del comité de salud."""
 
+class ComiteDAO:
     def obtener_todos(self, filtros=None):
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
@@ -927,8 +819,6 @@ class ComiteDAO:
 
 
 class VoceriaDAO:
-    """Maneja el detalle de voceros asociados a un comité."""
-
     def obtener_todas(self, filtros=None):
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
@@ -993,10 +883,8 @@ class VoceriaDAO:
         return item
 
     def obtener_con_items(self, id_comite):
-        """Retorna el comité con los datos de la cabecera y la lista de voceros asociados."""
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
-        # Obtener datos del comité
         cursor.execute("""
             SELECT c.*, a.nombre AS asic_nombre, u.nombre_completo AS usuario_nombre
             FROM comite c
@@ -1010,7 +898,6 @@ class VoceriaDAO:
             conn.close()
             return None
         
-        # Obtener voceros del comité
         cursor.execute("""
             SELECT v.*, tv.nombre AS tipo_voceria_nombre
             FROM voceria v
@@ -1022,15 +909,13 @@ class VoceriaDAO:
         conn.close()
         
         comite["items"] = voceros
-        comite["id_voceria"] = comite["id_comite"]  # Para compatibilidad
-        # Agregar tipo_nombre como lista de tipos únicos de los voceros
+        comite["id_voceria"] = comite["id_comite"]
         tipos_unicos = list(dict.fromkeys(v.get("tipo_voceria_nombre", "") for v in voceros if v.get("tipo_voceria_nombre")))
         comite["tipo_nombre"] = ", ".join(tipos_unicos) if tipos_unicos else ""
         return comite
 
     def crear(self, id_asic, id_tipo, id_usuario_registro, estado, municipio, parroquia,
               centro_dispensador, nombre_centro, nombre_comite, items):
-        """Crea un comité y luego registra los voceros asociados."""
         comite_dao = ComiteDAO()
         id_comite = comite_dao.crear(
             id_asic=id_asic,
@@ -1048,7 +933,7 @@ class VoceriaDAO:
             if items:
                 sql = """
                     INSERT INTO voceria (id_comite, id_tipo_voceria, nombres, ci, telefono, fecha_nacimiento, edad,
-                                        sexo, profesion, correo, fechas_eleccion)
+                                         sexo, profesion, correo, fechas_eleccion)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """
                 for item in items:
@@ -1092,7 +977,7 @@ class VoceriaDAO:
             if items:
                 sql = """
                     INSERT INTO voceria (id_comite, id_tipo_voceria, nombres, ci, telefono, fecha_nacimiento, edad,
-                                        sexo, profesion, correo, fechas_eleccion)
+                                         sexo, profesion, correo, fechas_eleccion)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """
                 for item in items:
@@ -1135,7 +1020,6 @@ class VoceriaDAO:
 
 
 class TipoVoceriaDAO:
-    """Maneja el catálogo de tipos de vocería."""
     def obtener_todos(self):
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
@@ -1198,17 +1082,11 @@ class TipoVoceriaDAO:
         cursor.close()
         conn.close()
 
-# ============================================================
-# SECCIÓN 4 — CONTROLADORES
-# Lógica de negocio y validaciones.
-# (antes en controllers/)
-# ============================================================
 import os
 import shutil
 import time
 import mimetypes
-# Variable global que guarda los datos del usuario logueado
-# Cuando es None, no hay nadie logueado
+
 sesion_actual = None
 class AuthController:
     """Maneja el login y logout del sistema."""
@@ -1696,11 +1574,6 @@ class VoceriaController:
         return True, "Vocería eliminada correctamente."
 
 
-# ============================================================
-# SECCIÓN 5 — SERVICIOS
-# Lógica de negocio compleja: Excel, PDF, Consolidación.
-# (antes en services/)
-# ============================================================
 import openpyxl
 import re
 import unicodedata
@@ -1715,42 +1588,33 @@ from reportlab.platypus import (
     HRFlowable, PageBreak, Paragraph, SimpleDocTemplate,
     Spacer, Table, TableStyle,
 )
-# Paleta de colores para PDF
+
 _AZUL_OSCURO = colors.HexColor("#0f3460")
-_AZUL_MEDIO  = colors.HexColor("#16213e")
+_AZUL_MEDIO = colors.HexColor("#16213e")
 _ROJO_ACENTO = colors.HexColor("#e94560")
-_VERDE       = colors.HexColor("#05c46b")
-_GRIS_CLARO  = colors.HexColor("#f4f6f8")
-_GRIS_BORDE  = colors.HexColor("#cccccc")
-_BLANCO      = colors.white
-_NEGRO       = colors.black
+_VERDE = colors.HexColor("#05c46b")
+_GRIS_CLARO = colors.HexColor("#f4f6f8")
+_GRIS_BORDE = colors.HexColor("#cccccc")
+_BLANCO = colors.white
+_NEGRO = colors.black
+
+
 class ConsolidacionService:
-    """
-    Genera y persiste informes consolidados de actividades
-    para un período y (opcionalmente) un ASIC concreto.
-    """
     def __init__(self, id_usuario: int):
-        """id_usuario: ID del usuario que genera el informe."""
         self.id_usuario = id_usuario
         self._actividad_dao = ActividadDAO()
         self._asic_dao = AsicDAO()
         self._voceria_dao = VoceriaDAO()
+
     def generar_previo(self, fecha_inicio, fecha_fin, id_asic=None) -> dict:
-        """
-        Calcula el resumen SIN guardar en BD.
-        id_asic puede ser None (todos), un entero (un ASIC) o una lista de enteros (varios ASIC).
-        Retorna un dict listo para mostrar en la UI y luego pasarlo a guardar().
-        """
         actividades = self._obtener_actividades(fecha_inicio, fecha_fin, id_asic)
-        total_act  = len(actividades)
+        total_act = len(actividades)
         total_part = sum(a["total_participantes"] for a in actividades)
         resumen_tipo = self._agrupar(actividades, "tipo_nombre")
         resumen_asic = self._agrupar(actividades, "asic_nombre")
-        
-        # Obtener vocerías CS con los mismos filtros
+
         vocerias = self._obtener_vocerias(fecha_inicio, fecha_fin, id_asic)
 
-        # Nombre(s) de ASIC para mostrar en la UI
         asic_nombre = None
         if id_asic:
             ids = id_asic if isinstance(id_asic, list) else [id_asic]
@@ -1762,27 +1626,24 @@ class ConsolidacionService:
             asic_nombre = ", ".join(nombres) if nombres else str(ids)
 
         return {
-            "actividades":         actividades,
-            "resumen_por_tipo":    resumen_tipo,
-            "resumen_por_asic":    resumen_asic,
-            "total_actividades":   total_act,
+            "actividades": actividades,
+            "resumen_por_tipo": resumen_tipo,
+            "resumen_por_asic": resumen_asic,
+            "total_actividades": total_act,
             "total_participantes": total_part,
-            "fecha_inicio":        fecha_inicio,
-            "fecha_fin":           fecha_fin,
-            "id_asic":             id_asic,
-            "asic_nombre":         asic_nombre,
-            "vocerias":            vocerias,
+            "fecha_inicio": fecha_inicio,
+            "fecha_fin": fecha_fin,
+            "id_asic": id_asic,
+            "asic_nombre": asic_nombre,
+            "vocerias": vocerias,
         }
+
     def _obtener_actividades(self, fecha_inicio, fecha_fin, id_asic) -> list:
-        """Usa ActividadDAO con filtros de fecha y ASIC.
-        id_asic puede ser None, un entero o una lista de enteros.
-        """
         filtros_base = {
             "fecha_desde": fecha_inicio.strftime("%Y-%m-%d"),
             "fecha_hasta": fecha_fin.strftime("%Y-%m-%d"),
         }
         if not id_asic:
-            # Sin filtro de ASIC → traer todo
             return self._actividad_dao.obtener_todas(filtros_base)
 
         ids = id_asic if isinstance(id_asic, list) else [id_asic]
@@ -1791,18 +1652,15 @@ class ConsolidacionService:
             filtros["id_asic"] = ids[0]
             return self._actividad_dao.obtener_todas(filtros)
 
-        # Varios ASIC: consultar uno por uno y combinar sin duplicados
-        vistas: dict = {}  # id_actividad → registro
+        vistas = {}
         for aid in ids:
             filtros = dict(filtros_base)
             filtros["id_asic"] = aid
             for act in self._actividad_dao.obtener_todas(filtros):
                 vistas[act["id_actividad"]] = act
         return sorted(vistas.values(), key=lambda a: (str(a.get("fecha", "")), a["id_actividad"]), reverse=True)
+
     def _obtener_vocerias(self, fecha_inicio, fecha_fin, id_asic) -> list:
-        """Obtiene vocerías CS con filtros de fecha y ASIC.
-        id_asic puede ser None, un entero o una lista de enteros.
-        """
         filtros_base = {
             "fecha_desde": fecha_inicio.strftime("%Y-%m-%d"),
             "fecha_hasta": fecha_fin.strftime("%Y-%m-%d"),
@@ -1816,8 +1674,7 @@ class ConsolidacionService:
             filtros["id_asic"] = ids[0]
             return self._voceria_dao.obtener_todas(filtros)
 
-        # Varios ASIC: consultar uno por uno y combinar sin duplicados
-        vistas: dict = {}  # id_voceria → registro
+        vistas = {}
         for aid in ids:
             filtros = dict(filtros_base)
             filtros["id_asic"] = aid
@@ -1827,13 +1684,12 @@ class ConsolidacionService:
 
     @staticmethod
     def _agrupar(actividades: list, campo_grupo: str) -> list:
-        """Agrupa actividades por un campo y calcula totales."""
-        grupos: dict = {}
+        grupos = {}
         for act in actividades:
             clave = act.get(campo_grupo) or "Sin clasificar"
             if clave not in grupos:
                 grupos[clave] = {"nombre": clave, "total_actividades": 0, "total_participantes": 0}
-            grupos[clave]["total_actividades"]  += 1
+            grupos[clave]["total_actividades"] += 1
             grupos[clave]["total_participantes"] += act.get("total_participantes", 0)
         return sorted(grupos.values(), key=lambda x: x["nombre"])
 # Columnas requeridas en el Excel de importación
@@ -2868,13 +2724,6 @@ class PDFService:
         ]))
         elems.append(tabla)
         return elems
-# ============================================================
-# SECCIÓN 6 — SETUP INICIAL DE LA BASE DE DATOS
-# (antes en db/setup.py)
-#
-# Ejecuta este archivo directamente para configurar la BD:
-#   python db.py
-# ============================================================
 def _setup_crear_base_de_datos():
     """Crea la base de datos si no existe."""
     params = DATABASE[MODO].copy()

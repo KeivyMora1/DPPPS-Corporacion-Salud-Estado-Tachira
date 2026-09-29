@@ -23,11 +23,4 @@ class ModeloActividad:
         return self.controller.actividad_dao.obtener_por_id(id_actividad)
 
 
-# ─────────────────────────────────────────────────────────────
-# VISTA
-# Solo construye la interfaz. No tiene lógica de negocio.
-# Recibe al controlador para asignarle las acciones.
-# ─────────────────────────────────────────────────────────────
-
-
 __all__ = ['ModeloActividad']

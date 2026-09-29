@@ -271,8 +271,6 @@ class VistaVoceria:
                 self._actualizar_header_item(item_data_container["data"])
             self.controlador._actualizar_estado_botones_formulario()
 
-        fila1 = ctk.CTkFrame(inner, fg_color="transparent")
-        fila1.pack(fill="x", pady=3)
         fila2 = ctk.CTkFrame(inner, fg_color="transparent")
         fila2.pack(fill="x", pady=3)
 

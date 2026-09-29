@@ -1,21 +1,8 @@
-# ============================================================
-# utils.py
-# Funciones de soporte reutilizables del sistema DPPPS.
-#
-# Contiene:
-#   - Función para centrar ventanas Tkinter
-# ============================================================
-
 from db import get_connection
 
 
 def centrar_ventana(ventana, ancho: int, alto: int):
-    """
-    Centra una ventana Tkinter en el monitor del usuario.
-
-    Ejemplo:
-        centrar_ventana(root, 420, 500)
-    """
+    """Centra una ventana Tkinter en la pantalla."""
     ancho_pantalla = ventana.winfo_screenwidth()
     alto_pantalla  = ventana.winfo_screenheight()
     x = (ancho_pantalla // 2) - (ancho // 2)

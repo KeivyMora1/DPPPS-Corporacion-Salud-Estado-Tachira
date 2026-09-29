@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Helper script to apply schema.sql to the database using settings from db.py.
+"""Aplica schema.sql a la base de datos usando la config de db.py.
 
-Usage:
+Uso:
   python scripts/update_db.py [--schema PATH] [--backup] [--use-cli]
 
-Options:
-  --schema PATH   Path to schema file (default: schema.sql)
-  --backup        Create a mysqldump backup before applying (requires mysqldump in PATH)
-  --use-cli       Use the `mysql` CLI to apply the schema instead of the Python connector
+Opciones:
+  --schema PATH   Archivo de schema (default: schema.sql)
+  --backup        Hace backup con mysqldump antes de aplicar
+  --use-cli       Usa el CLI `mysql` en vez del conector Python
 """
 import os
 import argparse
@@ -15,8 +15,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-# Ensure project root is on sys.path so we can import db.py even when
-# running this script from scripts/ (Python sets sys.path[0] to script dir).
 PROJECT_ROOT = str(Path(__file__).resolve().parents[1])
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
@@ -27,7 +25,6 @@ except Exception:
     mysql = None
 
 def load_db_config():
-    # Importing db.py to reuse DATABASE and MODO
     import db as dbmod
     params = dbmod.DATABASE[dbmod.MODO]
     return params
@@ -81,10 +78,8 @@ def apply_with_connector(params, schema_path):
         database=params.get("database")
     )
     cursor = conn.cursor()
-    print("[INFO] Ejecutando statements del schema (esto puede tardar)...")
+    print("[INFO] Ejecutando statements del schema...")
     try:
-        # Algunos conectores no soportan execute(..., multi=True) en el cursor C-level.
-        # Para mayor compatibilidad, separamos por ';' y ejecutamos cada statement.
         statements = [s.strip() for s in sql.split(';') if s.strip()]
         for stmt in statements:
             cursor.execute(stmt)

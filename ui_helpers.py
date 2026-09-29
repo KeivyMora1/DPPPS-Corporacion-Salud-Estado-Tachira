@@ -140,7 +140,6 @@ def card_with_accent(parent, **kwargs):
 
 
 def entry_with_placeholder(parent, placeholder="", **kwargs):
-    """CTkEntry con manejo automático de placeholder."""
     font = kwargs.pop("font", ("Segoe UI", 11))
     e = ctk.CTkEntry(parent, font=font, corner_radius=6, **kwargs)
     if placeholder:
@@ -160,7 +159,6 @@ def entry_with_placeholder(parent, placeholder="", **kwargs):
 
 
 def spinbox_numeric(parent, label_text="", default=0, on_change=None, max_digits=5, **kwargs):
-    """Campo numérico (Spinbox) con label opcional."""
     if label_text:
         lbl = ctk.CTkLabel(parent, text=label_text, font=("Segoe UI", 10, "bold"))
         lbl.pack(anchor="w")
@@ -170,7 +168,6 @@ def spinbox_numeric(parent, label_text="", default=0, on_change=None, max_digits
     ent.delete(0, tk.END)
     ent.insert(0, str(default))
     
-    # Validar longitud máxima al escribir
     def _validar_longitud(e):
         if len(ent.get()) > max_digits:
             ent.delete(max_digits, tk.END)
@@ -184,10 +181,7 @@ def spinbox_numeric(parent, label_text="", default=0, on_change=None, max_digits
 
 
 class CTkDatePicker(ctk.CTkFrame):
-    """
-    Selector de fecha interactivo con apariencia y dimensiones idénticas a un CTkEntry,
-    con botón desplegable de calendario.
-    """
+    """Selector de fecha con calendario desplegable, estilo CTkEntry."""
     def __init__(self, parent, placeholder="AAAA-MM-DD", font=("Arial", 11),
                  fg_color="#20053D", text_color="#CBE1DB", border_color="#345572",
                  border_width=2, corner_radius=6, height=28, width=None,
@@ -410,7 +404,7 @@ class CTkDatePicker(ctk.CTkFrame):
 
 
 def date_picker(parent, placeholder="AAAA-MM-DD", font=None, fg_color="#20053D", text_color="#CBE1DB", border_color="#345572", default_today=True, **kwargs):
-    """Campo de fecha con selector de calendario con estilo CustomTkinter idéntico a CTkEntry."""
+    """Campo de fecha con selector de calendario estilo CTkEntry."""
     corner_radius = kwargs.pop("corner_radius", 6)
     border_width = kwargs.pop("border_width", 2)
     return CTkDatePicker(
@@ -428,9 +422,7 @@ def date_picker(parent, placeholder="AAAA-MM-DD", font=None, fg_color="#20053D",
 
 
 class CTkMultiSelectOptionMenu(ctk.CTkFrame):
-    """
-    Menú desplegable de selección múltiple con estilo idéntico a CTkOptionMenu.
-    """
+    """Menú desplegable de selección múltiple estilo CTkOptionMenu."""
     def __init__(self, parent, values=None, placeholder="Todos", width=220, height=28,
                  fg_color="#20053D", button_color="#26405E", button_hover_color="#2f4d6a",
                  text_color="#CBE1DB", dropdown_fg_color="#20053D", dropdown_text_color="#CBE1DB",
@@ -646,12 +638,12 @@ class CTkMultiSelectOptionMenu(ctk.CTkFrame):
 
 
 def multiselect_option_menu(parent, values=None, placeholder="Todos", width=220, **kwargs):
-    """Menú de selección múltiple con estilo idéntico a CTkOptionMenu."""
+    """Menú de selección múltiple estilo CTkOptionMenu."""
     return CTkMultiSelectOptionMenu(parent, values=values, placeholder=placeholder, width=width, **kwargs)
 
 
 def entry_numeric(parent, label_text="", placeholder="", max_digits=5, on_change=None, fg_color=None, text_color=None, border_color=None, **kwargs):
-    """Entry numérico con label opcional, estilo consistente con CTkEntry."""
+    """Entry numérico con label opcional."""
     if label_text:
         lbl = ctk.CTkLabel(parent, text=label_text, font=("Segoe UI", 10, "bold"))
         lbl.pack(anchor="w")
