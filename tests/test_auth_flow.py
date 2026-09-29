@@ -342,6 +342,22 @@ def test_generar_word_inyecta_totales_reales_en_la_plantilla(tmp_path):
         assert "18" in texto_plano
         assert "Total de actividades:" not in texto_plano
         assert "Total de participantes:" not in texto_plano
+        assert "Seguimiento a los Comités de Salud mediante las vocerías en salud comunal" not in texto_plano
+
+        filas = xml.findall(".//w:tr", ns)
+        valores_fila_establecimientos = [
+            n.text for n in filas[5].findall("./w:tc", ns)[1].findall(".//w:t", ns)
+            if (n.text or "").strip().isdigit()
+        ]
+        assert valores_fila_establecimientos[-1] == "2"
+
+        fila_actualizacion = filas[1]
+        celda_etiqueta = fila_actualizacion.findall("./w:tc", ns)[0]
+        celda_total = fila_actualizacion.findall("./w:tc", ns)[1]
+        assert "Actualización de los comités de salud" in "".join(
+            n.text or "" for n in celda_etiqueta.findall("./w:p[1]//w:t", ns)
+        )
+        assert "0" in "".join(n.text or "" for n in celda_total.findall("./w:p[1]//w:t", ns))
 
 
 def test_generar_word_conecta_todos_los_tipos_de_actividad_en_la_plantilla(tmp_path):

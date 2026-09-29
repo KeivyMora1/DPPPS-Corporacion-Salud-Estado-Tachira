@@ -2504,9 +2504,6 @@ class PDFService:
         tipo_lookup.setdefault(llave_actualizacion, {"total_actividades": 0, "total_participantes": 0})
         tipo_lookup[llave_actualizacion]["total_actividades"] = len(vocerias) or tipo_lookup[llave_actualizacion].get("total_actividades", 0)
 
-        llave_seguimiento = self._normalizar_texto("Seguimiento a los Comités de Salud mediante las vocerías en salud comunal")
-        tipo_lookup.setdefault(llave_seguimiento, {"total_actividades": 0, "total_participantes": 0})
-
         def get_valor(nombre: str, campo: str) -> int:
             clave = self._normalizar_texto(nombre)
             datos_tipo = tipo_lookup.get(clave, {"total_actividades": 0, "total_participantes": 0})
@@ -2528,6 +2525,40 @@ class PDFService:
             for nodo in nodos_numericos[len(valores):]:
                 nodo.text = "0"
 
+        filas = root.findall(".//w:tr", ns)
+        if len(filas) > 1:
+            celdas = filas[1].findall("./w:tc", ns)
+            if len(celdas) > 1:
+                texto_eliminar = "Seguimiento a los Comités de Salud mediante las vocerías en salud comunal"
+                parrafos_etiqueta = celdas[0].findall("./w:p", ns)
+                indice_actualizacion = next(
+                    (
+                        indice for indice, parrafo in enumerate(parrafos_etiqueta)
+                        if "Actualización de los comités de salud" in "".join(
+                            (n.text or "") for n in parrafo.findall(".//w:t", ns)
+                        )
+                    ),
+                    None,
+                )
+                if indice_actualizacion is not None:
+                    for parrafo in parrafos_etiqueta[:indice_actualizacion]:
+                        celdas[0].remove(parrafo)
+
+                parrafos_valor = celdas[1].findall("./w:p", ns)
+                indice_ultimo_numero = next(
+                    (
+                        indice for indice in range(len(parrafos_valor) - 1, -1, -1)
+                        if any(
+                            (n.text or "").strip().isdigit()
+                            for n in parrafos_valor[indice].findall(".//w:t", ns)
+                        )
+                    ),
+                    None,
+                )
+                if indice_ultimo_numero is not None:
+                    for parrafo in parrafos_valor[:indice_ultimo_numero]:
+                        celdas[1].remove(parrafo)
+
         salud = (get_valor("Salud toca tu puerta", "total_actividades"), get_valor("Salud toca tu puerta", "total_participantes"))
         sesiones = (get_valor("Sesiones educativas", "total_actividades"), get_valor("Sesiones educativas", "total_participantes"))
         comites_escuela = (get_valor("Los Comités de Salud van a la escuela", "total_actividades"), get_valor("Los Comités de Salud van a la escuela", "total_participantes"))
@@ -2535,10 +2566,12 @@ class PDFService:
         jornadas = (get_valor("Participación Activa en Jornadas", "total_actividades"), get_valor("Participación Activa en Jornadas", "total_participantes"))
         inmunizaciones = (get_valor("Participación Activa en Inmunizaciones", "total_actividades"), get_valor("Participación Activa en Inmunizaciones", "total_participantes"))
         entrevista = (get_valor("Entrevista servicio social", "total_actividades"), get_valor("Entrevista servicio social", "total_participantes"))
-        actividades_asic = (get_valor("Actividades Realizadas en los Establecimientos de Salud de los ASIC", "total_actividades"), get_valor("Actividades Realizadas en los Establecimientos de Salud de los ASIC", "total_participantes"))
+        actividades_asic = (
+            int(datos.get("total_actividades", 0) or 0),
+            int(datos.get("total_participantes", 0) or 0),
+        )
 
         asignar_valores_fila(1, [
-            get_valor("Seguimiento a los Comités de Salud mediante las vocerías en salud comunal", "total_actividades"),
             get_valor("Actualización de los comités de salud", "total_actividades"),
         ])
         asignar_valores_fila(2, [salud[0], salud[1]])
