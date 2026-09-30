@@ -14,6 +14,9 @@ class ModeloLogin:
     def verificar_email(self, email, codigo):
         return self.auth.verificar_email(email, codigo)
 
+    def reenviar_codigo_verificacion(self, email):
+        return self.auth.reenviar_codigo_verificacion(email)
+
     def solicitar_recuperacion(self, email):
         return self.auth.solicitar_recuperacion(email)
 

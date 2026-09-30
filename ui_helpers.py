@@ -185,7 +185,7 @@ class CTkDatePicker(ctk.CTkFrame):
     def __init__(self, parent, placeholder="AAAA-MM-DD", font=("Arial", 11),
                  fg_color="#20053D", text_color="#CBE1DB", border_color="#345572",
                  border_width=2, corner_radius=6, height=28, width=None,
-                 default_today=True, **kwargs):
+                 default_today=True, max_date=None, min_date=None, **kwargs):
         frame_kwargs = {}
         if width is not None:
             frame_kwargs["width"] = width
@@ -203,6 +203,7 @@ class CTkDatePicker(ctk.CTkFrame):
         self._placeholder = placeholder
         self._text_color = text_color
         self._dim_color = "gray50"
+        self._date_selected_callback = None
         self.grid_columnconfigure(0, weight=1)
 
         entry_kwargs = {}
@@ -263,6 +264,8 @@ class CTkDatePicker(ctk.CTkFrame):
                 weekendforeground="#CBE1DB",
                 othermonthforeground="#5a7a85",
                 othermonthbackground="#1a2f45",
+                maxdate=max_date,
+                mindate=min_date,
                 font=("Arial", 9)
             )
             self.cal.pack()
@@ -290,6 +293,8 @@ class CTkDatePicker(ctk.CTkFrame):
                 self.entry.delete(0, tk.END)
                 self.entry.insert(0, sel.strftime("%Y-%m-%d"))
                 self.entry.configure(text_color=self._text_color)
+                if self._date_selected_callback:
+                    self._date_selected_callback()
         if self._top_cal:
             self._top_cal.withdraw()
 
@@ -360,6 +365,9 @@ class CTkDatePicker(ctk.CTkFrame):
         except Exception:
             return None
 
+    def set_date_selected_callback(self, callback):
+        self._date_selected_callback = callback
+
     def delete(self, first, last=None):
         return self.entry.delete(first, last)
 
@@ -403,7 +411,7 @@ class CTkDatePicker(ctk.CTkFrame):
         return self.entry.unbind(sequence, funcid)
 
 
-def date_picker(parent, placeholder="AAAA-MM-DD", font=None, fg_color="#20053D", text_color="#CBE1DB", border_color="#345572", default_today=True, **kwargs):
+def date_picker(parent, placeholder="AAAA-MM-DD", font=None, fg_color="#20053D", text_color="#CBE1DB", border_color="#345572", default_today=True, max_date=None, min_date=None, **kwargs):
     """Campo de fecha con selector de calendario estilo CTkEntry."""
     corner_radius = kwargs.pop("corner_radius", 6)
     border_width = kwargs.pop("border_width", 2)
@@ -417,6 +425,8 @@ def date_picker(parent, placeholder="AAAA-MM-DD", font=None, fg_color="#20053D",
         border_width=border_width,
         corner_radius=corner_radius,
         default_today=default_today,
+        max_date=max_date,
+        min_date=min_date,
         **kwargs
     )
 

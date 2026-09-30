@@ -19,6 +19,7 @@ from ui_helpers import (
     separator, treeview_style, scrollable_frame, entry_with_placeholder,
     spinbox_numeric, combobox, entry_numeric, date_picker
 )
+from utils import set_favicon
 
 
 class VistaActividad:
@@ -274,6 +275,7 @@ class VistaActividad:
     def abrir_formulario(self, datos_edicion=None):
         t = self.t
         ventana = ctk.CTkToplevel(self.parent)
+        set_favicon(ventana)
         ventana.title("Registrar Actividad" if datos_edicion is None else "Editar Actividad")
         ventana.resizable(True, True)
         ventana.configure(fg_color=t["bg_surface"])
@@ -299,8 +301,17 @@ class VistaActividad:
         marco_pie_formulario = ctk.CTkFrame(ventana, fg_color="transparent")
         marco_pie_formulario.pack(side="bottom", fill="x", padx=25, pady=(5, 15))
 
-        lbl_error = ctk.CTkLabel(marco_pie_formulario, text="", font=("Arial", 9), text_color=t["red"])
-        lbl_error.pack(pady=(0, 3))
+        lbl_error = ctk.CTkLabel(
+            marco_pie_formulario,
+            text="",
+            font=("Arial", 12, "bold"),
+            text_color=t["text_primary"],
+            fg_color=t["red"],
+            corner_radius=6,
+            wraplength=820,
+            justify="left",
+            anchor="w",
+        )
 
         # Scrollable frame for form
         scroll_frame = ctk.CTkScrollableFrame(ventana, fg_color="transparent")
@@ -356,6 +367,8 @@ class VistaActividad:
         ent_fecha_inicio = date_picker(marco_fechas, font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"],
                                        border_color=t["border"], corner_radius=6)
         ent_fecha_inicio.pack(fill="x", pady=(2, 0))
+        if ent_fecha_inicio.cal:
+            ent_fecha_inicio.cal.configure(maxdate=date.today())
         ent_fecha_fin = ent_fecha_inicio
 
         # Contenedor para campos opcionales/avanzados (siempre visible)
@@ -369,21 +382,20 @@ class VistaActividad:
         marco_ubicacion.pack(fill="x", pady=(0, 4))
         inner_ubic = ctk.CTkFrame(marco_ubicacion, fg_color="transparent")
         inner_ubic.pack(fill="x", padx=10, pady=8)
+        for column in range(3):
+            inner_ubic.grid_columnconfigure(column, weight=1, uniform="ubicacion")
 
         # Fila 1: Estado, Municipio, Parroquia
-        fila_ubi1 = ctk.CTkFrame(inner_ubic, fg_color="transparent")
-        fila_ubi1.pack(fill="x", pady=2)
-
-        col_estado = ctk.CTkFrame(fila_ubi1, fg_color="transparent")
-        col_estado.pack(side="left", fill="x", expand=True, padx=(0, 5))
-        ctk.CTkLabel(col_estado, text="Estado", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        col_estado = ctk.CTkFrame(inner_ubic, fg_color="transparent")
+        col_estado.grid(row=0, column=0, sticky="ew", padx=5, pady=2)
+        ctk.CTkLabel(col_estado, text="Estado *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
         ent_estado = ctk.CTkOptionMenu(col_estado, values=["Táchira"], fg_color=t["bg_base"], button_color=t["bg_card"], button_hover_color=t["bg_hover"], text_color=t["text_primary"], dropdown_fg_color=t["bg_base"], dropdown_text_color=t["text_primary"])
         ent_estado.set("Táchira")
         ent_estado.pack(fill="x", pady=(2, 0))
 
-        col_municipio = ctk.CTkFrame(fila_ubi1, fg_color="transparent")
-        col_municipio.pack(side="left", fill="x", expand=True, padx=5)
-        ctk.CTkLabel(col_municipio, text="Municipio", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        col_municipio = ctk.CTkFrame(inner_ubic, fg_color="transparent")
+        col_municipio.grid(row=0, column=1, sticky="ew", padx=5, pady=2)
+        ctk.CTkLabel(col_municipio, text="Municipio *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
         municipios = MUNICIPIOS_TACHIRA
         ent_municipio = ctk.CTkOptionMenu(col_municipio, values=municipios, fg_color=t["bg_base"], button_color=t["bg_card"], button_hover_color=t["bg_hover"], text_color=t["text_primary"], dropdown_fg_color=t["bg_base"], dropdown_text_color=t["text_primary"])
         if municipios:
@@ -393,9 +405,9 @@ class VistaActividad:
                 pass
         ent_municipio.pack(fill="x", pady=(2, 0))
 
-        col_parroquia = ctk.CTkFrame(fila_ubi1, fg_color="transparent")
-        col_parroquia.pack(side="right", fill="x", expand=True, padx=(5, 0))
-        ctk.CTkLabel(col_parroquia, text="Parroquia", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        col_parroquia = ctk.CTkFrame(inner_ubic, fg_color="transparent")
+        col_parroquia.grid(row=0, column=2, sticky="ew", padx=5, pady=2)
+        ctk.CTkLabel(col_parroquia, text="Parroquia *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
         ent_parroquia = ctk.CTkEntry(col_parroquia, font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"],
                                      border_color=t["border"], corner_radius=6)
         ent_parroquia.pack(fill="x", pady=(2, 0))
@@ -404,12 +416,9 @@ class VistaActividad:
         ent_parroquia.bind("<FocusOut>", lambda e: self._poner_placeholder_entry(ent_parroquia, "Parroquia"))
 
         # Fila 2: Establecimiento, Nombre Establecimiento, Comités de Salud
-        fila_ubi2 = ctk.CTkFrame(inner_ubic, fg_color="transparent")
-        fila_ubi2.pack(fill="x", pady=2)
-
-        col_estab = ctk.CTkFrame(fila_ubi2, fg_color="transparent")
-        col_estab.pack(side="left", fill="x", expand=True, padx=(0, 5))
-        ctk.CTkLabel(col_estab, text="Establecimiento de Salud", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        col_estab = ctk.CTkFrame(inner_ubic, fg_color="transparent")
+        col_estab.grid(row=1, column=0, sticky="ew", padx=5, pady=2)
+        ctk.CTkLabel(col_estab, text="Establecimiento de Salud *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
         establecimientos = [
             "Consultorio Popular TIPO I",
             "Consultorio Popular TIPO II",
@@ -432,9 +441,9 @@ class VistaActividad:
                 pass
         ent_establecimiento.pack(fill="x", pady=(2, 0))
 
-        col_nom_estab = ctk.CTkFrame(fila_ubi2, fg_color="transparent")
-        col_nom_estab.pack(side="left", fill="x", expand=True, padx=5)
-        ctk.CTkLabel(col_nom_estab, text="Nombre del Establecimiento", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        col_nom_estab = ctk.CTkFrame(inner_ubic, fg_color="transparent")
+        col_nom_estab.grid(row=1, column=1, sticky="ew", padx=5, pady=2)
+        ctk.CTkLabel(col_nom_estab, text="Nombre del Establecimiento *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
         ent_nombre_establecimiento = ctk.CTkEntry(col_nom_estab, font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"],
                                                   border_color=t["border"], corner_radius=6)
         ent_nombre_establecimiento.pack(fill="x", pady=(2, 0))
@@ -442,23 +451,18 @@ class VistaActividad:
         ent_nombre_establecimiento.bind("<FocusIn>", lambda e: self._limpiar_placeholder_entry(ent_nombre_establecimiento, "Nombre del establecimiento"))
         ent_nombre_establecimiento.bind("<FocusOut>", lambda e: self._poner_placeholder_entry(ent_nombre_establecimiento, "Nombre del establecimiento"))
 
-        col_comites = ctk.CTkFrame(fila_ubi2, fg_color="transparent")
-        col_comites.pack(side="right", fill="x", expand=True, padx=(5, 0))
-        ctk.CTkLabel(col_comites, text="Comités de Salud", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_comites = ctk.CTkEntry(col_comites, font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"],
-                                   border_color=t["border"], corner_radius=6)
-        ent_comites.pack(fill="x", pady=(2, 0))
+        col_comites = ctk.CTkFrame(inner_ubic, fg_color="transparent")
+        col_comites.grid(row=1, column=2, sticky="ew", padx=5, pady=2)
+        ent_comites = entry_numeric(col_comites, "Comités de Salud *", max_digits=2,
+                        fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
         ent_comites.insert(0, "0")
 
         # --- Descripción ---
-        ctk.CTkLabel(marco_form, text="Tema Tratado *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(8, 2))
+        ctk.CTkLabel(marco_form, text="Tema Tratado * (máximo 150 caracteres)", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(8, 2))
         marco_txt = ctk.CTkFrame(marco_form, fg_color=t["bg_base"], corner_radius=6)
         marco_txt.pack(fill="x")
         txt_desc = tk.Text(marco_txt, font=("Arial", 11), bg=t["bg_base"], fg=t["text_primary"], relief="flat", height=3, insertbackground=t["text_primary"], wrap="word")
-        txt_desc.pack(side="left", fill="both", expand=True, padx=5, pady=5)
-        scroll_txt = ttk.Scrollbar(marco_txt, orient="vertical", command=txt_desc.yview)
-        txt_desc.configure(yscrollcommand=scroll_txt.set)
-        scroll_txt.pack(side="right", fill="y")
+        txt_desc.pack(fill="both", expand=True, padx=5, pady=5)
         # Placeholder para descripción
         placeholder_desc = "Breve descripción del tema tratado..."
         txt_desc.insert("1.0", placeholder_desc)
@@ -483,61 +487,69 @@ class VistaActividad:
         txt_desc.bind("<FocusIn>", _txt_focus_in)
         txt_desc.bind("<FocusOut>", _txt_focus_out)
 
+        def _limitar_tema(event=None):
+            if not txt_desc.edit_modified():
+                return
+            contenido = txt_desc.get("1.0", "end-1c")
+            if len(contenido) > 150:
+                txt_desc.delete("1.0+150c", "end-1c")
+                txt_desc.mark_set("insert", "1.0+150c")
+            txt_desc.edit_modified(False)
+
+        txt_desc.bind("<<Modified>>", _limitar_tema)
+        txt_desc.edit_modified(False)
+
         # --- Participantes por categoría ---
-        ctk.CTkLabel(frame_avanzado, text="Participantes por Categoría", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(10, 2))
+        ctk.CTkLabel(frame_avanzado, text="Participantes", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(10, 2))
 
         marco_part = ctk.CTkFrame(frame_avanzado, fg_color=t["bg_card"], corner_radius=8)
         marco_part.pack(fill="x", pady=(0, 4))
         inner_part = ctk.CTkFrame(marco_part, fg_color="transparent")
         inner_part.pack(fill="x", padx=10, pady=8)
+        for column in range(3):
+            inner_part.grid_columnconfigure(column, weight=1, uniform="participantes")
 
         # Fila 1: Médicos, Promotores, Voceros Comité
-        fila_p1 = ctk.CTkFrame(inner_part, fg_color="transparent")
-        fila_p1.pack(fill="x", pady=2)
+        col_p1_1 = ctk.CTkFrame(inner_part, fg_color="transparent")
+        col_p1_1.grid(row=0, column=0, sticky="ew", padx=5, pady=2)
+        self.ent_medicos = entry_numeric(col_p1_1, "Médicos *", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
 
-        col_p1_1 = ctk.CTkFrame(fila_p1, fg_color="transparent")
-        col_p1_1.pack(side="left", fill="x", expand=True, padx=(0, 5))
-        self.ent_medicos = entry_numeric(col_p1_1, "Médicos", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
+        col_p1_2 = ctk.CTkFrame(inner_part, fg_color="transparent")
+        col_p1_2.grid(row=0, column=1, sticky="ew", padx=5, pady=2)
+        self.ent_promotores = entry_numeric(col_p1_2, "Promotores en Salud *", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
 
-        col_p1_2 = ctk.CTkFrame(fila_p1, fg_color="transparent")
-        col_p1_2.pack(side="left", fill="x", expand=True, padx=5)
-        self.ent_promotores = entry_numeric(col_p1_2, "Promotores en Salud", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
-
-        col_p1_3 = ctk.CTkFrame(fila_p1, fg_color="transparent")
-        col_p1_3.pack(side="left", fill="x", expand=True, padx=(5, 0))
-        self.ent_voceros_comite = entry_numeric(col_p1_3, "Voceros Comité Salud", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
+        col_p1_3 = ctk.CTkFrame(inner_part, fg_color="transparent")
+        col_p1_3.grid(row=0, column=2, sticky="ew", padx=5, pady=2)
+        self.ent_voceros_comite = entry_numeric(col_p1_3, "Voceros Comité Salud *", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
 
         # Fila 2: Vocero Consejo, Coordinador Docencia, Autoridades
-        fila_p2 = ctk.CTkFrame(inner_part, fg_color="transparent")
-        fila_p2.pack(fill="x", pady=2)
+        col_p2_1 = ctk.CTkFrame(inner_part, fg_color="transparent")
+        col_p2_1.grid(row=1, column=0, sticky="ew", padx=5, pady=2)
+        self.ent_vocero_consejo = entry_numeric(col_p2_1, "Vocero Consejo Dir. ASIC *", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
 
-        col_p2_1 = ctk.CTkFrame(fila_p2, fg_color="transparent")
-        col_p2_1.pack(side="left", fill="x", expand=True, padx=(0, 5))
-        self.ent_vocero_consejo = entry_numeric(col_p2_1, "Vocero Consejo Dir. ASIC", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
+        col_p2_2 = ctk.CTkFrame(inner_part, fg_color="transparent")
+        col_p2_2.grid(row=1, column=1, sticky="ew", padx=5, pady=2)
+        self.ent_coordinador = entry_numeric(col_p2_2, "Coordinador Docencia ASIC *", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
 
-        col_p2_2 = ctk.CTkFrame(fila_p2, fg_color="transparent")
-        col_p2_2.pack(side="left", fill="x", expand=True, padx=5)
-        self.ent_coordinador = entry_numeric(col_p2_2, "Coordinador Docencia ASIC", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
-
-        col_p2_3 = ctk.CTkFrame(fila_p2, fg_color="transparent")
-        col_p2_3.pack(side="left", fill="x", expand=True, padx=(5, 0))
-        self.ent_autoridades = entry_numeric(col_p2_3, "Autoridades Presentes", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
+        col_p2_3 = ctk.CTkFrame(inner_part, fg_color="transparent")
+        col_p2_3.grid(row=1, column=2, sticky="ew", padx=5, pady=2)
+        self.ent_autoridades = entry_numeric(col_p2_3, "Autoridades Presentes *", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
 
         # Fila 3: Otros Actores, Personas Comunidad, Estudiantes Aspirantes
-        fila_p3 = ctk.CTkFrame(inner_part, fg_color="transparent")
-        fila_p3.pack(fill="x", pady=2)
+        col_p3_1 = ctk.CTkFrame(inner_part, fg_color="transparent")
+        col_p3_1.grid(row=2, column=0, sticky="new", padx=5, pady=2)
+        self.ent_otros_actores = entry_numeric(col_p3_1, "Otros Actores *", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
 
-        col_p3_1 = ctk.CTkFrame(fila_p3, fg_color="transparent")
-        col_p3_1.pack(side="left", fill="x", expand=True, padx=(0, 5))
-        self.ent_otros_actores = entry_numeric(col_p3_1, "Otros Actores", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
+        col_p3_2 = ctk.CTkFrame(inner_part, fg_color="transparent")
+        col_p3_2.grid(row=2, column=1, sticky="new", padx=5, pady=2)
+        self.ent_personas_comunidad = entry_numeric(col_p3_2, "Personas Comunidad *", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
+        ctk.CTkLabel(col_p3_2, text="Total de Asistencia *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(6, 0))
+        self.lbl_total_participantes = ctk.CTkLabel(col_p3_2, text="0", font=("Arial", 12, "bold"), text_color=t["text_primary"], fg_color=t["bg_base"], corner_radius=6)
+        self.lbl_total_participantes.pack(fill="x", pady=(2, 0))
 
-        col_p3_2 = ctk.CTkFrame(fila_p3, fg_color="transparent")
-        col_p3_2.pack(side="left", fill="x", expand=True, padx=5)
-        self.ent_personas_comunidad = entry_numeric(col_p3_2, "Personas Comunidad", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
-
-        col_p3_3 = ctk.CTkFrame(fila_p3, fg_color="transparent")
-        col_p3_3.pack(side="left", fill="x", expand=True, padx=(5, 0))
-        self.ent_estudiantes = entry_numeric(col_p3_3, "Estudiantes Aspirantes", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
+        col_p3_3 = ctk.CTkFrame(inner_part, fg_color="transparent")
+        col_p3_3.grid(row=2, column=2, sticky="new", padx=5, pady=2)
+        self.ent_estudiantes = entry_numeric(col_p3_3, "Estudiantes Aspirantes *", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
 
         # Total Participantes (mostrar contador calculado)
         self._participantes_field_names = [
@@ -546,11 +558,6 @@ class VistaActividad:
             "ent_otros_actores", "ent_personas_comunidad", "ent_estudiantes",
         ]
 
-        marco_total = ctk.CTkFrame(marco_form, fg_color="transparent")
-        marco_total.pack(fill="x", pady=4)
-        ctk.CTkLabel(marco_total, text="Total de Asistencia *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        self.lbl_total_participantes = ctk.CTkLabel(marco_total, text="0", font=("Arial", 12, "bold"), text_color=t["text_primary"], fg_color=t["bg_base"], corner_radius=6)
-        self.lbl_total_participantes.pack(fill="x", pady=(6, 0))
         try:
             self._actualizar_total_participantes()
         except Exception:
@@ -704,12 +711,14 @@ class VistaActividad:
                 self.controlador.cargar_datos_tabla()
             else:
                 lbl_error.configure(text=msg)
+                lbl_error.pack(anchor="w", pady=(0, 8), padx=2, ipadx=12, ipady=6, before=btn_guardar)
 
-        ctk.CTkButton(marco_pie_formulario,
+        btn_guardar = ctk.CTkButton(marco_pie_formulario,
                   text="Crear Actividad" if datos_edicion is None else "Guardar Cambios",
                       font=("Arial", 11, "bold"), fg_color=t["accent"],
                       hover_color=t["accent_dim"], corner_radius=8, command=guardar
-                  ).pack(fill="x", ipady=8)
+                  )
+        btn_guardar.pack(fill="x", ipady=8)
 
 
 __all__ = ['VistaActividad']

@@ -16,7 +16,6 @@ from ui_helpers import (
     label_subtitle,
     label_title,
     multiselect_option_menu,
-    treeview_style,
 )
 
 
@@ -150,10 +149,10 @@ class VistaReporte:
         if total_act > 0:
             btn_success(inner_act, "📄  Exportar Word", self.controlador.exportar_word).pack(side="left")
 
-        scroll = ctk.CTkScrollableFrame(self._frame_generar, fg_color="transparent")
-        scroll.pack(fill="both", expand=True, padx=15, pady=(6, 0))
+        contenido = frame_transparent(self._frame_generar)
+        contenido.pack(fill="both", expand=True, padx=15, pady=(6, 0))
 
-        card_top = frame_surface(scroll, fg_color="gray20", corner_radius=10)
+        card_top = frame_surface(contenido, fg_color="gray20", corner_radius=10)
         card_top.pack(fill="x", pady=(0, 10))
 
         inner_top = frame_transparent(card_top)
@@ -169,19 +168,54 @@ class VistaReporte:
         if previo.get("asic_nombre"):
             self._chip(chips, f"🏥 {previo['asic_nombre']}", "#30152a")
 
+        self._configurar_estilo_tablas()
+        panel_tablas = frame_transparent(contenido)
+        panel_tablas.pack(fill="both", expand=True, pady=(0, 10))
+
         if total_act == 0:
-            label(scroll, "⚠  No hay actividades para el período y filtros seleccionados.", font_size=11, text_color="#c45050").pack(pady=20)
+            label(panel_tablas, "⚠  No hay actividades para el período y filtros seleccionados.", font_size=11, text_color="#c45050").pack(pady=20)
         else:
-            fila_resumenes = frame_transparent(scroll)
-            fila_resumenes.pack(fill="x", pady=(0, 10))
+            fila_resumenes = frame_transparent(panel_tablas)
+            fila_resumenes.pack(fill="both", expand=True, pady=(0, 10))
             self._mini_tabla(fila_resumenes, "Por ASIC", resumen_asic, ["ASIC", "Actividades", "Participantes"])
             self._mini_tabla(fila_resumenes, "Por Tipo", resumen_tipo, ["Tipo de Actividad", "Actividades", "Participantes"])
 
         vocerias = previo.get("vocerias", [])
         if vocerias:
-            self._mini_tabla_vocerias(scroll, vocerias)
+            self._mini_tabla_vocerias(panel_tablas, vocerias)
         else:
-            label(scroll, "⚠  No hay vocerías CS para el período y filtros seleccionados.", font_size=11, text_color="#c45050").pack(pady=10)
+            label(panel_tablas, "⚠  No hay vocerías CS para el período y filtros seleccionados.", font_size=11, text_color="#c45050").pack(pady=10)
+
+    def _configurar_estilo_tablas(self):
+        t = THEME
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure(
+            "R.Treeview",
+            background=t["bg_base"],
+            foreground=t["text_primary"],
+            fieldbackground=t["bg_base"],
+            rowheight=28,
+            borderwidth=0,
+        )
+        style.configure(
+            "R.Treeview.Heading",
+            background=t["bg_card"],
+            foreground=t["text_primary"],
+            font=("Arial", 10, "bold"),
+            relief="flat",
+            borderwidth=0,
+        )
+        style.map(
+            "R.Treeview.Heading",
+            background=[("active", t["bg_card"])],
+            foreground=[("active", t["text_primary"])],
+        )
+        style.map(
+            "R.Treeview",
+            background=[("selected", t["accent"])],
+            foreground=[("selected", t["text_primary"])],
+        )
 
     def _mini_tabla(self, parent, titulo, filas, cabeceras):
         marco = frame_surface(parent, fg_color="gray20", corner_radius=10)
@@ -193,11 +227,10 @@ class VistaReporte:
         label(inner, titulo, font_size=10, bold=True).pack(anchor="w", pady=(0, 5))
 
         cols = tuple(range(len(cabeceras)))
-        treeview_style("R", 22)
 
         tree = ttk.Treeview(inner, columns=cols, show="headings", style="R.Treeview", height=min(len(filas), 7))
         for i, cab in enumerate(cabeceras):
-            tree.heading(i, text=cab)
+            tree.heading(i, text=cab, anchor="w")
             tree.column(i, width=(200 if i == 0 else 100), anchor="center" if i > 0 else "w")
 
         for fila in filas:
@@ -219,7 +252,7 @@ class VistaReporte:
 
     def _mini_tabla_vocerias(self, parent, vocerias):
         marco = frame_surface(parent, fg_color="gray20", corner_radius=10)
-        marco.pack(fill="x", pady=(10, 0))
+        marco.pack(fill="both", expand=True)
 
         inner = frame_transparent(marco)
         inner.pack(fill="both", expand=True, padx=12, pady=10)
@@ -228,11 +261,10 @@ class VistaReporte:
 
         cabeceras = ["Fecha", "ASIC", "Cantidad Vocerías", "Municipio", "Parroquia"]
         cols = tuple(range(len(cabeceras)))
-        treeview_style("R", 22)
 
         tree = ttk.Treeview(inner, columns=cols, show="headings", style="R.Treeview", height=min(len(vocerias), 8))
         for i, cab in enumerate(cabeceras):
-            tree.heading(i, text=cab)
+            tree.heading(i, text=cab, anchor="w")
         tree.column(0, width=100, anchor="w")
         tree.column(1, width=180, anchor="w")
         tree.column(2, width=120, anchor="w")

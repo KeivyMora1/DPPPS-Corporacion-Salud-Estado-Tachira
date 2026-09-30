@@ -1,5 +1,6 @@
 import re
 import unicodedata
+from datetime import date, datetime, timedelta
 
 import customtkinter as ctk
 import tkinter as tk
@@ -17,6 +18,23 @@ from ui_helpers import (
     separator,
 )
 from db import MUNICIPIOS_TACHIRA
+from utils import set_favicon
+
+
+def _restar_anios(fecha, anios):
+    try:
+        return fecha.replace(year=fecha.year - anios)
+    except ValueError:
+        return fecha.replace(year=fecha.year - anios, day=28)
+
+
+def _calcular_edad(fecha_nacimiento, hoy=None):
+    if not fecha_nacimiento:
+        return None
+    hoy = hoy or date.today()
+    return hoy.year - fecha_nacimiento.year - (
+        (hoy.month, hoy.day) < (fecha_nacimiento.month, fecha_nacimiento.day)
+    )
 
 
 class VistaVoceria:
@@ -74,6 +92,11 @@ class VistaVoceria:
         self.combo_filtro_asic.grid(row=0, column=1, padx=5, pady=5)
 
         ctk.CTkLabel(marco_filtros, text="Nombre de comité:", font=("Arial", 9, "bold"), text_color=t["text_muted"]).grid(row=0, column=2, padx=5, pady=5, sticky="w")
+
+        def validar_nombre_comite(texto):
+            return len(texto) <= 40
+
+        vcmd_nombre_comite = (marco_filtros.register(validar_nombre_comite), "%P")
         self.ent_filtro_nombre_comite = ctk.CTkEntry(
             marco_filtros,
             placeholder_text="Nombre de comité",
@@ -83,6 +106,8 @@ class VistaVoceria:
             border_color=t["border"],
             corner_radius=6,
             width=180,
+            validate="key",
+            validatecommand=vcmd_nombre_comite,
         )
         self.ent_filtro_nombre_comite.grid(row=0, column=3, padx=5, pady=5)
 
@@ -237,7 +262,7 @@ class VistaVoceria:
         lbl_titulo = ctk.CTkLabel(header_left, text=f"Vocería #{item_index}", font=("Arial", 11, "bold"), text_color=t["text_primary"], cursor="hand2")
         lbl_titulo.pack(side="left")
 
-        lbl_voceria_seleccionada = ctk.CTkLabel(header_left, text="", font=("Arial", 9), text_color=t["accent"], cursor="hand2")
+        lbl_voceria_seleccionada = ctk.CTkLabel(header_left, text="", font=("Arial", 10, "bold"), text_color="#aeb9bc", cursor="hand2")
         lbl_voceria_seleccionada.pack(side="left", padx=(10, 0))
 
         header_right = ctk.CTkFrame(header, fg_color="transparent")
@@ -273,15 +298,16 @@ class VistaVoceria:
 
         fila2 = ctk.CTkFrame(inner, fg_color="transparent")
         fila2.pack(fill="x", pady=3)
+        fila2.grid_columnconfigure((0, 1, 2), weight=1, uniform="voceria_fila_datos")
 
         col_nombres = ctk.CTkFrame(fila2, fg_color="transparent")
-        col_nombres.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        col_nombres.grid(row=0, column=0, sticky="ew", padx=(0, 5))
         ctk.CTkLabel(col_nombres, text="Nombres y Apellidos *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
         ent_nombres = ctk.CTkEntry(col_nombres, placeholder_text="Nombres y Apellidos", font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
         ent_nombres.pack(fill="x", pady=(2, 0))
 
         col_ci = ctk.CTkFrame(fila2, fg_color="transparent")
-        col_ci.pack(side="left", fill="x", expand=True, padx=5)
+        col_ci.grid(row=0, column=1, sticky="ew", padx=5)
         ctk.CTkLabel(col_ci, text="C.I. *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
 
         def formatear_ci(texto):
@@ -326,11 +352,11 @@ class VistaVoceria:
         ent_ci.bind("<FocusOut>", on_ci_change)
 
         col_tel = ctk.CTkFrame(fila2, fg_color="transparent")
-        col_tel.pack(side="left", fill="x", expand=True, padx=(5, 0))
+        col_tel.grid(row=0, column=2, sticky="ew", padx=(5, 0))
         ctk.CTkLabel(col_tel, text="Teléfono *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
 
         def validar_tel(texto):
-            return len(texto) <= 13
+            return texto == "" or (texto.isdigit() and len(texto) <= 12)
 
         vcmd_tel = (col_tel.register(validar_tel), "%P")
         ent_tel = ctk.CTkEntry(col_tel, placeholder_text="Teléfono", font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6, validate="key", validatecommand=vcmd_tel)
@@ -338,28 +364,42 @@ class VistaVoceria:
 
         fila3 = ctk.CTkFrame(inner, fg_color="transparent")
         fila3.pack(fill="x", pady=3)
+        fila3.grid_columnconfigure((0, 1, 2), weight=1, uniform="voceria_fila_datos")
 
         col_fnac = ctk.CTkFrame(fila3, fg_color="transparent")
-        col_fnac.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        col_fnac.grid(row=0, column=0, sticky="ew", padx=(0, 5))
         ctk.CTkLabel(col_fnac, text="Fecha Nacimiento *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_fnac = date_picker(col_fnac, placeholder="AAAA-MM-DD", default_today=False, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
+        hoy = date.today()
+        fecha_minima_nacimiento = _restar_anios(hoy, 100) + timedelta(days=1)
+        fecha_maxima_nacimiento = _restar_anios(hoy, 18)
+        ent_fnac = date_picker(col_fnac, placeholder="AAAA-MM-DD", default_today=False, min_date=fecha_minima_nacimiento, max_date=fecha_maxima_nacimiento, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
         ent_fnac.pack(fill="x", pady=(2, 0))
 
         col_edad = ctk.CTkFrame(fila3, fg_color="transparent")
-        col_edad.pack(side="left", fill="x", expand=True, padx=5)
+        col_edad.grid(row=0, column=1, sticky="ew", padx=5)
         ctk.CTkLabel(col_edad, text="Edad *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
 
-        def validar_edad(texto):
-            if texto == "":
-                return True
-            return texto.isdigit() and len(texto) <= 3 and int(texto) <= 999
-
-        vcmd_edad = (col_edad.register(validar_edad), "%P")
-        ent_edad = ctk.CTkEntry(col_edad, placeholder_text="Edad", font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6, validate="key", validatecommand=vcmd_edad)
+        ent_edad = ctk.CTkEntry(col_edad, placeholder_text="Edad", font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6, state="readonly")
         ent_edad.pack(fill="x", pady=(2, 0))
 
+        def actualizar_edad(event=None):
+            fecha_nacimiento = self._parsear_fecha_formulario(ent_fnac.get())
+            edad = ""
+            edad_calculada = _calcular_edad(fecha_nacimiento)
+            if edad_calculada is not None and 18 <= edad_calculada <= 99:
+                edad = str(edad_calculada)
+
+            ent_edad.configure(state="normal")
+            ent_edad.delete(0, tk.END)
+            if edad:
+                ent_edad.insert(0, edad)
+            ent_edad.configure(state="readonly")
+            _on_field_change()
+
+        ent_fnac.set_date_selected_callback(actualizar_edad)
+
         col_voceria = ctk.CTkFrame(fila3, fg_color="transparent")
-        col_voceria.pack(side="left", fill="x", expand=True, padx=(5, 0))
+        col_voceria.grid(row=0, column=2, sticky="ew", padx=(5, 0))
         ctk.CTkLabel(col_voceria, text="Vocería *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
         valores_iniciales = ["Seleccionar vocería..."] + vocerias_disponibles
         ent_voceria = ctk.CTkOptionMenu(col_voceria, values=valores_iniciales, fg_color=t["bg_base"], button_color=t["bg_card"], button_hover_color=t["bg_hover"], text_color=t["text_primary"], dropdown_fg_color=t["bg_base"], dropdown_text_color=t["text_primary"])
@@ -368,22 +408,23 @@ class VistaVoceria:
 
         fila4 = ctk.CTkFrame(inner, fg_color="transparent")
         fila4.pack(fill="x", pady=3)
+        fila4.grid_columnconfigure((0, 1, 2), weight=1, uniform="voceria_fila_datos")
 
         col_sexo = ctk.CTkFrame(fila4, fg_color="transparent")
-        col_sexo.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        col_sexo.grid(row=0, column=0, sticky="ew", padx=(0, 5))
         ctk.CTkLabel(col_sexo, text="Sexo *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
         ent_sexo = ctk.CTkOptionMenu(col_sexo, values=["M", "F"], fg_color=t["bg_base"], button_color=t["bg_card"], button_hover_color=t["bg_hover"], text_color=t["text_primary"], dropdown_fg_color=t["bg_base"], dropdown_text_color=t["text_primary"])
         ent_sexo.set("M")
         ent_sexo.pack(fill="x", pady=(2, 0))
 
         col_prof = ctk.CTkFrame(fila4, fg_color="transparent")
-        col_prof.pack(side="left", fill="x", expand=True, padx=5)
+        col_prof.grid(row=0, column=1, sticky="ew", padx=5)
         ctk.CTkLabel(col_prof, text="Profesión/Oficio *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
         ent_prof = ctk.CTkEntry(col_prof, placeholder_text="Profesión/Oficio", font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
         ent_prof.pack(fill="x", pady=(2, 0))
 
         col_correo = ctk.CTkFrame(fila4, fg_color="transparent")
-        col_correo.pack(side="left", fill="x", expand=True, padx=(5, 0))
+        col_correo.grid(row=0, column=2, sticky="ew", padx=(5, 0))
         ctk.CTkLabel(col_correo, text="Correo *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
         ent_correo = ctk.CTkEntry(col_correo, placeholder_text="ejemplo@correo.com", font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
         ent_correo.pack(fill="x", pady=(2, 0))
@@ -394,12 +435,15 @@ class VistaVoceria:
         col_felecc = ctk.CTkFrame(fila5, fg_color="transparent")
         col_felecc.pack(side="left", fill="x", expand=True, padx=(0, 5))
         ctk.CTkLabel(col_felecc, text="Fecha de Elección *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_felecc = date_picker(col_felecc, font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
+        ent_felecc = date_picker(col_felecc, max_date=date.today(), font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
         ent_felecc.pack(fill="x", pady=(2, 0))
 
-        for ent in (ent_nombres, ent_ci, ent_tel, ent_fnac, ent_edad, ent_prof, ent_correo, ent_felecc):
+        for ent in (ent_nombres, ent_ci, ent_tel, ent_prof, ent_correo, ent_felecc):
             ent.bind("<KeyRelease>", _on_field_change)
             ent.bind("<FocusOut>", _on_field_change)
+
+        ent_fnac.bind("<KeyRelease>", actualizar_edad)
+        ent_fnac.bind("<FocusOut>", actualizar_edad)
 
         ent_sexo.configure(command=lambda choice: _on_field_change())
 
@@ -416,6 +460,7 @@ class VistaVoceria:
             "chevron": chevron,
             "lbl_titulo": lbl_titulo,
             "lbl_voceria_seleccionada": lbl_voceria_seleccionada,
+            "actualizar_edad": actualizar_edad,
             "btn_eliminar": btn_eliminar,
             "index": item_index,
             "expandido": expandido,
@@ -451,6 +496,7 @@ class VistaVoceria:
     def abrir_formulario(self, datos_edicion=None):
         t = self.t
         ventana = ctk.CTkToplevel(self.parent)
+        set_favicon(ventana)
         ventana.title("Registrar Vocería CS" if datos_edicion is None else "Editar Vocería CS")
         ventana.resizable(True, True)
         ventana.configure(fg_color=t["bg_surface"])
@@ -471,11 +517,17 @@ class VistaVoceria:
         marco_pie_formulario = ctk.CTkFrame(ventana, fg_color="transparent")
         marco_pie_formulario.pack(side="bottom", fill="x", padx=25, pady=(5, 15))
 
-        lbl_error = ctk.CTkLabel(marco_pie_formulario, text="", font=("Arial", 9), text_color=t["red"])
-        lbl_error.pack(pady=(0, 3))
-
-        self.lbl_nota_min = ctk.CTkLabel(marco_pie_formulario, text="⚠ Debe agregar al menos 7 vocerías (máx. 10)", font=("Arial", 9), text_color=t["text_muted"])
-        self.lbl_nota_min.pack(pady=(0, 3))
+        lbl_error = ctk.CTkLabel(
+            marco_pie_formulario,
+            text="",
+            font=("Arial", 12, "bold"),
+            text_color=t["text_primary"],
+            fg_color=t["red"],
+            corner_radius=6,
+            wraplength=820,
+            justify="left",
+            anchor="w",
+        )
 
         scroll_frame = ctk.CTkScrollableFrame(ventana, fg_color="transparent")
         scroll_frame.pack(fill="both", expand=True, padx=25, pady=5)
@@ -507,16 +559,17 @@ class VistaVoceria:
 
         fila1 = ctk.CTkFrame(inner_gen, fg_color="transparent")
         fila1.pack(fill="x", pady=5)
+        fila1.grid_columnconfigure((0, 1, 2), weight=1, uniform="datos_generales_fila1")
 
         col_estado = ctk.CTkFrame(fila1, fg_color="transparent")
-        col_estado.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        col_estado.grid(row=0, column=0, sticky="ew", padx=(0, 5))
         ctk.CTkLabel(col_estado, text="Estado *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
         self.ent_estado = ctk.CTkOptionMenu(col_estado, values=["Táchira"], fg_color=t["bg_base"], button_color=t["bg_card"], button_hover_color=t["bg_hover"], text_color=t["text_primary"], dropdown_fg_color=t["bg_base"], dropdown_text_color=t["text_primary"])
         self.ent_estado.set("Táchira")
         self.ent_estado.pack(fill="x", pady=(2, 0))
 
         col_municipio = ctk.CTkFrame(fila1, fg_color="transparent")
-        col_municipio.pack(side="left", fill="x", expand=True, padx=5)
+        col_municipio.grid(row=0, column=1, sticky="ew", padx=5)
         ctk.CTkLabel(col_municipio, text="Municipio *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
         municipios = MUNICIPIOS_TACHIRA
         self.ent_municipio = ctk.CTkOptionMenu(col_municipio, values=municipios, fg_color=t["bg_base"], button_color=t["bg_card"], button_hover_color=t["bg_hover"], text_color=t["text_primary"], dropdown_fg_color=t["bg_base"], dropdown_text_color=t["text_primary"])
@@ -525,15 +578,26 @@ class VistaVoceria:
         self.ent_municipio.pack(fill="x", pady=(2, 0))
 
         col_parroquia = ctk.CTkFrame(fila1, fg_color="transparent")
-        col_parroquia.pack(side="left", fill="x", expand=True, padx=5)
+        col_parroquia.grid(row=0, column=2, sticky="ew", padx=(5, 0))
         ctk.CTkLabel(col_parroquia, text="Parroquia *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
         self.ent_parroquia = ctk.CTkEntry(col_parroquia, placeholder_text="Parroquia", font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
         self.ent_parroquia.pack(fill="x", pady=(2, 0))
         self.ent_parroquia.bind("<KeyRelease>", lambda e: self.controlador._actualizar_estado_botones_formulario())
         self.ent_parroquia.bind("<FocusOut>", lambda e: self.controlador._actualizar_estado_botones_formulario())
 
-        col_asic = ctk.CTkFrame(fila1, fg_color="transparent")
-        col_asic.pack(side="left", fill="x", expand=True, padx=(5, 0))
+        fila2 = ctk.CTkFrame(inner_gen, fg_color="transparent")
+        fila2.pack(fill="x", pady=5)
+        fila2.grid_columnconfigure((0, 1), weight=1, uniform="datos_generales_fila2")
+
+        col_centro_gen = ctk.CTkFrame(fila2, fg_color="transparent")
+        col_centro_gen.grid(row=0, column=1, sticky="ew", padx=(5, 0))
+        ctk.CTkLabel(col_centro_gen, text="Centro dispensador *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        self.ent_centro_dispensador = ctk.CTkOptionMenu(col_centro_gen, values=self.establecimientos_opciones, fg_color=t["bg_base"], button_color=t["bg_card"], button_hover_color=t["bg_hover"], text_color=t["text_primary"], dropdown_fg_color=t["bg_base"], dropdown_text_color=t["text_primary"])
+        self.ent_centro_dispensador.set(self.establecimientos_opciones[0])
+        self.ent_centro_dispensador.pack(fill="x", pady=(2, 0))
+
+        col_asic = ctk.CTkFrame(fila2, fg_color="transparent")
+        col_asic.grid(row=0, column=0, sticky="ew", padx=(0, 5))
         ctk.CTkLabel(col_asic, text="ASIC *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
         nombres_asics = sorted(list(self.controlador.asic_map.keys()))
         self.ent_asic = ctk.CTkOptionMenu(col_asic, values=nombres_asics, fg_color=t["bg_base"], button_color=t["bg_card"], button_hover_color=t["bg_hover"], text_color=t["text_primary"], dropdown_fg_color=t["bg_base"], dropdown_text_color=t["text_primary"], command=lambda c: self.controlador._actualizar_estado_botones_formulario())
@@ -541,21 +605,12 @@ class VistaVoceria:
             self.ent_asic.set(nombres_asics[0])
         self.ent_asic.pack(fill="x", pady=(2, 0))
 
-        fila2 = ctk.CTkFrame(inner_gen, fg_color="transparent")
-        fila2.pack(fill="x", pady=5)
-
-        col_centro_gen = ctk.CTkFrame(fila2, fg_color="transparent")
-        col_centro_gen.pack(side="left", fill="x", expand=True, padx=(0, 5))
-        ctk.CTkLabel(col_centro_gen, text="Centro dispensador *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        self.ent_centro_dispensador = ctk.CTkOptionMenu(col_centro_gen, values=self.establecimientos_opciones, fg_color=t["bg_base"], button_color=t["bg_card"], button_hover_color=t["bg_hover"], text_color=t["text_primary"], dropdown_fg_color=t["bg_base"], dropdown_text_color=t["text_primary"])
-        self.ent_centro_dispensador.set(self.establecimientos_opciones[0])
-        self.ent_centro_dispensador.pack(fill="x", pady=(2, 0))
-
         fila3 = ctk.CTkFrame(inner_gen, fg_color="transparent")
         fila3.pack(fill="x", pady=5)
+        fila3.grid_columnconfigure((0, 1), weight=1, uniform="datos_generales_fila3")
 
         col_nom_centro = ctk.CTkFrame(fila3, fg_color="transparent")
-        col_nom_centro.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        col_nom_centro.grid(row=0, column=0, sticky="ew", padx=(0, 5))
         ctk.CTkLabel(col_nom_centro, text="Nombre del Centro *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
         self.ent_nombre_centro = ctk.CTkEntry(col_nom_centro, placeholder_text="Nombre del Centro", font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
         self.ent_nombre_centro.pack(fill="x", pady=(2, 0))
@@ -563,7 +618,7 @@ class VistaVoceria:
         self.ent_nombre_centro.bind("<FocusOut>", lambda e: self.controlador._actualizar_estado_botones_formulario())
 
         col_nom_comite = ctk.CTkFrame(fila3, fg_color="transparent")
-        col_nom_comite.pack(side="left", fill="x", expand=True, padx=(5, 0))
+        col_nom_comite.grid(row=0, column=1, sticky="ew", padx=(5, 0))
         ctk.CTkLabel(col_nom_comite, text="Nombre del Comité *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
         self.ent_nombre_comite = ctk.CTkEntry(col_nom_comite, placeholder_text="Nombre del Comité", font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
         self.ent_nombre_comite.pack(fill="x", pady=(2, 0))
@@ -646,9 +701,6 @@ class VistaVoceria:
                             fn = fn.strftime("%Y-%m-%d")
                         w["fnac"].delete(0, tk.END)
                         w["fnac"].insert(0, str(fn))
-                    if item_data_raw.get("edad") is not None:
-                        w["edad"].delete(0, tk.END)
-                        w["edad"].insert(0, str(item_data_raw["edad"]))
                     if item_data_raw.get("tipo_voceria_nombre"):
                         w["voceria"].set(str(item_data_raw["tipo_voceria_nombre"]))
                     elif item_data_raw.get("id_tipo_voceria"):
@@ -671,6 +723,7 @@ class VistaVoceria:
                         w["felecc"].delete(0, tk.END)
                         w["felecc"].insert(0, str(fe))
 
+                    nuevo_item["actualizar_edad"]()
                     self._actualizar_header_item(nuevo_item)
 
             if not items_existentes:
@@ -679,7 +732,12 @@ class VistaVoceria:
             self.controlador._actualizar_dropdowns_voceria(self.items_voceria, self.vocerias_disponibles)
             self.controlador._actualizar_estado_botones_formulario()
 
+        def mostrar_error(mensaje):
+            lbl_error.configure(text=mensaje)
+            lbl_error.pack(anchor="w", pady=(0, 8), padx=2, ipadx=12, ipady=6, before=self.btn_guardar)
+
         def guardar():
+            lbl_error.pack_forget()
             lbl_error.configure(text="")
             estado = self.ent_estado.get().strip() if hasattr(self, "ent_estado") else ""
             municipio = self.ent_municipio.get().strip() if hasattr(self, "ent_municipio") else ""
@@ -690,34 +748,31 @@ class VistaVoceria:
             nombre_comite = self.ent_nombre_comite.get().strip() if hasattr(self, "ent_nombre_comite") else ""
 
             if not estado:
-                lbl_error.configure(text="⚠ Debe seleccionar el Estado")
+                mostrar_error("⚠ Debe seleccionar el Estado")
                 return
             if not municipio:
-                lbl_error.configure(text="⚠ Debe seleccionar el Municipio")
+                mostrar_error("⚠ Debe seleccionar el Municipio")
                 return
             if not parroquia:
-                lbl_error.configure(text="⚠ Debe ingresar la Parroquia")
+                mostrar_error("⚠ Debe ingresar la Parroquia")
                 self.ent_parroquia.focus_set()
                 return
             if not asic or asic not in self.controlador.asic_map:
-                lbl_error.configure(text="⚠ Debe seleccionar un ASIC válido")
+                mostrar_error("⚠ Debe seleccionar un ASIC válido")
                 return
             if not centro_dispensador:
-                lbl_error.configure(text="⚠ Debe seleccionar el Centro dispensador")
+                mostrar_error("⚠ Debe seleccionar el Centro dispensador")
                 return
             if not nombre_centro:
-                lbl_error.configure(text="⚠ Debe ingresar el Nombre del Centro")
+                mostrar_error("⚠ Debe ingresar el Nombre del Centro")
                 self.ent_nombre_centro.focus_set()
                 return
             if not nombre_comite:
-                lbl_error.configure(text="⚠ Debe ingresar el Nombre del Comité")
+                mostrar_error("⚠ Debe ingresar el Nombre del Comité")
                 self.ent_nombre_comite.focus_set()
                 return
 
             items_validos = [item for item in self.items_voceria if item["frame"].winfo_exists()]
-            if len(items_validos) < 1:
-                lbl_error.configure(text="⚠ Debe agregar al menos 1 vocería")
-                return
 
             nombres_campos = {
                 "nombres": "Nombres y Apellidos",
@@ -735,32 +790,69 @@ class VistaVoceria:
             for idx, item in enumerate(items_validos, start=1):
                 w = item["widgets"]
                 for key, etiqueta in nombres_campos.items():
+                    if key == "edad":
+                        continue
                     val = w[key].get().strip() if hasattr(w[key], "get") else ""
                     if not val or val in ("(Sin opciones disponibles)", "Seleccionar vocería...", "AAAA-MM-DD", "Edad"):
-                        lbl_error.configure(text=f"⚠ Vocería #{idx}: Complete el campo '{etiqueta} *'")
+                        mostrar_error(f"⚠ Vocería #{idx}: Complete el campo '{etiqueta} *'")
                         if hasattr(w[key], "focus_set"):
                             w[key].focus_set()
                         return
-                    if key == "correo" and "@" not in val:
-                        lbl_error.configure(text=f"⚠ Vocería #{idx}: Ingrese un Correo Electrónico válido (con '@')")
+
+                fecha_nacimiento = self._parsear_fecha_formulario(w["fnac"].get())
+                edad_por_fecha = _calcular_edad(fecha_nacimiento)
+                if edad_por_fecha is None or not 18 <= edad_por_fecha <= 99:
+                    mostrar_error(f"⚠ Vocería #{idx}: La Fecha de Nacimiento debe corresponder a una persona entre 18 y 99 años")
+                    w["fnac"].focus_set()
+                    return
+                item["actualizar_edad"]()
+
+                for key, etiqueta in nombres_campos.items():
+                    val = w[key].get().strip() if hasattr(w[key], "get") else ""
+                    if key == "correo" and (len(val) < 11 or "@" not in val):
+                        mostrar_error(f"⚠ Vocería #{idx}: El Correo Electrónico debe tener mínimo 11 caracteres y contener '@'")
                         if hasattr(w[key], "focus_set"):
                             w[key].focus_set()
                         return
                     if key == "edad":
-                        if not val.isdigit() or len(val) > 3 or int(val) > 999:
-                            lbl_error.configure(text=f"⚠ Vocería #{idx}: La Edad debe ser un número de máximo 3 dígitos (0-999)")
+                        if not val.isdigit() or len(val) > 2 or int(val) < 18 or int(val) > 99:
+                            mostrar_error(f"⚠ Vocería #{idx}: La Edad debe estar entre 18 y 99 años")
                             if hasattr(w[key], "focus_set"):
                                 w[key].focus_set()
+                            return
+                    if key == "ci":
+                        ci_digitos = val.replace(",", "")
+                        if not ci_digitos.isdigit() or not 7 <= len(ci_digitos) <= 8:
+                            mostrar_error(f"⚠ Vocería #{idx}: La C.I. debe tener entre 7 y 8 dígitos")
+                            w[key].focus_set()
                             return
                     if key == "tel":
-                        if len(val) > 13:
-                            lbl_error.configure(text=f"⚠ Vocería #{idx}: El Teléfono debe tener máximo 13 caracteres")
+                        if not val.isdigit() or not 11 <= len(val) <= 12:
+                            mostrar_error(f"⚠ Vocería #{idx}: El Teléfono debe tener entre 11 y 12 dígitos")
                             if hasattr(w[key], "focus_set"):
                                 w[key].focus_set()
                             return
+                    if key == "nombres" and not 5 <= len(val) <= 40:
+                        mostrar_error(f"⚠ Vocería #{idx}: '{etiqueta}' debe tener entre 5 y 40 caracteres")
+                        w[key].focus_set()
+                        return
+                    if key == "prof" and not 3 <= len(val) <= 40:
+                        mostrar_error(f"⚠ Vocería #{idx}: '{etiqueta}' debe tener entre 3 y 40 caracteres")
+                        w[key].focus_set()
+                        return
+
+                fecha_eleccion = self._parsear_fecha_formulario(w["felecc"].get())
+                if not fecha_eleccion or fecha_eleccion > date.today():
+                    mostrar_error(f"⚠ Vocería #{idx}: La Fecha de Elección no puede ser futura")
+                    w["felecc"].focus_set()
+                    return
+
+            if len(items_validos) < 7:
+                mostrar_error(f"⚠ Debe agregar al menos 7 vocerías (actual: {len(items_validos)})")
+                return
 
             self.controlador.guardar_voceria(
-                ventana, lbl_error, datos_edicion,
+                ventana, mostrar_error, datos_edicion,
                 estado, municipio, parroquia, asic,
                 centro_dispensador, nombre_centro, nombre_comite,
                 items_validos,
@@ -769,11 +861,19 @@ class VistaVoceria:
         self.btn_guardar = ctk.CTkButton(marco_pie_formulario, text="Crear Vocería" if datos_edicion is None else "Guardar Cambios", font=("Arial", 11, "bold"), fg_color=t["accent"], hover_color=t["accent_dim"], corner_radius=8, command=guardar, state="normal")
         self.btn_guardar.pack(fill="x", ipady=8)
 
+    @staticmethod
+    def _parsear_fecha_formulario(valor):
+        try:
+            return datetime.strptime(str(valor).strip(), "%Y-%m-%d").date()
+        except (TypeError, ValueError):
+            return None
+
     def mostrar_detalle_voceria(self, voc):
         t = self.t
         items = voc.get("items", [])
 
         ventana = ctk.CTkToplevel(self.parent)
+        set_favicon(ventana)
         ventana.title(f"Detalle de Vocería #{voc['id_voceria']} - {voc.get('asic_nombre', '')}")
         ventana.resizable(True, True)
         ventana.configure(fg_color=t["bg_surface"])

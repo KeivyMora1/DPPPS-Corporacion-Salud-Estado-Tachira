@@ -8,6 +8,7 @@ from tkinter import ttk
 
 from db import ALLOWED_EXTENSIONS, MAX_FILE_SIZE_MB, ExcelService, TEMPLATE_PATH, ASIC_PREDETERMINADOS, MUNICIPIOS_TACHIRA
 from themes import THEME
+from utils import set_favicon
 
 from .model import ModeloActividad
 from .view import VistaActividad
@@ -31,6 +32,7 @@ class _ImportarModal:
     def _construir_modal(self):
         t = self.t
         self.ventana = ctk.CTkToplevel(self.parent)
+        set_favicon(self.ventana)
         self.ventana.title("Importar Actividades desde Excel")
         self.ventana.geometry("750x650")
         self.ventana.resizable(False, False)
@@ -438,7 +440,7 @@ class ControladorActividad:
                     act.get("parroquia") or "",
                     act.get("establecimiento_salud") or "",
                     act.get("nombre_establecimiento") or "",
-                    act.get("comites_salud") or "",
+                    act.get("comites_salud") if act.get("comites_salud") is not None else "",
                     act.get("total_participantes", act.get("participantes") or 0),
                 ))
         except Exception as e:

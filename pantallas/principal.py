@@ -5,7 +5,7 @@ from tkinter import messagebox
 from PIL import Image
 
 from db import AuthController
-from utils import centrar_ventana
+from utils import centrar_ventana, set_favicon
 from ui_helpers import (
     frame, frame_transparent, label, label_title, label_subtitle,
     btn_nav, btn_danger, separator, canvas_circle, scrollable_frame
@@ -206,6 +206,7 @@ class VistaPrincipal:
         y = self.avatar_canvas.winfo_rooty() + 48
 
         self._avatar_menu = ctk.CTkToplevel(self.root)
+        set_favicon(self._avatar_menu)
         self._avatar_menu.overrideredirect(True)
         self._avatar_menu.geometry(f"180x42+{x - 136}+{y}")
         self._avatar_menu.configure(fg_color="gray25", corner_radius=10)

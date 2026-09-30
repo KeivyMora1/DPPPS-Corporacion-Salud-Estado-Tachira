@@ -12,6 +12,7 @@ from tkinter import ttk
 from db import VOCERIA_TEMPLATE_PATH, build_voceria_template, ExcelServiceVoceria
 from .model import ModeloVoceria
 from .view import VistaVoceria
+from utils import set_favicon
 
 
 class _ImportarVoceriaModal:
@@ -32,6 +33,7 @@ class _ImportarVoceriaModal:
     def _construir_modal(self):
         t = self.t
         self.ventana = ctk.CTkToplevel(self.parent)
+        set_favicon(self.ventana)
         self.ventana.title("Importar Vocerías desde Excel")
         self.ventana.geometry("850x700")
         self.ventana.resizable(False, False)
@@ -609,7 +611,7 @@ class ControladorVoceria:
         except Exception as e:
             messagebox.showerror("Error", f"Ocurrió un error al obtener el detalle: {str(e)}")
 
-    def guardar_voceria(self, ventana, lbl_error, datos_edicion,
+    def guardar_voceria(self, ventana, mostrar_error, datos_edicion,
                         estado, municipio, parroquia, asic,
                         centro_dispensador, nombre_centro, nombre_comite,
                         items_validos):
@@ -661,7 +663,7 @@ class ControladorVoceria:
             ventana.destroy()
             self.cargar_datos_tabla()
         else:
-            lbl_error.configure(text=msg)
+            mostrar_error(msg)
 
     def descargar_plantilla(self):
         if not os.path.exists(VOCERIA_TEMPLATE_PATH):
@@ -836,9 +838,6 @@ class ControladorVoceria:
         items_activos = [i for i in self.vista.items_voceria if i["frame"].winfo_exists()]
         count = len(items_activos)
 
-        generales_llenos = self._verificar_generales_llenos()
-        todos_items_llenos = items_activos and all(self._verificar_item_completo(i) for i in items_activos)
-
         self._actualizar_bordes_items(items_activos)
 
         for item in items_activos:
@@ -849,43 +848,6 @@ class ControladorVoceria:
 
         if hasattr(self.vista, 'btn_guardar') and self.vista.btn_guardar.winfo_exists():
             self.vista.btn_guardar.configure(state="normal")
-            if count >= 7 and count <= 10 and generales_llenos and todos_items_llenos:
-                self.vista.lbl_nota_min.configure(text="✓ Todos los campos obligatorios están completos", text_color=self.vista.t["success"])
-            elif count < 7:
-                self.vista.lbl_nota_min.configure(text=f"⚠ Debe agregar al menos 7 vocerías (actual: {count})", text_color=self.vista.t["red"])
-            elif count > 10:
-                self.vista.lbl_nota_min.configure(text=f"⚠ Máximo 10 vocerías permitidas (actual: {count})", text_color=self.vista.t["red"])
-            elif count >= 1 and not generales_llenos:
-                self.vista.lbl_nota_min.configure(text="⚠ Complete los datos generales obligatorios (*)", text_color=self.vista.t["amber"])
-            elif count >= 1 and not todos_items_llenos:
-                self.vista.lbl_nota_min.configure(text="⚠ Complete todos los campos de cada vocería (*)", text_color=self.vista.t["amber"])
-            else:
-                self.vista.lbl_nota_min.configure(text="⚠ Debe agregar al menos 7 vocerías (máx. 10)", text_color=self.vista.t["text_muted"])
-
-    def _verificar_generales_llenos(self):
-        estado = self.vista.ent_estado.get().strip() if hasattr(self.vista, "ent_estado") else ""
-        municipio = self.vista.ent_municipio.get().strip() if hasattr(self.vista, "ent_municipio") else ""
-        parroquia = self.vista.ent_parroquia.get().strip() if hasattr(self.vista, "ent_parroquia") else ""
-        asic = self.vista.ent_asic.get().strip() if hasattr(self.vista, "ent_asic") else ""
-        centro_dispensador = self.vista.ent_centro_dispensador.get().strip() if hasattr(self.vista, "ent_centro_dispensador") else ""
-        nombre_centro = self.vista.ent_nombre_centro.get().strip() if hasattr(self.vista, "ent_nombre_centro") else ""
-        nombre_comite = self.vista.ent_nombre_comite.get().strip() if hasattr(self.vista, "ent_nombre_comite") else ""
-
-        if not estado or estado in ("Seleccionar...", ""):
-            return False
-        if not municipio or municipio in ("Seleccionar...", ""):
-            return False
-        if not parroquia or parroquia == "Parroquia":
-            return False
-        if not asic or asic not in self.asic_map:
-            return False
-        if not centro_dispensador:
-            return False
-        if not nombre_centro:
-            return False
-        if not nombre_comite:
-            return False
-        return True
 
     def _verificar_item_completo(self, item):
         if not item["frame"].winfo_exists():
@@ -901,11 +863,23 @@ class ControladorVoceria:
             val = widget.get().strip() if hasattr(widget, "get") else ""
             if not val or val in ("(Sin opciones disponibles)", "Seleccionar vocería...", "AAAA-MM-DD", "Edad"):
                 return False
-            if key == "correo" and "@" not in val:
+            if key == "correo" and (len(val) < 11 or "@" not in val):
                 return False
             if key == "edad":
-                if not val.isdigit() or len(val) > 3 or int(val) > 999:
+                if not val.isdigit() or len(val) > 2 or int(val) < 18 or int(val) > 99:
                     return False
+            if key == "tel" and len(val) > 12:
+                return False
+            if key == "ci":
+                ci_digitos = val.replace(",", "")
+                if not ci_digitos.isdigit() or not 7 <= len(ci_digitos) <= 8:
+                    return False
+            if key == "tel" and (not val.isdigit() or len(val) < 11):
+                return False
+            if key == "nombres" and not 5 <= len(val) <= 40:
+                return False
+            if key == "prof" and not 3 <= len(val) <= 40:
+                return False
         return True
 
     def _actualizar_bordes_items(self, items_activos):

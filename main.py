@@ -1,31 +1,14 @@
-import os
-import tkinter as tk
 import customtkinter as ctk
+
+from utils import set_favicon
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
 
-def _set_favicon(ventana):
-    """Establece el favicon de la ventana."""
-    logo_path = os.path.join(os.path.dirname(__file__), "assets", "images", "logo2.ico")
-    if os.path.exists(logo_path):
-        try:
-            ventana.iconbitmap(logo_path)
-        except Exception:
-            try:
-                from PIL import Image, ImageTk
-                img = Image.open(logo_path.replace('.ico', '.png'))
-                photo = ImageTk.PhotoImage(img)
-                ventana.iconphoto(True, photo)
-                ventana._favicon = photo
-            except Exception:
-                pass
-
-
 def iniciar_app():
     root = ctk.CTk()
-    _set_favicon(root)
+    set_favicon(root)
     from pantallas.login import LoginView
     from pantallas.principal import MainView
     
@@ -48,7 +31,7 @@ def iniciar_app():
                     pass
         root.destroy()
         ventana_principal = ctk.CTk()
-        _set_favicon(ventana_principal)
+        set_favicon(ventana_principal)
         MainView(ventana_principal)
         ventana_principal.mainloop()
     

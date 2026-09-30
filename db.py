@@ -1,3 +1,4 @@
+from datetime import date, datetime, timedelta
 MODO = "local"
 DATABASE = {
     "local": {
@@ -649,17 +650,7 @@ class AsicDAO:
             return None
         conn = get_connection()
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM asic WHERE nombre = %s ORDER BY nombre LIMIT 1", (codigo,))
-        asic = cursor.fetchone()
-        cursor.close()
         conn.close()
-        return asic
-    def crear(self, codigo=None, nombre=None, municipio="", parroquia=""):
-        nombre = (nombre or codigo or "").strip()
-        if not nombre:
-            raise ValueError("El nombre del ASIC es obligatorio.")
-        conn = get_connection()
-        cursor = conn.cursor()
         cursor.execute("INSERT INTO asic (nombre) VALUES (%s)", (nombre,))
         conn.commit()
         nuevo_id = cursor.lastrowid
@@ -1181,14 +1172,23 @@ class AuthController:
     def verificar_email(self, email, codigo):
         """Valida el código de verificación enviado al correo."""
         email = (email or "").strip().lower()
+        codigo_str = str(codigo or "").strip()
         usuario = self.usuario_dao.obtener_por_email(email)
         if usuario is None:
             return False
-        if usuario.get("codigo_verificacion") != str(codigo).strip():
+        if len(codigo_str) != 6 or not codigo_str.isdigit():
             return False
-        if usuario.get("codigo_verificacion_expira") is None:
+        if usuario.get("codigo_verificacion") != codigo_str:
             return False
-        if datetime.now() > usuario["codigo_verificacion_expira"]:
+        expiracion = usuario.get("codigo_verificacion_expira")
+        if expiracion is None:
+            return False
+        if isinstance(expiracion, str):
+            try:
+                expiracion = datetime.fromisoformat(expiracion.replace("Z", "+00:00"))
+            except ValueError:
+                return False
+        if datetime.now() > expiracion:
             return False
         conn = get_connection()
         cursor = conn.cursor()
@@ -1200,6 +1200,25 @@ class AuthController:
         cursor.close()
         conn.close()
         return True
+
+    def reenviar_codigo_verificacion(self, email):
+        """Genera y envía un nuevo código de verificación para una cuenta no verificada."""
+        email = (email or "").strip().lower()
+        usuario = self.usuario_dao.obtener_por_email(email)
+        if usuario is None:
+            return {"success": False, "message": "No existe una cuenta con ese correo."}
+
+        codigo = self._generar_codigo()
+        expiracion = datetime.now() + timedelta(minutes=10)
+        self.usuario_dao.guardar_codigo_verificacion(email, codigo, expiracion)
+        enviado = self._enviar_codigo_por_email(email, codigo, "verificacion")
+        respuesta = {"success": True, "message": "Se envió un nuevo código a tu correo."}
+        if not enviado:
+            respuesta["message"] = (
+                "Se generó un nuevo código, pero no se pudo enviar el correo en este momento. "
+                "Intenta nuevamente más tarde."
+            )
+        return respuesta
 
     def login(self, credential, password):
         """
@@ -1350,7 +1369,7 @@ class ActividadController:
                            otros_actores=0, personas_comunidad=0, estudiantes_aspirantes=0,
                            participantes=0, id_actividad=None, **kwargs):
         """Registra o actualiza una actividad con una sola fecha."""
-        if fecha is None:
+        if fecha is None or not str(fecha).strip():
             return False, "La fecha es obligatoria."
 
         if not id_asic:
@@ -1358,9 +1377,29 @@ class ActividadController:
         if not id_tipo:
             return False, "Debes seleccionar un tipo de actividad."
 
+        for campo, valor in [
+            ("Estado", estado), ("Municipio", municipio), ("Parroquia", parroquia),
+            ("Establecimiento de Salud", establecimiento_salud),
+            ("Nombre del Establecimiento", nombre_establecimiento),
+        ]:
+            if valor is None or not str(valor).strip():
+                return False, f"El campo {campo} es obligatorio."
+
+        comites_texto = str(comites_salud).strip() if comites_salud is not None else ""
+        if not comites_texto:
+            return False, "El campo Comités de Salud es obligatorio."
+        if not comites_texto.isdigit() or len(comites_texto) > 2:
+            return False, "Comités de Salud debe contener solo números y tener máximo 2 dígitos."
+        comites_valor = int(comites_texto)
+
         tema_texto = str(tema or "").strip()
         if not tema_texto:
             return False, "El tema tratado de la actividad es obligatorio."
+        if len(tema_texto) > 150:
+            return False, "El tema tratado no puede superar los 150 caracteres."
+
+        if participantes is None or not str(participantes).strip():
+            return False, "El total de asistencia es obligatorio."
 
         try:
             cant_participantes = int(participantes)
@@ -1370,17 +1409,19 @@ class ActividadController:
             return False, "La cantidad de participantes debe ser un numero entero valido."
 
         for campo, valor in [
-            ("medicos", medicos), ("promotores_salud", promotores_salud),
-            ("voceros_comite_salud", voceros_comite_salud),
-            ("vocero_consejo_direccion", vocero_consejo_direccion),
-            ("coordinador_docencia", coordinador_docencia),
-            ("autoridades_presentes", autoridades_presentes),
-            ("otros_actores", otros_actores),
-            ("personas_comunidad", personas_comunidad),
-            ("estudiantes_aspirantes", estudiantes_aspirantes)
+            ("Médicos", medicos), ("Promotores en Salud", promotores_salud),
+            ("Voceros Comité Salud", voceros_comite_salud),
+            ("Vocero Consejo Dir. ASIC", vocero_consejo_direccion),
+            ("Coordinador Docencia ASIC", coordinador_docencia),
+            ("Autoridades Presentes", autoridades_presentes),
+            ("Otros Actores", otros_actores),
+            ("Personas Comunidad", personas_comunidad),
+            ("Estudiantes Aspirantes", estudiantes_aspirantes)
         ]:
+            if valor is None or not str(valor).strip():
+                return False, f"El campo {campo} es obligatorio."
             try:
-                v = int(valor) if valor is not None else 0
+                v = int(valor)
                 if v < 0:
                     return False, f"El campo {campo} no puede ser menor a 0."
             except (ValueError, TypeError):
@@ -1391,6 +1432,8 @@ class ActividadController:
             fecha_bd = fecha_obj.strftime("%Y-%m-%d")
         except (TypeError, ValueError):
             return False, "El formato de la fecha es inválido."
+        if fecha_obj > date.today():
+            return False, "La fecha de la actividad no puede ser futura."
 
         es_duplicado = self.actividad_dao.verificar_duplicado(
             id_asic=id_asic,
@@ -1412,12 +1455,12 @@ class ActividadController:
             id_tipo=id_tipo,
             id_usuario_registro=id_usuario,
             fecha=fecha_bd,
-            estado=estado or "",
-            municipio=municipio or "",
-            parroquia=parroquia or "",
-            establecimiento_salud=establecimiento_salud or "",
-            nombre_establecimiento=nombre_establecimiento or "",
-            comites_salud=comites_salud or "",
+            estado=str(estado).strip(),
+            municipio=str(municipio).strip(),
+            parroquia=str(parroquia).strip(),
+            establecimiento_salud=str(establecimiento_salud).strip(),
+            nombre_establecimiento=str(nombre_establecimiento).strip(),
+            comites_salud=comites_valor,
             tema=tema_texto,
             medicos=int(medicos) if medicos else 0,
             promotores_salud=int(promotores_salud) if promotores_salud else 0,
@@ -1525,33 +1568,60 @@ class VoceriaController:
 
         # Validar TODOS los campos en cada item (sin centro_dispensador, nombre_centro, nombre_comite que ahora son generales)
         for idx, item in enumerate(items, start=1):
-            if not item.get("nombres") or not str(item.get("nombres")).strip():
+            nombres = str(item.get("nombres") or "").strip()
+            if not nombres:
                 return False, f"Vocería #{idx}: Nombres y Apellidos son obligatorios."
+            if not 5 <= len(nombres) <= 40:
+                return False, f"Vocería #{idx}: Nombres y Apellidos debe tener entre 5 y 40 caracteres."
             if not item.get("ci") or not str(item.get("ci")).strip():
                 return False, f"Vocería #{idx}: C.I. es obligatoria."
-            if not item.get("telefono") or not str(item.get("telefono")).strip():
+            ci = str(item.get("ci")).strip()
+            ci_digitos = ci.replace(",", "")
+            if not ci_digitos.isdigit() or not 7 <= len(ci_digitos) <= 8:
+                return False, f"Vocería #{idx}: La C.I. debe tener entre 7 y 8 dígitos."
+            telefono = str(item.get("telefono") or "").strip()
+            if not telefono:
                 return False, f"Vocería #{idx}: Teléfono es obligatorio."
-            if not item.get("fecha_nacimiento") or not str(item.get("fecha_nacimiento")).strip() or str(item.get("fecha_nacimiento")).strip() == "AAAA-MM-DD":
+            if not telefono.isdigit() or not 11 <= len(telefono) <= 12:
+                return False, f"Vocería #{idx}: El teléfono debe tener entre 11 y 12 dígitos."
+            fecha_nacimiento = self._parsear_fecha(item.get("fecha_nacimiento"))
+            if not fecha_nacimiento:
                 return False, f"Vocería #{idx}: Fecha de Nacimiento es obligatoria."
-            if not item.get("edad") or not str(item.get("edad")).strip() or str(item.get("edad")).strip() == "Edad":
+            hoy = date.today()
+            edad_por_fecha = hoy.year - fecha_nacimiento.year - (
+                (hoy.month, hoy.day) < (fecha_nacimiento.month, fecha_nacimiento.day)
+            )
+            if not 18 <= edad_por_fecha <= 99:
+                return False, f"Vocería #{idx}: La persona debe tener entre 18 y 99 años según su fecha de nacimiento."
+            edad = str(item.get("edad") or "").strip()
+            if not edad:
                 return False, f"Vocería #{idx}: Edad es obligatoria."
+            if not edad.isdigit() or len(edad) > 2 or not 18 <= int(edad) <= 99:
+                return False, f"Vocería #{idx}: La edad debe estar entre 18 y 99 años."
             if not item.get("id_tipo_voceria"):
                 return False, f"Vocería #{idx}: Debe seleccionar una vocería."
             if not item.get("sexo") or not str(item.get("sexo")).strip():
                 return False, f"Vocería #{idx}: Sexo es obligatorio."
-            if not item.get("profesion") or not str(item.get("profesion")).strip():
+            profesion = str(item.get("profesion") or "").strip()
+            if not profesion:
                 return False, f"Vocería #{idx}: Profesión/Oficio es obligatoria."
-            if not item.get("correo") or not str(item.get("correo")).strip():
+            if not 3 <= len(profesion) <= 40:
+                return False, f"Vocería #{idx}: Profesión/Oficio debe tener entre 3 y 40 caracteres."
+            correo = str(item.get("correo") or "").strip()
+            if not correo:
                 return False, f"Vocería #{idx}: Correo electrónico es obligatorio."
-            if "@" not in str(item.get("correo")):
+            if len(correo) < 11 or "@" not in correo:
                 return False, f"Vocería #{idx}: Correo electrónico no válido (debe incluir '@')."
             if not item.get("fechas_eleccion") or not str(item.get("fechas_eleccion")).strip() or str(item.get("fechas_eleccion")).strip() == "AAAA-MM-DD":
                 return False, f"Vocería #{idx}: Fechas de Elección es obligatoria."
             fecha_eleccion = self._parsear_fecha(item.get("fechas_eleccion"))
-            if fecha_eleccion:
-                hace_dos_anos = date.today().replace(year=date.today().year - 2)
-                if fecha_eleccion < hace_dos_anos:
-                    return False, f"Vocería #{idx}: La fecha de elección ({item.get('fechas_eleccion')}) tiene más de 2 años de antigüedad."
+            if not fecha_eleccion:
+                return False, f"Vocería #{idx}: La fecha de elección no es válida."
+            if fecha_eleccion > date.today():
+                return False, f"Vocería #{idx}: La fecha de elección no puede ser futura."
+            hace_dos_anos = date.today().replace(year=date.today().year - 2)
+            if fecha_eleccion < hace_dos_anos:
+                return False, f"Vocería #{idx}: La fecha de elección ({item.get('fechas_eleccion')}) tiene más de 2 años de antigüedad."
 
         id_usuario = self.auth.obtener_usuario_actual()
         id_usuario_registro = id_usuario["id_usuario"] if id_usuario else 1
@@ -2217,8 +2287,46 @@ class ExcelServiceVoceria:
                 nombre_campo = campo.replace("_", " ").upper()
                 errores.append(f"Fila {numero_fila}: El campo '{nombre_campo}' es obligatorio.")
         correo = (datos.get("correo") or "").strip()
-        if correo and "@" not in correo:
-            errores.append(f"Fila {numero_fila}: Correo electrónico no válido (debe incluir '@').")
+        if correo and (len(correo) < 11 or "@" not in correo):
+            errores.append(f"Fila {numero_fila}: Correo electrónico no válido (mínimo 11 caracteres y debe incluir '@').")
+
+        nombres = (datos.get("nombres") or "").strip()
+        if nombres and not 5 <= len(nombres) <= 40:
+            errores.append(f"Fila {numero_fila}: Nombres y Apellidos debe tener entre 5 y 40 caracteres.")
+
+        ci = (datos.get("ci") or "").strip()
+        ci_digitos = ci.replace(",", "")
+        if ci and (not ci_digitos.isdigit() or not 7 <= len(ci_digitos) <= 8):
+            errores.append(f"Fila {numero_fila}: La C.I. debe tener entre 7 y 8 dígitos.")
+
+        profesion = (datos.get("profesion") or "").strip()
+        if profesion and not 3 <= len(profesion) <= 40:
+            errores.append(f"Fila {numero_fila}: Profesión/Oficio debe tener entre 3 y 40 caracteres.")
+
+        telefono = (datos.get("telefono") or "").strip()
+        if telefono and (not telefono.isdigit() or not 11 <= len(telefono) <= 12):
+            errores.append(f"Fila {numero_fila}: El teléfono debe tener entre 11 y 12 dígitos.")
+
+        edad = (datos.get("edad") or "").strip()
+        if edad and (not edad.isdigit() or len(edad) > 2 or not 18 <= int(edad) <= 99):
+            errores.append(f"Fila {numero_fila}: La edad debe estar entre 18 y 99 años.")
+
+        hoy = date.today()
+        fecha_nacimiento = self._parsear_fecha(datos.get("fecha_nacimiento"))
+        if datos.get("fecha_nacimiento") and not fecha_nacimiento:
+            errores.append(f"Fila {numero_fila}: Fecha de Nacimiento no válida.")
+        elif fecha_nacimiento:
+            edad_por_fecha = hoy.year - fecha_nacimiento.year - (
+                (hoy.month, hoy.day) < (fecha_nacimiento.month, fecha_nacimiento.day)
+            )
+            if not 18 <= edad_por_fecha <= 99:
+                errores.append(f"Fila {numero_fila}: La persona debe tener entre 18 y 99 años según su Fecha de Nacimiento.")
+
+        fecha_eleccion = self._parsear_fecha(datos.get("fechas_eleccion"))
+        if datos.get("fechas_eleccion") and not fecha_eleccion:
+            errores.append(f"Fila {numero_fila}: Fecha de Elección no válida.")
+        elif fecha_eleccion and fecha_eleccion > hoy:
+            errores.append(f"Fila {numero_fila}: La Fecha de Elección no puede ser futura.")
         return errores
 
     def _validar_comite(self, nombre_comite, filas):
