@@ -461,6 +461,15 @@ class ControladorVoceria:
         self.vista = VistaVoceria(parent, self)
         self.cargar_datos_tabla()
 
+    def puede_escribir(self):
+        return self.modelo.controller.auth.puede_escribir()
+
+    def _verificar_permiso_escritura(self):
+        if self.puede_escribir():
+            return True
+        messagebox.showwarning("Permiso denegado", "Tu rol de lector no permite esta acción.")
+        return False
+
     @staticmethod
     def _normalizar_texto(valor):
         if valor is None:
@@ -550,9 +559,13 @@ class ControladorVoceria:
             messagebox.showerror("Error", f"Ocurrió un error al cargar las vocerías: {str(e)}")
 
     def abrir_form_nueva(self):
+        if not self._verificar_permiso_escritura():
+            return
         self.vista.abrir_formulario()
 
     def editar_seleccionada(self):
+        if not self._verificar_permiso_escritura():
+            return
         seleccion = self.vista.tabla.selection()
         if not seleccion:
             messagebox.showwarning("Atención", "Selecciona una vocería de la tabla para editar.")
@@ -568,6 +581,8 @@ class ControladorVoceria:
             messagebox.showerror("Error", f"Ocurrió un error al obtener la vocería: {str(e)}")
 
     def eliminar_seleccionada(self):
+        if not self._verificar_permiso_escritura():
+            return
         seleccion = self.vista.tabla.selection()
         if not seleccion:
             messagebox.showwarning("Atención", "Selecciona una vocería de la tabla para eliminar.")
@@ -615,6 +630,8 @@ class ControladorVoceria:
                         estado, municipio, parroquia, asic,
                         centro_dispensador, nombre_centro, nombre_comite,
                         items_validos):
+        if not self._verificar_permiso_escritura():
+            return
         id_asic = self.asic_map.get(asic)
 
         items = []
@@ -686,6 +703,8 @@ class ControladorVoceria:
                                 f"Plantilla de vocerías guardada en:\n{destino}")
 
     def abrir_modal_importar(self):
+        if not self._verificar_permiso_escritura():
+            return
         _ImportarVoceriaModal(self.vista)
 
     def exportar_consolidado(self):

@@ -38,13 +38,24 @@ class ModeloPrincipal:
 
     def get_username(self):
         if self.usuario:
-            return self.usuario.get("username", "Usuario")
+            username = self.usuario.get("username") or "Usuario"
+            return username[:1].upper() + username[1:]
         return "Usuario"
 
     def get_email(self):
         if self.usuario:
             return self.usuario.get("email", "")
         return ""
+
+    def get_rol(self):
+        if self.usuario:
+            roles = {
+                "propietario": "Propietario",
+                "administrador": "Administrador",
+                "lector": "Lector",
+            }
+            return roles.get(self.usuario.get("rol"), "Lector")
+        return "Lector"
 
 
 class VistaPrincipal:
@@ -144,6 +155,7 @@ class VistaPrincipal:
         nombre = self.controlador.modelo.get_nombre_usuario()
         username = self.controlador.modelo.get_username()
         email = self.controlador.modelo.get_email()
+        rol = self.controlador.modelo.get_rol()
 
         self.user_info_frame = frame_transparent(self.header_right)
         self.user_info_frame.pack(side="right")
@@ -155,11 +167,22 @@ class VistaPrincipal:
         self.user_text_frame = frame_transparent(self.user_info_frame)
         self.user_text_frame.pack(side="right", padx=(0, 10))
 
-        self.lbl_user_name = label(self.user_text_frame, username, font_size=12, bold=True)
+        self.lbl_user_name = label(
+            self.user_text_frame, username, font_size=12, bold=True, height=17
+        )
         self.lbl_user_name.pack(anchor="e")
 
-        self.lbl_user_email = label(self.user_text_frame, email, font_size=10)
+        self.lbl_user_email = label(self.user_text_frame, email, font_size=10, height=15)
         self.lbl_user_email.pack(anchor="e")
+
+        self.lbl_user_role = ctk.CTkLabel(
+            self.user_text_frame,
+            text=rol,
+            font=("Segoe UI", 9),
+            text_color="#9CA3AF",
+            height=14,
+        )
+        self.lbl_user_role.pack(anchor="e")
 
         separator(self.main_area, horizontal=True, fg_color="gray40").pack(fill="x", side="top")
 

@@ -43,6 +43,7 @@ class VistaVoceria:
     def __init__(self, parent, controlador):
         self.parent = parent
         self.controlador = controlador
+        self.puede_escribir = controlador.puede_escribir()
         self.t = THEME
         self._construir_ui()
 
@@ -129,17 +130,20 @@ class VistaVoceria:
         marco_acciones_top = ctk.CTkFrame(self.parent, fg_color="transparent")
         marco_acciones_top.pack(fill="x", padx=30, pady=(10, 5))
 
-        ctk.CTkButton(marco_acciones_top, text="+ Registrar Nueva Vocería", font=("Arial", 10, "bold"), fg_color=t["accent"], hover_color=t["accent_dim"], corner_radius=8, command=self.controlador.abrir_form_nueva).pack(side="left")
+        if self.puede_escribir:
+            ctk.CTkButton(marco_acciones_top, text="+ Registrar Nueva Vocería", font=("Arial", 10, "bold"), fg_color=t["accent"], hover_color=t["accent_dim"], corner_radius=8, command=self.controlador.abrir_form_nueva).pack(side="left")
         ctk.CTkButton(marco_acciones_top, text="Actualizar Tabla", font=("Arial", 9), fg_color=t["bg_card"], hover_color=t["bg_hover"], corner_radius=8, command=self.controlador.cargar_datos_tabla).pack(side="left", padx=10)
 
-        self.btn_editar = ctk.CTkButton(marco_acciones_top, text="Editar", font=("Arial", 9), fg_color=t["accent_dim"], hover_color=t["accent"], corner_radius=8, command=self.controlador.editar_seleccionada)
-        self.btn_eliminar = ctk.CTkButton(marco_acciones_top, text="Eliminar", font=("Arial", 9), fg_color=t["red_bg"], hover_color=t["red"], corner_radius=8, command=self.controlador.eliminar_seleccionada)
+        if self.puede_escribir:
+            self.btn_editar = ctk.CTkButton(marco_acciones_top, text="Editar", font=("Arial", 9), fg_color=t["accent_dim"], hover_color=t["accent"], corner_radius=8, command=self.controlador.editar_seleccionada)
+            self.btn_eliminar = ctk.CTkButton(marco_acciones_top, text="Eliminar", font=("Arial", 9), fg_color=t["red_bg"], hover_color=t["red"], corner_radius=8, command=self.controlador.eliminar_seleccionada)
 
-        self._ocultar_botones_accion()
+            self._ocultar_botones_accion()
 
         ctk.CTkButton(marco_acciones_top, text="⬇ Descargar Plantilla", font=("Arial", 9), fg_color=t["bg_card"], hover_color=t["bg_hover"], corner_radius=8, command=self.controlador.descargar_plantilla).pack(side="right", padx=5)
         ctk.CTkButton(marco_acciones_top, text="📊 Exportar Consolidado", font=("Arial", 9, "bold"), fg_color=t["accent"], hover_color=t["accent_dim"], corner_radius=8, command=self.controlador.exportar_consolidado).pack(side="right", padx=5)
-        ctk.CTkButton(marco_acciones_top, text="📥 Importar Vocerías", font=("Arial", 9, "bold"), fg_color=t["success"], hover_color=t["success_dim"], corner_radius=8, command=self.controlador.abrir_modal_importar).pack(side="right")
+        if self.puede_escribir:
+            ctk.CTkButton(marco_acciones_top, text="📥 Importar Vocerías", font=("Arial", 9, "bold"), fg_color=t["success"], hover_color=t["success_dim"], corner_radius=8, command=self.controlador.abrir_modal_importar).pack(side="right")
 
         marco_tabla = ctk.CTkFrame(self.parent, fg_color="transparent", corner_radius=10)
         marco_tabla.pack(fill="both", expand=True, padx=30, pady=(5, 10))
@@ -187,13 +191,15 @@ class VistaVoceria:
 
     def _mostrar_botones_accion(self):
         """Muestra los botones Editar y Eliminar."""
-        self.btn_editar.pack(side="left", padx=5)
-        self.btn_eliminar.pack(side="left", padx=5)
+        if self.puede_escribir:
+            self.btn_editar.pack(side="left", padx=5)
+            self.btn_eliminar.pack(side="left", padx=5)
 
     def _ocultar_botones_accion(self):
         """Oculta los botones Editar y Eliminar."""
-        self.btn_editar.pack_forget()
-        self.btn_eliminar.pack_forget()
+        if self.puede_escribir:
+            self.btn_editar.pack_forget()
+            self.btn_eliminar.pack_forget()
 
     def _bind_click_recursive(self, widget, callback):
         try:

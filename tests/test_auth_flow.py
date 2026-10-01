@@ -372,6 +372,7 @@ def test_registrar_usuario_envia_codigo_y_marca_cuenta_no_verificada(monkeypatch
     controller = AuthController()
     captured = {}
 
+    monkeypatch.setattr(controller.usuario_dao, "obtener_propietario", lambda: None)
     monkeypatch.setattr(
         controller.usuario_dao,
         "obtener_por_email",
@@ -404,6 +405,7 @@ def test_registrar_usuario_guarda_username_en_db(monkeypatch):
     controller = AuthController()
     captured = {}
 
+    monkeypatch.setattr(controller.usuario_dao, "obtener_propietario", lambda: None)
     monkeypatch.setattr(controller.usuario_dao, "obtener_por_email", lambda email: None)
     monkeypatch.setattr(controller.usuario_dao, "obtener_por_username", lambda username: None)
 
@@ -414,10 +416,140 @@ def test_registrar_usuario_guarda_username_en_db(monkeypatch):
     monkeypatch.setattr(controller.usuario_dao, "crear", fake_crear)
     monkeypatch.setattr(controller, "_enviar_codigo_por_email", lambda *args, **kwargs: True)
 
-    resultado = controller.registrar_usuario("Ana", "García", "ana@test.com", "Pass123!", username="ana_user")
+    resultado = controller.registrar_usuario("Ana", "García", "ana@test.com", "Pass123!", username="Juanito")
 
     assert resultado["success"] is True
-    assert captured["username"] == "ana_user"
+    assert captured["username"] == "Juanito"
+
+
+def test_modelo_principal_muestra_username_y_rol_formateados():
+    from pantallas.principal import ModeloPrincipal
+
+    modelo = ModeloPrincipal.__new__(ModeloPrincipal)
+    modelo.usuario = {"username": "juanito", "rol": "administrador"}
+
+    assert modelo.get_username() == "Juanito"
+    assert modelo.get_rol() == "Administrador"
+
+
+def test_registrar_administrador_requiere_password_del_propietario(monkeypatch):
+    controller = AuthController()
+    propietario = {"password_hash": "hash-propietario"}
+    creado = []
+
+    monkeypatch.setattr(controller.usuario_dao, "obtener_propietario", lambda: propietario)
+    monkeypatch.setattr(controller.usuario_dao, "verificar_password", lambda password, hashed: False)
+    monkeypatch.setattr(controller.usuario_dao, "crear", lambda **kwargs: creado.append(kwargs))
+
+    resultado = controller.registrar_usuario(
+        "Ana", "García", "ana@test.com", "Pass123!",
+        cuenta_administrador=True,
+        password_propietario="incorrecta",
+    )
+
+    assert resultado == {
+        "success": False,
+        "message": "La contraseña del usuario propietario es incorrecta.",
+    }
+    assert creado == []
+
+
+def test_registrar_administrador_guarda_rol_solo_con_password_valida(monkeypatch):
+    controller = AuthController()
+    capturado = {}
+
+    monkeypatch.setattr(
+        controller.usuario_dao,
+        "obtener_propietario",
+        lambda: {"password_hash": "hash-propietario"},
+    )
+    monkeypatch.setattr(controller.usuario_dao, "verificar_password", lambda password, hashed: True)
+    monkeypatch.setattr(controller.usuario_dao, "obtener_por_email", lambda email: None)
+    monkeypatch.setattr(controller.usuario_dao, "obtener_por_username", lambda username: None)
+    monkeypatch.setattr(controller.usuario_dao, "crear", lambda **kwargs: capturado.update(kwargs) or 10)
+    monkeypatch.setattr(controller, "_enviar_codigo_por_email", lambda *args: True)
+
+    resultado = controller.registrar_usuario(
+        "Ana", "García", "ana@test.com", "Pass123!",
+        cuenta_administrador=True,
+        password_propietario="valida",
+    )
+
+    assert resultado["success"] is True
+    assert capturado["rol"] == "administrador"
+    assert capturado["administrador_autorizado"] is True
+
+
+def test_usuario_dao_asigna_propietario_al_primer_registro(monkeypatch):
+    consultas = []
+
+    class CursorFalso:
+        lastrowid = 12
+
+        def __init__(self):
+            self.resultado_pendiente = False
+
+        def execute(self, sql, params=()):
+            consultas.append((sql.lower(), params))
+            self.resultado_pendiente = sql.lstrip().lower().startswith("select")
+
+        def fetchone(self):
+            sql = consultas[-1][0]
+            self.resultado_pendiente = False
+            return (1,) if "get_lock" in sql else (0,)
+
+        def close(self):
+            assert not self.resultado_pendiente
+
+    class ConexionFalsa:
+        def cursor(self):
+            return CursorFalso()
+
+        def commit(self):
+            pass
+
+        def rollback(self):
+            pass
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(db_module, "get_connection", lambda: ConexionFalsa())
+
+    usuario_id = db_module.UsuarioDAO().crear(
+        username="primero",
+        password="Pass123!",
+        nombre_completo="Primer Usuario",
+        email="primero@test.com",
+    )
+
+    insercion = next(params for sql, params in consultas if "insert into usuario" in sql)
+    assert usuario_id == 12
+    assert insercion[-1] == "propietario"
+    assert any("release_lock" in sql for sql, _ in consultas)
+
+
+def test_lector_no_puede_eliminar_actividad(monkeypatch):
+    controller = ActividadController()
+    eliminaciones = []
+    monkeypatch.setattr(
+        controller.auth,
+        "obtener_usuario_actual",
+        lambda: {"id_usuario": 2, "rol": "lector"},
+    )
+    monkeypatch.setattr(controller.actividad_dao, "eliminar", lambda id_actividad: eliminaciones.append(id_actividad))
+
+    resultado = controller.eliminar_actividad(5)
+
+    assert resultado[0] is False
+    assert "lector" in resultado[1]
+    assert eliminaciones == []
+
+
+def test_roles_con_permiso_de_escritura():
+    assert AuthController.usuario_puede_escribir({"rol": "propietario"})
+    assert AuthController.usuario_puede_escribir({"rol": "administrador"})
+    assert not AuthController.usuario_puede_escribir({"rol": "lector"})
 
 
 def test_validar_datos_registro_rechaza_campos_incompletos_o_invalidos():
@@ -501,6 +633,29 @@ def test_login_rechaza_usuario_no_verificado(monkeypatch):
     )
 
     assert controller.login("ana@test.com", "Pass123!") is False
+
+
+def test_login_conserva_el_rol_del_usuario_en_la_sesion(monkeypatch):
+    controller = AuthController()
+    monkeypatch.setattr(db_module, "sesion_actual", None)
+    monkeypatch.setattr(
+        controller.usuario_dao,
+        "obtener_por_email",
+        lambda email: {
+            "id_usuario": 3,
+            "username": "ana",
+            "email": "ana@test.com",
+            "password_hash": "hash",
+            "nombre_completo": "Ana García",
+            "email_verificado": True,
+            "rol": "administrador",
+            "activo": True,
+        },
+    )
+    monkeypatch.setattr(controller.usuario_dao, "verificar_password", lambda password, hashed: True)
+
+    assert controller.login("ana@test.com", "Pass123!") is True
+    assert controller.obtener_usuario_actual()["rol"] == "administrador"
 
 
 def test_generar_word_crea_archivo_docx_con_contenido(tmp_path):

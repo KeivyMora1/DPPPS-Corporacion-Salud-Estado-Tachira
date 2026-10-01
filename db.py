@@ -266,6 +266,17 @@ class UsuarioDAO:
         conn.close()
         return usuario
 
+    def obtener_propietario(self):
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(
+            "SELECT * FROM usuario WHERE rol = 'propietario' AND activo = TRUE ORDER BY id_usuario LIMIT 1"
+        )
+        usuario = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        return usuario
+
     def verificar_password(self, password_plano, password_hash):
         return bcrypt.checkpw(
             password_plano.encode("utf-8"),
@@ -298,40 +309,68 @@ class UsuarioDAO:
         apellido = kwargs.get("apellido", "").strip()
         codigo_verificacion = kwargs.get("codigo_verificacion", "")
         codigo_verificacion_expira = kwargs.get("codigo_verificacion_expira")
+        rol_solicitado = kwargs.get("rol", "lector")
+        administrador_autorizado = kwargs.get("administrador_autorizado", False)
+        if rol_solicitado not in ("lector", "administrador"):
+            raise ValueError("Rol de usuario no válido.")
+        if rol_solicitado == "administrador" and not administrador_autorizado:
+            raise ValueError("Se requiere autorización del propietario para crear administradores.")
 
         conn = get_connection()
         cursor = conn.cursor()
-        if nombre or apellido or codigo_verificacion or codigo_verificacion_expira is not None:
-            cursor.execute(
-                """
-                INSERT INTO usuario (
-                    username, password_hash, nombre_completo, email, nombre, apellido,
-                    email_verificado, codigo_verificacion, codigo_verificacion_expira, activo
+        lock_adquirido = False
+        try:
+            cursor.execute("SELECT GET_LOCK(%s, 10)", ("dppps_registro_usuario",))
+            resultado_lock = cursor.fetchone()
+            lock_adquirido = bool(resultado_lock and resultado_lock[0] == 1)
+            if not lock_adquirido:
+                raise RuntimeError("No se pudo asegurar el registro de la cuenta.")
+
+            cursor.execute("SELECT COUNT(*) FROM usuario")
+            cantidad_usuarios = cursor.fetchone()[0]
+            rol = "propietario" if cantidad_usuarios == 0 else rol_solicitado
+
+            if nombre or apellido or codigo_verificacion or codigo_verificacion_expira is not None:
+                cursor.execute(
+                    """
+                    INSERT INTO usuario (
+                        username, password_hash, nombre_completo, email, nombre, apellido,
+                        rol, email_verificado, codigo_verificacion, codigo_verificacion_expira, activo
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, FALSE, %s, %s, TRUE)
+                    """,
+                    (
+                        username.strip(),
+                        hash_pw,
+                        nombre_completo or f"{nombre} {apellido}".strip(),
+                        email_normalizada,
+                        nombre,
+                        apellido,
+                        rol,
+                        codigo_verificacion,
+                        codigo_verificacion_expira,
+                    )
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, FALSE, %s, %s, TRUE)
-                """,
-                (
-                    username.lower().strip(),
-                    hash_pw,
-                    nombre_completo or f"{nombre} {apellido}".strip(),
-                    email_normalizada,
-                    nombre,
-                    apellido,
-                    codigo_verificacion,
-                    codigo_verificacion_expira,
+            else:
+                cursor.execute(
+                    """INSERT INTO usuario (username, password_hash, nombre_completo, email, rol)
+                       VALUES (%s, %s, %s, %s, %s)""",
+                    (username, hash_pw, nombre_completo, email_normalizada, rol)
                 )
-            )
-        else:
-            cursor.execute(
-                """INSERT INTO usuario (username, password_hash, nombre_completo, email)
-                   VALUES (%s, %s, %s, %s)""",
-                (username, hash_pw, nombre_completo, email_normalizada)
-            )
-        conn.commit()
-        nuevo_id = cursor.lastrowid
-        cursor.close()
-        conn.close()
-        return nuevo_id
+            conn.commit()
+            return cursor.lastrowid
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            if lock_adquirido:
+                try:
+                    cursor.execute("SELECT RELEASE_LOCK(%s)", ("dppps_registro_usuario",))
+                    cursor.fetchone()
+                except Exception:
+                    pass
+            cursor.close()
+            conn.close()
 
     def crear_usuario(self, nombre, apellido, email, password, codigo_verificacion="", codigo_verificacion_expira=None):
         return self.crear(
@@ -404,6 +443,7 @@ def asegurar_esquema_autenticacion():
         cambios = {
             "nombre": "ALTER TABLE usuario ADD COLUMN nombre VARCHAR(100) NULL",
             "apellido": "ALTER TABLE usuario ADD COLUMN apellido VARCHAR(100) NULL",
+            "rol": "ALTER TABLE usuario ADD COLUMN rol VARCHAR(20) NOT NULL DEFAULT 'lector'",
             "email_verificado": "ALTER TABLE usuario ADD COLUMN email_verificado BOOLEAN NOT NULL DEFAULT FALSE",
             "codigo_verificacion": "ALTER TABLE usuario ADD COLUMN codigo_verificacion VARCHAR(20) NULL",
             "codigo_verificacion_expira": "ALTER TABLE usuario ADD COLUMN codigo_verificacion_expira DATETIME NULL",
@@ -416,6 +456,16 @@ def asegurar_esquema_autenticacion():
                     cursor.execute(sentencia)
                 except Exception:
                     pass
+        cursor.execute("SELECT id_usuario FROM usuario WHERE rol = 'propietario' ORDER BY id_usuario LIMIT 1")
+        propietario = cursor.fetchone()
+        if propietario is None:
+            cursor.execute("SELECT id_usuario FROM usuario ORDER BY id_usuario LIMIT 1")
+            primer_usuario = cursor.fetchone()
+            if primer_usuario:
+                cursor.execute(
+                    "UPDATE usuario SET rol = 'propietario' WHERE id_usuario = %s",
+                    (primer_usuario["id_usuario"],),
+                )
         conn.commit()
     finally:
         cursor.close()
@@ -1119,12 +1169,13 @@ class AuthController:
             print(f"[WARN] No se pudo enviar el correo: {exc}")
             return False
 
-    def registrar_usuario(self, nombre, apellido, email, password, username=None):
+    def registrar_usuario(self, nombre, apellido, email, password, username=None,
+                          cuenta_administrador=False, password_propietario=None):
         """Crea un usuario nuevo y exige validación por correo."""
         email = (email or "").strip().lower()
         nombre = (nombre or "").strip()
         apellido = (apellido or "").strip()
-        username = (username or email).strip().lower()
+        username = (username or email).strip()
 
         if not nombre or not apellido or not email or not password or not username:
             return {"success": False, "message": "Completa todos los campos."}
@@ -1136,6 +1187,12 @@ class AuthController:
             return {"success": False, "message": "El nombre de usuario no puede contener espacios."}
         if len(password) < 6:
             return {"success": False, "message": "La contraseña debe tener al menos 6 caracteres."}
+        propietario = self.usuario_dao.obtener_propietario()
+        if cuenta_administrador and propietario:
+            if not password_propietario or not self.usuario_dao.verificar_password(
+                password_propietario, propietario["password_hash"]
+            ):
+                return {"success": False, "message": "La contraseña del usuario propietario es incorrecta."}
         if self.usuario_dao.obtener_por_email(email):
             return {"success": False, "message": "Este correo ya está registrado."}
         if self.usuario_dao.obtener_por_username(username):
@@ -1153,6 +1210,8 @@ class AuthController:
                 apellido=apellido.strip(),
                 codigo_verificacion=codigo,
                 codigo_verificacion_expira=expiracion,
+                rol="administrador" if cuenta_administrador and propietario else "lector",
+                administrador_autorizado=bool(cuenta_administrador and propietario),
             )
             enviado = self._enviar_codigo_por_email(email, codigo, "verificacion")
             respuesta = {
@@ -1242,7 +1301,8 @@ class AuthController:
             "id_usuario": usuario["id_usuario"],
             "username": usuario.get("username") or usuario.get("email"),
             "nombre_completo": usuario.get("nombre_completo") or f"{usuario.get('nombre', '')} {usuario.get('apellido', '')}".strip(),
-            "email": usuario.get("email")
+            "email": usuario.get("email"),
+            "rol": usuario.get("rol") or "lector",
         }
         return True
 
@@ -1299,6 +1359,21 @@ class AuthController:
     def hay_sesion_activa(self):
         """Retorna True si hay un usuario logueado."""
         return sesion_actual is not None
+
+    def puede_escribir(self):
+        """Indica si la sesión activa puede modificar información del sistema."""
+        return self.usuario_puede_escribir(sesion_actual)
+
+    @staticmethod
+    def usuario_puede_escribir(usuario):
+        return bool(
+            usuario
+            and usuario.get("rol", "propietario") in ("propietario", "administrador")
+        )
+
+    @staticmethod
+    def mensaje_sin_permiso():
+        return "Tu rol de lector no permite crear, editar ni eliminar información."
 class ActividadController:
     """
     Controlador que maneja las actividades de salud.
@@ -1319,20 +1394,21 @@ class ActividadController:
         def normalizar(nombre):
             return " ".join((nombre or "").strip().lower().split())
 
-        try:
-            existentes = self.asic_dao.obtener_todos()
-            nombres_existentes = {normalizar(a["nombre"]) for a in existentes}
-            nombres_permitidos = {normalizar(nombre) for _, nombre in asics_predeterminados}
+        if self.auth.puede_escribir():
+            try:
+                existentes = self.asic_dao.obtener_todos()
+                nombres_existentes = {normalizar(a["nombre"]) for a in existentes}
+                nombres_permitidos = {normalizar(nombre) for _, nombre in asics_predeterminados}
 
-            for asic in existentes:
-                if normalizar(asic["nombre"]) not in nombres_permitidos:
-                    self.asic_dao.desactivar(asic["id_asic"])
+                for asic in existentes:
+                    if normalizar(asic["nombre"]) not in nombres_permitidos:
+                        self.asic_dao.desactivar(asic["id_asic"])
 
-            for codigo, nombre in asics_predeterminados:
-                if normalizar(nombre) not in nombres_existentes:
-                    self.asic_dao.crear(codigo, nombre, "", "")
-        except Exception:
-            pass
+                for codigo, nombre in asics_predeterminados:
+                    if normalizar(nombre) not in nombres_existentes:
+                        self.asic_dao.crear(codigo, nombre, "", "")
+            except Exception:
+                pass
 
         asics = self.asic_dao.obtener_todos()
         nombres_permitidos = {normalizar(nombre) for _, nombre in asics_predeterminados}
@@ -1344,20 +1420,21 @@ class ActividadController:
         def normalizar(nombre):
             return " ".join((nombre or "").strip().lower().split())
 
-        try:
-            existentes = self.tipo_dao.obtener_todos()
-            nombres_existentes = {normalizar(t["nombre"]) for t in existentes}
-            nombres_permitidos = {normalizar(nombre) for _, nombre in tipos_predeterminados}
+        if self.auth.puede_escribir():
+            try:
+                existentes = self.tipo_dao.obtener_todos()
+                nombres_existentes = {normalizar(t["nombre"]) for t in existentes}
+                nombres_permitidos = {normalizar(nombre) for _, nombre in tipos_predeterminados}
 
-            for tipo in existentes:
-                if normalizar(tipo["nombre"]) not in nombres_permitidos:
-                    self.tipo_dao.desactivar(tipo["id_tipo"])
+                for tipo in existentes:
+                    if normalizar(tipo["nombre"]) not in nombres_permitidos:
+                        self.tipo_dao.desactivar(tipo["id_tipo"])
 
-            for codigo, nombre in tipos_predeterminados:
-                if normalizar(nombre) not in nombres_existentes:
-                    self.tipo_dao.crear(codigo, nombre, f"Tipo de actividad predeterminado: {nombre}")
-        except Exception:
-            pass
+                for codigo, nombre in tipos_predeterminados:
+                    if normalizar(nombre) not in nombres_existentes:
+                        self.tipo_dao.crear(codigo, nombre, f"Tipo de actividad predeterminado: {nombre}")
+            except Exception:
+                pass
 
         tipos = self.tipo_dao.obtener_todos()
         nombres_permitidos = {normalizar(nombre) for _, nombre in tipos_predeterminados}
@@ -1448,6 +1525,8 @@ class ActividadController:
         usuario = self.auth.obtener_usuario_actual()
         if not usuario:
             return False, "No hay una sesion de usuario activa."
+        if not self.auth.usuario_puede_escribir(usuario):
+            return False, self.auth.mensaje_sin_permiso()
         id_usuario = usuario["id_usuario"]
 
         argumentos_actividad = dict(
@@ -1486,6 +1565,9 @@ class ActividadController:
 
     def eliminar_actividad(self, id_actividad):
         """Elimina de forma lógica una actividad."""
+        usuario = self.auth.obtener_usuario_actual()
+        if not self.auth.usuario_puede_escribir(usuario):
+            return False, self.auth.mensaje_sin_permiso()
         self.actividad_dao.eliminar(id_actividad)
         return True, "Actividad eliminada correctamente."
 
@@ -1624,7 +1706,11 @@ class VoceriaController:
                 return False, f"Vocería #{idx}: La fecha de elección ({item.get('fechas_eleccion')}) tiene más de 2 años de antigüedad."
 
         id_usuario = self.auth.obtener_usuario_actual()
-        id_usuario_registro = id_usuario["id_usuario"] if id_usuario else 1
+        if not id_usuario:
+            return False, "No hay una sesion de usuario activa."
+        if not self.auth.usuario_puede_escribir(id_usuario):
+            return False, self.auth.mensaje_sin_permiso()
+        id_usuario_registro = id_usuario["id_usuario"]
 
         try:
             if id_voceria is None:
@@ -1640,6 +1726,9 @@ class VoceriaController:
 
     def eliminar_voceria(self, id_comite):
         """Elimina un comité y sus vocerías asociadas (soft delete)."""
+        usuario = self.auth.obtener_usuario_actual()
+        if not self.auth.usuario_puede_escribir(usuario):
+            return False, self.auth.mensaje_sin_permiso()
         self.voceria_dao.eliminar(id_comite)
         return True, "Vocería eliminada correctamente."
 
@@ -1958,6 +2047,10 @@ class ExcelService:
         Inserta en BD todas las filas ya validadas.
         Retorna: {insertadas, errores_al_insertar}
         """
+        auth = AuthController()
+        usuario = auth.obtener_usuario_actual()
+        if not auth.usuario_puede_escribir(usuario):
+            raise PermissionError(auth.mensaje_sin_permiso())
         insertadas = 0
         errores_al_insertar = []
         for fila in filas_validas:
@@ -2377,6 +2470,10 @@ class ExcelServiceVoceria:
         Inserta en BD todos los comités ya validados.
         Retorna: {comites_insertados, voceros_insertados, errores_al_insertar}
         """
+        auth = AuthController()
+        usuario = auth.obtener_usuario_actual()
+        if not auth.usuario_puede_escribir(usuario):
+            raise PermissionError(auth.mensaje_sin_permiso())
         from db import VoceriaController
         voceria_ctrl = VoceriaController()
 

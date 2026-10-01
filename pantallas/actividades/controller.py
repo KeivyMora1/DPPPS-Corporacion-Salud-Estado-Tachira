@@ -372,6 +372,15 @@ class ControladorActividad:
         self.vista = VistaActividad(parent, self)
         self.cargar_datos_tabla()
 
+    def puede_escribir(self):
+        return self.modelo.controller.auth.puede_escribir()
+
+    def _verificar_permiso_escritura(self):
+        if self.puede_escribir():
+            return True
+        messagebox.showwarning("Permiso denegado", "Tu rol de lector no permite esta acción.")
+        return False
+
     def _cargar_catalogos(self):
         try:
             asics = self.modelo.listar_asics()
@@ -447,9 +456,13 @@ class ControladorActividad:
             messagebox.showerror("Error", f"Ocurrio un error al cargar las actividades: {str(e)}")
 
     def abrir_form_nueva(self):
+        if not self._verificar_permiso_escritura():
+            return
         self.vista.abrir_formulario()
 
     def editar_seleccionada(self):
+        if not self._verificar_permiso_escritura():
+            return
         seleccion = self.vista.tabla.selection()
         if not seleccion:
             messagebox.showwarning("Atención", "Selecciona una actividad de la tabla para editar.")
@@ -465,6 +478,8 @@ class ControladorActividad:
             messagebox.showerror("Error", f"Ocurrió un error al obtener la actividad: {str(e)}")
 
     def eliminar_seleccionada(self):
+        if not self._verificar_permiso_escritura():
+            return
         seleccion = self.vista.tabla.selection()
         if not seleccion:
             messagebox.showwarning("Atención", "Selecciona una actividad de la tabla para eliminar.")
@@ -513,6 +528,8 @@ class ControladorActividad:
             messagebox.showinfo("Plantilla guardada", f"Plantilla guardada en:\n{destino}")
 
     def abrir_modal_importar(self):
+        if not self._verificar_permiso_escritura():
+            return
         _ImportarModal(self.vista)
 
 

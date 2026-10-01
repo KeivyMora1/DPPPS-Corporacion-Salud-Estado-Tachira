@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS usuario (
     nombre VARCHAR(100) NULL,
     apellido VARCHAR(100) NULL,
     email VARCHAR(120) NULL,
+    rol VARCHAR(20) NOT NULL DEFAULT 'lector',
     email_verificado BOOLEAN NOT NULL DEFAULT FALSE,
     codigo_verificacion VARCHAR(20) NULL,
     codigo_verificacion_expira DATETIME NULL,
