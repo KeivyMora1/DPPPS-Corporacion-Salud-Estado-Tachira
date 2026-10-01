@@ -10,7 +10,7 @@ import customtkinter as ctk
 from tkinter import filedialog, messagebox
 from tkinter import ttk
 
-from db import VOCERIA_TEMPLATE_PATH, build_voceria_template, ExcelServiceVoceria
+from db import VOCERIA_TEMPLATE_PATH, build_voceria_template, ExcelServiceVoceria, validar_correo
 from .model import ModeloVoceria
 from .view import VistaVoceria
 from utils import set_favicon
@@ -127,7 +127,7 @@ class _ImportarVoceriaModal:
         t = self.t
         ruta = filedialog.askopenfilename(
             title="Seleccionar archivo Excel",
-            filetypes=[("Archivos Excel", "*.xlsx *.xls"), ("Todos los archivos", "*.*")],
+            filetypes=[("Archivos Excel compatibles", "*.xlsx")],
             parent=self.ventana
         )
         if ruta:
@@ -544,6 +544,10 @@ class ControladorVoceria:
                 messagebox.showerror("Error en Filtros", "La fecha 'Hasta' debe tener el formato AAAA-MM-DD (ej: 2026-05-17).")
                 return
 
+        if filtros.get("fecha_desde") and filtros.get("fecha_hasta") and filtros["fecha_desde"] > filtros["fecha_hasta"]:
+            messagebox.showerror("Error en Filtros", "La fecha 'Desde' no puede ser posterior a 'Hasta'.")
+            return
+
         self.cargar_datos_tabla(filtros)
 
     def limpiar_filtros(self):
@@ -917,7 +921,7 @@ class ControladorVoceria:
             val = widget.get().strip() if hasattr(widget, "get") else ""
             if not val or val in ("(Sin opciones disponibles)", "Seleccionar vocería...", "AAAA-MM-DD", "Edad"):
                 return False
-            if key == "correo" and (len(val) < 11 or "@" not in val):
+            if key == "correo" and not validar_correo(val):
                 return False
             if key == "edad":
                 if not val.isdigit() or len(val) > 2 or int(val) < 18 or int(val) > 99:

@@ -127,7 +127,7 @@ class _ImportarModal:
         t = self.t
         ruta = filedialog.askopenfilename(
             title="Seleccionar archivo Excel",
-            filetypes=[("Archivos Excel", "*.xlsx *.xls"), ("Todos los archivos", "*.*")],
+            filetypes=[("Archivos Excel compatibles", "*.xlsx")],
             parent=self.ventana
         )
         if ruta:
@@ -448,6 +448,10 @@ class ControladorActividad:
             except ValueError:
                 messagebox.showerror("Error en Filtros", "La fecha 'Hasta' debe tener el formato AAAA-MM-DD (ej: 2026-05-17).")
                 return
+
+        if filtros.get("fecha_desde") and filtros.get("fecha_hasta") and filtros["fecha_desde"] > filtros["fecha_hasta"]:
+            messagebox.showerror("Error en Filtros", "La fecha 'Desde' no puede ser posterior a 'Hasta'.")
+            return
 
         self.filtros_actuales = filtros
         self.cargar_datos_tabla()

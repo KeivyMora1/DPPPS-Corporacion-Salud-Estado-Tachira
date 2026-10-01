@@ -21,7 +21,39 @@ TEMPLATE_PATH = "assets/templates/plantilla_importacion_actividad.xlsx"
 VOCERIA_TEMPLATE_PATH = "assets/templates/plantilla_importacion_voceria.xlsx"
 
 MAX_FILE_SIZE_MB = 10
-ALLOWED_EXTENSIONS = [".xlsx", ".xls"]
+ALLOWED_EXTENSIONS = [".xlsx"]
+VOCERIA_CENTRO_DISPENSADOR_OPCIONES = [
+    "Consultorio Popular TIPO I", "Consultorio Popular TIPO II",
+    "Consultorio Popular TIPO III", "Clinica Popular TIPO I",
+    "Clinica Popular TIPO II", "CDI", "SRI", "CAT",
+    "Hospitales TIPO I", "Hospitales TIPO II", "Hospitales TIPO III",
+    "Hospitales TIPO IV",
+]
+ACTIVIDAD_ESTABLECIMIENTO_OPCIONES = VOCERIA_CENTRO_DISPENSADOR_OPCIONES
+
+
+def validar_correo(correo):
+    correo = (correo or "").strip()
+    if len(correo) > 120:
+        return False
+    if not re.fullmatch(
+        r"[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@"
+        r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
+        r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+",
+        correo,
+    ):
+        return False
+    parte_local = correo.split("@", 1)[0]
+    return not parte_local.startswith(".") and not parte_local.endswith(".") and ".." not in parte_local
+
+
+def validar_archivo_excel(ruta_archivo):
+    if not ruta_archivo or not os.path.isfile(ruta_archivo):
+        raise ValueError("Selecciona un archivo Excel existente.")
+    if os.path.splitext(ruta_archivo)[1].lower() not in ALLOWED_EXTENSIONS:
+        raise ValueError("El archivo debe tener formato .xlsx.")
+    if os.path.getsize(ruta_archivo) > MAX_FILE_SIZE_MB * 1024 * 1024:
+        raise ValueError(f"El archivo no puede superar {MAX_FILE_SIZE_MB} MB.")
 
 ASIC_PREDETERMINADOS = [
     ("ASIC-01", "Andrés Bello"),
@@ -1223,14 +1255,24 @@ class AuthController:
 
         if not nombre or not apellido or not email or not password or not username:
             return {"success": False, "message": "Completa todos los campos."}
-        if "@" not in email or "." not in email.split("@")[-1]:
+        if not validar_correo(email) or len(email) > 60:
             return {"success": False, "message": "Ingresa un correo válido."}
-        if len(username) < 3:
-            return {"success": False, "message": "El nombre de usuario debe tener al menos 3 caracteres."}
+        if not 3 <= len(username) <= 50:
+            return {"success": False, "message": "El nombre de usuario debe tener entre 3 y 50 caracteres."}
         if any(caracter.isspace() for caracter in username):
             return {"success": False, "message": "El nombre de usuario no puede contener espacios."}
-        if len(password) < 6:
-            return {"success": False, "message": "La contraseña debe tener al menos 6 caracteres."}
+        if len(nombre) < 2 or len(nombre) > 60 or any(caracter.isdigit() for caracter in nombre):
+            return {"success": False, "message": "El nombre debe tener entre 2 y 60 caracteres y no contener números."}
+        if len(apellido) < 2 or len(apellido) > 60 or any(caracter.isdigit() for caracter in apellido):
+            return {"success": False, "message": "El apellido debe tener entre 2 y 60 caracteres y no contener números."}
+        if len(f"{nombre} {apellido}") > 120:
+            return {"success": False, "message": "El nombre completo no puede superar 120 caracteres."}
+        if len(password) < 8:
+            return {"success": False, "message": "La contraseña debe tener al menos 8 caracteres."}
+        if len(password) > 60:
+            return {"success": False, "message": "La contraseña no puede superar 60 caracteres."}
+        if len(password.encode("utf-8")) > 72:
+            return {"success": False, "message": "La contraseña no puede superar 72 bytes."}
         propietario = self.usuario_dao.obtener_propietario()
         if cuenta_administrador and propietario:
             if not password_propietario or not self.usuario_dao.verificar_password(
@@ -1329,7 +1371,11 @@ class AuthController:
         Requiere que el correo haya sido verificado.
         """
         global sesion_actual
-        email = credential.strip().lower() if isinstance(credential, str) else ""
+        if not isinstance(credential, str) or not isinstance(password, str):
+            return False
+        if len(credential.strip()) > 60 or len(password) > 60 or len(password.encode("utf-8")) > 72:
+            return False
+        email = credential.strip().lower()
         usuario = self.usuario_dao.obtener_por_email(email) if "@" in email else self.usuario_dao.obtener_por_username(email)
         if usuario is None:
             return False
@@ -1353,6 +1399,8 @@ class AuthController:
     def solicitar_recuperacion(self, email):
         """Genera y envía un código para recuperar la contraseña."""
         email = (email or "").strip().lower()
+        if not validar_correo(email):
+            return {"success": False, "message": "Ingresa un correo válido."}
         usuario = self.usuario_dao.obtener_por_email(email)
         if usuario is None:
             return {"success": False, "message": "No existe una cuenta con ese correo."}
@@ -1370,8 +1418,16 @@ class AuthController:
     def cambiar_password_con_codigo(self, email, codigo, nueva_password):
         """Recupera contraseña usando el código enviado al correo."""
         email = (email or "").strip().lower()
-        if len(nueva_password) < 6:
-            return {"success": False, "message": "La contraseña debe tener al menos 6 caracteres."}
+        codigo = str(codigo or "").strip()
+        nueva_password = nueva_password or ""
+        if not validar_correo(email):
+            return {"success": False, "message": "Ingresa un correo válido."}
+        if len(codigo) != 6 or not codigo.isdigit():
+            return {"success": False, "message": "El código debe tener exactamente 6 dígitos numéricos."}
+        if len(nueva_password) < 8:
+            return {"success": False, "message": "La contraseña debe tener al menos 8 caracteres."}
+        if len(nueva_password.encode("utf-8")) > 72:
+            return {"success": False, "message": "La contraseña no puede superar 72 bytes."}
         usuario = self.usuario_dao.obtener_por_email(email)
         if usuario is None:
             return {"success": False, "message": "No existe una cuenta con ese correo."}
@@ -1505,6 +1561,21 @@ class ActividadController:
         ]:
             if valor is None or not str(valor).strip():
                 return False, f"El campo {campo} es obligatorio."
+        limites_texto = [
+            ("Estado", estado, 100), ("Municipio", municipio, 100),
+            ("Parroquia", parroquia, 100), ("Establecimiento de Salud", establecimiento_salud, 150),
+            ("Nombre del Establecimiento", nombre_establecimiento, 200),
+        ]
+        for campo, valor, maximo in limites_texto:
+            texto = str(valor).strip()
+            if len(texto) > maximo or any(ord(caracter) < 32 for caracter in texto):
+                return False, f"El campo {campo} no puede superar {maximo} caracteres ni contener controles."
+        if estado != "Táchira":
+            return False, "Debes seleccionar un estado válido."
+        if municipio not in MUNICIPIOS_TACHIRA:
+            return False, "Debes seleccionar un municipio válido."
+        if establecimiento_salud not in ACTIVIDAD_ESTABLECIMIENTO_OPCIONES:
+            return False, "Debes seleccionar un establecimiento de salud válido."
 
         comites_texto = str(comites_salud).strip() if comites_salud is not None else ""
         if not comites_texto:
@@ -1523,9 +1594,13 @@ class ActividadController:
             return False, "El total de asistencia es obligatorio."
 
         try:
+            if isinstance(participantes, bool) or (
+                isinstance(participantes, float) and not participantes.is_integer()
+            ) or (isinstance(participantes, str) and not participantes.strip().isdigit()):
+                raise ValueError()
             cant_participantes = int(participantes)
-            if cant_participantes < 0:
-                return False, "La cantidad de participantes no puede ser menor a 0."
+            if not 0 <= cant_participantes <= 899991:
+                return False, "La cantidad de participantes debe estar entre 0 y 899991."
         except (ValueError, TypeError):
             return False, "La cantidad de participantes debe ser un numero entero valido."
 
@@ -1542,11 +1617,23 @@ class ActividadController:
             if valor is None or not str(valor).strip():
                 return False, f"El campo {campo} es obligatorio."
             try:
+                if isinstance(valor, bool) or (
+                    isinstance(valor, float) and not valor.is_integer()
+                ) or (isinstance(valor, str) and not valor.strip().isdigit()):
+                    raise ValueError()
                 v = int(valor)
-                if v < 0:
-                    return False, f"El campo {campo} no puede ser menor a 0."
+                if not 0 <= v <= 99999:
+                    return False, f"El campo {campo} debe estar entre 0 y 99999."
             except (ValueError, TypeError):
                 return False, f"El campo {campo} debe ser un numero entero valido."
+
+        total_categorias = sum(int(valor) for valor in (
+            medicos, promotores_salud, voceros_comite_salud, vocero_consejo_direccion,
+            coordinador_docencia, autoridades_presentes, otros_actores,
+            personas_comunidad, estudiantes_aspirantes,
+        ))
+        if total_categorias != cant_participantes:
+            return False, "El total de asistencia debe coincidir con la suma de las categorías."
 
         try:
             fecha_obj = ActividadDAO._parse_fecha(fecha)
@@ -1666,20 +1753,32 @@ class VoceriaController:
         if items is None:
             items = []
 
+        estado = str(estado or "").strip()
+        municipio = str(municipio or "").strip()
+        parroquia = str(parroquia or "").strip()
+        centro_dispensador = str(centro_dispensador or "").strip()
+        nombre_centro = str(nombre_centro or "").strip()
+        nombre_comite = str(nombre_comite or "").strip()
+
         if not id_asic:
             return False, "Debes seleccionar un ASIC."
-        if not estado or not str(estado).strip():
-            return False, "El estado es obligatorio."
-        if not municipio or not str(municipio).strip():
-            return False, "El municipio es obligatorio."
-        if not parroquia or not str(parroquia).strip() or str(parroquia).strip() == "Parroquia":
-            return False, "La parroquia es obligatoria."
-        if not centro_dispensador or not str(centro_dispensador).strip():
-            return False, "El centro dispensador es obligatorio."
-        if not nombre_centro or not str(nombre_centro).strip():
-            return False, "El nombre del centro es obligatorio."
-        if not nombre_comite or not str(nombre_comite).strip():
-            return False, "El nombre del comité es obligatorio."
+        campos_generales = [
+            ("Estado", estado, 100), ("Municipio", municipio, 100),
+            ("Parroquia", parroquia, 100), ("Centro dispensador", centro_dispensador, 100),
+            ("Nombre del centro", nombre_centro, 200), ("Nombre del comité", nombre_comite, 200),
+        ]
+        for etiqueta, valor, maximo in campos_generales:
+            texto = str(valor or "").strip()
+            if not texto or texto == "Parroquia":
+                return False, f"{etiqueta} es obligatorio."
+            if len(texto) > maximo or any(ord(caracter) < 32 for caracter in texto):
+                return False, f"{etiqueta} no puede superar {maximo} caracteres ni contener controles."
+        if estado not in VOCERIA_ESTADO_OPCIONES:
+            return False, "Debes seleccionar un estado válido."
+        if municipio not in MUNICIPIOS_TACHIRA:
+            return False, "Debes seleccionar un municipio válido."
+        if centro_dispensador not in VOCERIA_CENTRO_DISPENSADOR_OPCIONES:
+            return False, "Debes seleccionar un centro dispensador válido."
         if not items:
             return False, "Debe agregar al menos 7 vocerías (máx. 10)."
         if len(items) < 7:
@@ -1688,10 +1787,15 @@ class VoceriaController:
             return False, f"Máximo 10 vocerías permitidas (actual: {len(items)})."
 
         tipos_voceria = self.tipo_voceria_dao.obtener_todos()
+        tipos_validos = {int(tipo["id_tipo"]) for tipo in tipos_voceria}
         if not id_tipo and tipos_voceria:
             id_tipo = tipos_voceria[0]["id_tipo"]
-        if not id_tipo:
+        try:
+            id_tipo = int(id_tipo)
+        except (TypeError, ValueError):
             return False, "Debes seleccionar un tipo de vocería."
+        if id_tipo not in tipos_validos:
+            return False, "Debes seleccionar un tipo de vocería válido."
 
         # Validar TODOS los campos en cada item (sin centro_dispensador, nombre_centro, nombre_comite que ahora son generales)
         for idx, item in enumerate(items, start=1):
@@ -1700,11 +1804,14 @@ class VoceriaController:
                 return False, f"Vocería #{idx}: Nombres y Apellidos son obligatorios."
             if not 5 <= len(nombres) <= 40:
                 return False, f"Vocería #{idx}: Nombres y Apellidos debe tener entre 5 y 40 caracteres."
+            if any(caracter.isdigit() or ord(caracter) < 32 for caracter in nombres):
+                return False, f"Vocería #{idx}: Nombres y Apellidos no puede contener números ni controles."
             if not item.get("ci") or not str(item.get("ci")).strip():
                 return False, f"Vocería #{idx}: C.I. es obligatoria."
             ci = str(item.get("ci")).strip()
             ci_digitos = ci.replace(",", "")
-            if not ci_digitos.isdigit() or not 7 <= len(ci_digitos) <= 8:
+            formato_ci_valido = bool(re.fullmatch(r"(?:\d{7,8}|\d{1,2}(?:,\d{3}){2})", ci))
+            if not formato_ci_valido or not 7 <= len(ci_digitos) <= 8:
                 return False, f"Vocería #{idx}: La C.I. debe tener entre 7 y 8 dígitos."
             telefono = str(item.get("telefono") or "").strip()
             if not telefono:
@@ -1725,10 +1832,16 @@ class VoceriaController:
                 return False, f"Vocería #{idx}: Edad es obligatoria."
             if not edad.isdigit() or len(edad) > 2 or not 18 <= int(edad) <= 99:
                 return False, f"Vocería #{idx}: La edad debe estar entre 18 y 99 años."
-            if not item.get("id_tipo_voceria"):
+            if int(edad) != edad_por_fecha:
+                return False, f"Vocería #{idx}: La edad no coincide con la fecha de nacimiento."
+            try:
+                id_tipo_item = int(item.get("id_tipo_voceria"))
+            except (TypeError, ValueError):
+                id_tipo_item = None
+            if id_tipo_item not in tipos_validos:
                 return False, f"Vocería #{idx}: Debe seleccionar una vocería."
-            if not item.get("sexo") or not str(item.get("sexo")).strip():
-                return False, f"Vocería #{idx}: Sexo es obligatorio."
+            if item.get("sexo") not in ("M", "F"):
+                return False, f"Vocería #{idx}: Debe seleccionar un sexo válido."
             profesion = str(item.get("profesion") or "").strip()
             if not profesion:
                 return False, f"Vocería #{idx}: Profesión/Oficio es obligatoria."
@@ -1737,8 +1850,8 @@ class VoceriaController:
             correo = str(item.get("correo") or "").strip()
             if not correo:
                 return False, f"Vocería #{idx}: Correo electrónico es obligatorio."
-            if len(correo) < 11 or "@" not in correo:
-                return False, f"Vocería #{idx}: Correo electrónico no válido (debe incluir '@')."
+            if not validar_correo(correo):
+                return False, f"Vocería #{idx}: Correo electrónico no válido."
             if not item.get("fechas_eleccion") or not str(item.get("fechas_eleccion")).strip() or str(item.get("fechas_eleccion")).strip() == "AAAA-MM-DD":
                 return False, f"Vocería #{idx}: Fechas de Elección es obligatoria."
             fecha_eleccion = self._parsear_fecha(item.get("fechas_eleccion"))
@@ -1746,7 +1859,7 @@ class VoceriaController:
                 return False, f"Vocería #{idx}: La fecha de elección no es válida."
             if fecha_eleccion > date.today():
                 return False, f"Vocería #{idx}: La fecha de elección no puede ser futura."
-            hace_dos_anos = date.today().replace(year=date.today().year - 2)
+            hace_dos_anos = date.today() - timedelta(days=730)
             if fecha_eleccion < hace_dos_anos:
                 return False, f"Vocería #{idx}: La fecha de elección ({item.get('fechas_eleccion')}) tiene más de 2 años de antigüedad."
 
@@ -1972,11 +2085,87 @@ class ExcelService:
         self._tipo_dao = TipoActividadDAO()
         self._cache_asic: dict = {}
         self._cache_tipo: dict = {}
+
+    def _validar_campos_fila(self, fila, idx, fecha, tema, comites_salud, participantes):
+        errores = []
+        valores_obligatorios = {
+            "ESTADO": self._obtener_valor_columna(fila, idx, "estado"),
+            "MUNICIPIO": self._obtener_valor_columna(fila, idx, "municipio"),
+            "PARROQUIA": self._obtener_valor_columna(fila, idx, "parroquia"),
+            "ESTABLECIMIENTO DE SALUD": self._obtener_valor_columna(fila, idx, "establecimiento_salud"),
+            "NOMBRE DEL ESTABLECIMIENTO": self._obtener_valor_columna(fila, idx, "nombre_establecimiento_salud"),
+        }
+        for campo, valor in valores_obligatorios.items():
+            if valor is None or not str(valor).strip():
+                errores.append(f"El campo '{campo}' está vacío.")
+        limites_texto = {
+            "ESTADO": (valores_obligatorios["ESTADO"], 100),
+            "MUNICIPIO": (valores_obligatorios["MUNICIPIO"], 100),
+            "PARROQUIA": (valores_obligatorios["PARROQUIA"], 100),
+            "ESTABLECIMIENTO DE SALUD": (valores_obligatorios["ESTABLECIMIENTO DE SALUD"], 150),
+            "NOMBRE DEL ESTABLECIMIENTO": (valores_obligatorios["NOMBRE DEL ESTABLECIMIENTO"], 200),
+        }
+        for campo, (valor, maximo) in limites_texto.items():
+            texto = str(valor or "").strip()
+            if len(texto) > maximo or any(ord(caracter) < 32 for caracter in texto):
+                errores.append(f"'{campo}' supera {maximo} caracteres o contiene controles.")
+        estado = str(valores_obligatorios["ESTADO"] or "").strip()
+        municipio = str(valores_obligatorios["MUNICIPIO"] or "").strip()
+        establecimiento = str(valores_obligatorios["ESTABLECIMIENTO DE SALUD"] or "").strip()
+        if estado and estado != "Táchira":
+            errores.append("'ESTADO' no es válido.")
+        if municipio and municipio not in MUNICIPIOS_TACHIRA:
+            errores.append("'MUNICIPIO' no es válido.")
+        if establecimiento and establecimiento not in ACTIVIDAD_ESTABLECIMIENTO_OPCIONES:
+            errores.append("'ESTABLECIMIENTO DE SALUD' no es válido.")
+
+        if fecha is None:
+            errores.append("'FECHA' no tiene formato de fecha válido (YYYY-MM-DD o DD/MM/YYYY).")
+        elif fecha > date.today():
+            errores.append("'FECHA' no puede ser futura.")
+
+        if not tema:
+            errores.append("El campo 'TEMA TRATADO' está vacío.")
+        elif len(tema) > 150:
+            errores.append("'TEMA TRATADO' no puede superar los 150 caracteres.")
+
+        if comites_salud is None or not 0 <= comites_salud <= 99:
+            errores.append(
+                "'CANTIDAD DE COMITÉS DE SALUD' debe ser un número entero entre 0 y 99; "
+                "ingrese la cantidad, no el nombre del comité."
+            )
+
+        participantes_por_categoria = []
+        for campo in PARTICIPANTES_CATEGORIAS:
+            valor = self._obtener_valor_columna(fila, idx, campo)
+            if valor is None or not str(valor).strip():
+                participantes_por_categoria.append(0)
+                continue
+            cantidad = self._parse_int(valor)
+            if cantidad is None or not 0 <= cantidad <= 99999:
+                errores.append(
+                    f"'{campo.replace('_', ' ').upper()}' debe ser un número entero entre 0 y 99999."
+                )
+                participantes_por_categoria.append(0)
+                continue
+            participantes_por_categoria.append(cantidad)
+
+        hay_desglose = any(
+            valor is not None and str(valor).strip() != ""
+            for campo in PARTICIPANTES_CATEGORIAS
+            for valor in [self._obtener_valor_columna(fila, idx, campo)]
+        )
+        if hay_desglose and participantes is not None and sum(participantes_por_categoria) != participantes:
+            errores.append("'TOTAL DE ASISTENCIA' debe coincidir con la suma de las categorías de participantes.")
+
+        return errores
+
     def previsualizar(self, ruta_archivo: str) -> dict:
         """
         Lee el Excel y valida cada fila SIN insertar en BD.
         Retorna: {columnas, filas_validas, filas_error, total_filas}
         """
+        validar_archivo_excel(ruta_archivo)
         wb = openpyxl.load_workbook(ruta_archivo, data_only=True)
         ws = wb.active
         # Detecta si es la plantilla nueva (fila 3 con encabezados) o vieja (fila 1 con encabezados).
@@ -2027,25 +2216,19 @@ class ExcelService:
             comites_salud = self._parse_int(self._obtener_valor_columna(fila, idx, "comites_de_salud"))
             try:
                 participantes = self._calcular_total_asistencia(fila, idx, datos_crudos)
-                if participantes is None or participantes < 0:
+                if participantes is None or not 0 <= participantes <= 899991:
                     raise ValueError()
             except (TypeError, ValueError):
                 participantes = None
-                errores.append("'TOTAL DE ASISTENCIA' no es un número entero válido.")
+                errores.append("'TOTAL DE ASISTENCIA' debe ser un entero entre 0 y 899991.")
             fecha_actividad = self._parsear_fecha(datos_crudos.get("fecha"))
-            if fecha_actividad is None:
-                errores.append("'FECHA' no tiene formato de fecha válido (YYYY-MM-DD o DD/MM/YYYY).")
+            errores.extend(self._validar_campos_fila(
+                fila, idx, fecha_actividad, tema, comites_salud, participantes,
+            ))
             if not asic_nombre:
                 errores.append("El campo 'ASIC' está vacío.")
             if not tipo_nombre:
                 errores.append("El campo 'ACTIVIDAD DESARROLLADA' está vacío.")
-            if not tema:
-                errores.append("El campo 'TEMA TRATADO' está vacío.")
-            if comites_salud is None or not 0 <= comites_salud <= 99:
-                errores.append(
-                    "'CANTIDAD DE COMITÉS DE SALUD' debe ser un número entero entre 0 y 99; "
-                    "ingrese la cantidad, no el nombre del comité."
-                )
             id_asic = None
             id_tipo = None
             if asic_nombre:
@@ -2330,6 +2513,7 @@ class ExcelServiceVoceria:
         import openpyxl
         from datetime import date, datetime, timedelta
 
+        validar_archivo_excel(ruta_archivo)
         wb = openpyxl.load_workbook(ruta_archivo, data_only=True)
         ws = wb.active
 
@@ -2473,16 +2657,19 @@ class ExcelServiceVoceria:
                 nombre_campo = campo.replace("_", " ").upper()
                 errores.append(f"Fila {numero_fila}: El campo '{nombre_campo}' es obligatorio.")
         correo = (datos.get("correo") or "").strip()
-        if correo and (len(correo) < 11 or "@" not in correo):
-            errores.append(f"Fila {numero_fila}: Correo electrónico no válido (mínimo 11 caracteres y debe incluir '@').")
+        if correo and not validar_correo(correo):
+            errores.append(f"Fila {numero_fila}: Correo electrónico no válido.")
 
         nombres = (datos.get("nombres") or "").strip()
         if nombres and not 5 <= len(nombres) <= 40:
             errores.append(f"Fila {numero_fila}: Nombres y Apellidos debe tener entre 5 y 40 caracteres.")
+        if nombres and any(caracter.isdigit() or ord(caracter) < 32 for caracter in nombres):
+            errores.append(f"Fila {numero_fila}: Nombres y Apellidos no puede contener números ni controles.")
 
         ci = (datos.get("ci") or "").strip()
         ci_digitos = ci.replace(",", "")
-        if ci and (not ci_digitos.isdigit() or not 7 <= len(ci_digitos) <= 8):
+        formato_ci_valido = bool(re.fullmatch(r"(?:\d{7,8}|\d{1,2}(?:,\d{3}){2})", ci))
+        if ci and (not formato_ci_valido or not 7 <= len(ci_digitos) <= 8):
             errores.append(f"Fila {numero_fila}: La C.I. debe tener entre 7 y 8 dígitos.")
 
         profesion = (datos.get("profesion") or "").strip()
@@ -2497,6 +2684,29 @@ class ExcelServiceVoceria:
         if edad and (not edad.isdigit() or len(edad) > 2 or not 18 <= int(edad) <= 99):
             errores.append(f"Fila {numero_fila}: La edad debe estar entre 18 y 99 años.")
 
+        sexo = (datos.get("sexo") or "").strip()
+        if sexo and sexo not in ("M", "F"):
+            errores.append(f"Fila {numero_fila}: Sexo debe ser M o F.")
+
+        limites_generales = {
+            "estado": 100, "municipio": 100, "parroquia": 100,
+            "centro_dispensador": 100, "nombre_centro": 200, "nombre_comite": 200,
+        }
+        for campo, maximo in limites_generales.items():
+            valor = (datos.get(campo) or "").strip()
+            if valor and (len(valor) > maximo or any(ord(caracter) < 32 for caracter in valor)):
+                errores.append(f"Fila {numero_fila}: '{campo.replace('_', ' ').upper()}' supera {maximo} caracteres o contiene controles.")
+
+        estado = (datos.get("estado") or "").strip()
+        if estado and estado not in VOCERIA_ESTADO_OPCIONES:
+            errores.append(f"Fila {numero_fila}: Estado no válido.")
+        municipio = (datos.get("municipio") or "").strip()
+        if municipio and municipio not in MUNICIPIOS_TACHIRA:
+            errores.append(f"Fila {numero_fila}: Municipio no válido.")
+        centro_dispensador = (datos.get("centro_dispensador") or "").strip()
+        if centro_dispensador and centro_dispensador not in VOCERIA_CENTRO_DISPENSADOR_OPCIONES:
+            errores.append(f"Fila {numero_fila}: Centro dispensador no válido.")
+
         hoy = date.today()
         fecha_nacimiento = self._parsear_fecha(datos.get("fecha_nacimiento"))
         if datos.get("fecha_nacimiento") and not fecha_nacimiento:
@@ -2507,12 +2717,16 @@ class ExcelServiceVoceria:
             )
             if not 18 <= edad_por_fecha <= 99:
                 errores.append(f"Fila {numero_fila}: La persona debe tener entre 18 y 99 años según su Fecha de Nacimiento.")
+            if edad.isdigit() and int(edad) != edad_por_fecha:
+                errores.append(f"Fila {numero_fila}: La edad no coincide con la Fecha de Nacimiento.")
 
         fecha_eleccion = self._parsear_fecha(datos.get("fechas_eleccion"))
         if datos.get("fechas_eleccion") and not fecha_eleccion:
             errores.append(f"Fila {numero_fila}: Fecha de Elección no válida.")
         elif fecha_eleccion and fecha_eleccion > hoy:
             errores.append(f"Fila {numero_fila}: La Fecha de Elección no puede ser futura.")
+        elif fecha_eleccion and fecha_eleccion < hoy - timedelta(days=730):
+            errores.append(f"Fila {numero_fila}: La Fecha de Elección no puede tener más de 2 años.")
         return errores
 
     def _validar_comite(self, nombre_comite, filas):

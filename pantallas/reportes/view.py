@@ -83,6 +83,7 @@ class VistaReporte:
         self._combo_asic.grid(row=2, column=1, columnspan=3, sticky="w", padx=8, pady=6)
 
         label(inner, "Título del informe:", font_size=10).grid(row=3, column=0, sticky="w", pady=4)
+        validar_titulo = inner.register(lambda texto: len(texto) <= 200)
         self._entry_titulo = ctk.CTkEntry(
             inner,
             width=440,
@@ -91,6 +92,8 @@ class VistaReporte:
             text_color=t["text_primary"],
             border_color=t["border"],
             corner_radius=6,
+            validate="key",
+            validatecommand=(validar_titulo, "%P"),
         )
         self._entry_titulo.insert(0, "Informe Consolidado de Actividades")
         self._entry_titulo.grid(row=3, column=1, columnspan=3, sticky="w", padx=8)

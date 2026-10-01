@@ -123,6 +123,68 @@ def test_generar_codigo_verificacion_es_numero_de_6_digitos():
     assert len(codigo) == 6
 
 
+def test_login_rechaza_credenciales_fuera_de_limite(monkeypatch):
+    controller = AuthController()
+    consultas = []
+    monkeypatch.setattr(
+        controller.usuario_dao,
+        "obtener_por_email",
+        lambda valor: consultas.append(valor),
+    )
+    monkeypatch.setattr(
+        controller.usuario_dao,
+        "obtener_por_username",
+        lambda valor: consultas.append(valor),
+    )
+
+    assert controller.login("u" * 61, "Password1") is False
+    assert controller.login("usuario", "P" * 61) is False
+    assert controller.login("usuario", "á" * 37) is False
+    assert consultas == []
+
+
+def test_registro_rechaza_campos_mayores_a_sus_limites():
+    controller = AuthController()
+    casos = [
+        (("Ana", "García", "ana@example.com", "1234567", "usuario"), "al menos 8 caracteres"),
+        (("A" * 61, "García", "ana@example.com", "Pass123!", "usuario"), "2 y 60"),
+        (("Ana", "García", "ana@example.com", "Pass123!", "u" * 51), "3 y 50"),
+        (("Ana", "García", "a" * 50 + "@example.com", "Pass123!", "usuario"), "correo válido"),
+        (("Ana", "García", "ana@example.com", "P" * 61, "usuario"), "60 caracteres"),
+    ]
+
+    for datos, mensaje in casos:
+        resultado = controller.registrar_usuario(*datos)
+        assert resultado["success"] is False
+        assert mensaje in resultado["message"]
+
+
+def test_validacion_de_correo_y_codigo_de_recuperacion():
+    assert db_module.validar_correo("a@b.co")
+    assert not db_module.validar_correo("ana@@test.com")
+    assert not db_module.validar_correo("ana..perez@test.com")
+
+    resultado = AuthController().cambiar_password_con_codigo(
+        "ana@test.com", "12x456", "Nueva123",
+    )
+    assert resultado == {
+        "success": False,
+        "message": "El código debe tener exactamente 6 dígitos numéricos.",
+    }
+
+
+def test_importadores_rechazan_archivos_no_xlsx(tmp_path):
+    archivo = tmp_path / "libro.xls"
+    archivo.write_bytes(b"contenido")
+
+    try:
+        db_module.validar_archivo_excel(str(archivo))
+    except ValueError as exc:
+        assert ".xlsx" in str(exc)
+    else:
+        raise AssertionError("El importador no debe aceptar archivos .xls.")
+
+
 def test_guardar_actividad_acepta_fecha_unica(monkeypatch):
     controller = ActividadController()
 
@@ -145,7 +207,7 @@ def test_guardar_actividad_acepta_fecha_unica(monkeypatch):
         estado="Táchira",
         municipio="San Cristóbal",
         parroquia="San José",
-        establecimiento_salud="Hospital",
+        establecimiento_salud="Hospitales TIPO I",
         nombre_establecimiento="Hospital Central",
         comites_salud=1,
         tema=tema,
@@ -242,7 +304,7 @@ def test_voceria_rechaza_campos_fuera_de_los_nuevos_limites(monkeypatch):
         ({"edad": "100"}, "edad"),
         ({"nombres": "Juan"}, "Nombres"),
         ({"profesion": "A" * 41}, "Profesión"),
-        ({"correo": "a@b.co"}, "Correo"),
+        ({"correo": "ana@@test.com"}, "Correo"),
     ]
 
     for cambios, campo in casos:
@@ -278,6 +340,15 @@ def test_voceria_rechaza_fechas_de_nacimiento_y_eleccion_invalidas(monkeypatch):
         "Vocería #1: La fecha de elección no puede ser futura.",
     )
 
+    resultado_edad = _guardar_voceria_con_item(monkeypatch, edad="25")
+    assert resultado_edad == (
+        False,
+        "Vocería #1: La edad no coincide con la fecha de nacimiento.",
+    )
+
+    resultado_sexo = _guardar_voceria_con_item(monkeypatch, sexo="X")
+    assert resultado_sexo == (False, "Vocería #1: Debe seleccionar un sexo válido.")
+
 
 def test_excel_voceria_aplica_los_nuevos_limites():
     servicio = ExcelServiceVoceria(id_usuario_registro=1)
@@ -292,7 +363,7 @@ def test_excel_voceria_aplica_los_nuevos_limites():
             "voceria": "Vocería 1",
             "sexo": "F",
             "profesion": "A" * 41,
-            "correo": "a@b.co",
+            "correo": "ana@@test.com",
             "fechas_eleccion": (date.today() + timedelta(days=1)).isoformat(),
             "estado": "Táchira",
             "municipio": "San Cristóbal",
@@ -312,7 +383,51 @@ def test_excel_voceria_aplica_los_nuevos_limites():
     assert any("18 y 99" in error for error in errores)
     assert any("futura" in error for error in errores)
     assert any("5 y 40" in error for error in errores)
-    assert any("11 caracteres" in error for error in errores)
+    assert any("Correo electrónico no válido" in error for error in errores)
+
+
+def test_excel_actividad_rechaza_datos_que_el_formulario_no_acepta(tmp_path):
+    from openpyxl import Workbook
+
+    workbook = Workbook()
+    worksheet = workbook.active
+    headers = [
+        "ASIC", "ACTIVIDAD DESARROLLADA", "FECHA", "TEMA TRATADO",
+        "TOTAL DE ASISTENCIA", "ESTADO", "MUNICIPIO", "PARROQUIA",
+        "ESTABLECIMIENTO DE SALUD", "NOMBRE DEL ESTABLECIMIENTO DE SALUD",
+        "CANTIDAD DE COMITÉS DE SALUD", "MEDICOS",
+    ]
+    worksheet.append([])
+    worksheet.append([])
+    worksheet.append(headers)
+    worksheet.append([
+        "ASIC", "Actividad", (date.today() + timedelta(days=1)).isoformat(),
+        "Tema", 2, "Táchira", "Municipio", "Parroquia", "CDI", "Centro",
+        1, "no-numérico",
+    ])
+    worksheet.append([
+        "ASIC", "Actividad", date.today().isoformat(), "T" * 151, 2,
+        "", "San Cristóbal", "Parroquia", "CDI", "Centro", 1, 2,
+    ])
+    ruta = tmp_path / "actividades.xlsx"
+    workbook.save(ruta)
+
+    servicio = object.__new__(db_module.ExcelService)
+    servicio._resolver_asic = lambda nombre: 1
+    servicio._resolver_tipo = lambda nombre: 1
+    servicio._actividad_dao = type(
+        "ActividadDAOFalsa", (), {"verificar_duplicado": lambda *args, **kwargs: False}
+    )()
+
+    resultado = servicio.previsualizar(str(ruta))
+
+    assert resultado["filas_validas"] == []
+    errores_primera_fila = " ".join(resultado["filas_error"][0]["errores"])
+    errores_segunda_fila = " ".join(resultado["filas_error"][1]["errores"])
+    assert "no puede ser futura" in errores_primera_fila
+    assert "MEDICOS" in errores_primera_fila
+    assert "ESTADO" in errores_segunda_fila
+    assert "150 caracteres" in errores_segunda_fila
 
 
 def test_guardar_actividad_rechaza_fecha_futura():
@@ -366,6 +481,23 @@ def test_guardar_actividad_valida_comites_salud():
             False,
             "Comités de Salud debe contener solo números y tener máximo 2 dígitos.",
         )
+
+
+def test_guardar_actividad_exige_total_coherente_y_catalogos_validos():
+    controller = ActividadController()
+
+    resultado_total = controller.guardar_actividad(
+        **_datos_actividad_validos(participantes="1")
+    )
+    assert resultado_total == (
+        False,
+        "El total de asistencia debe coincidir con la suma de las categorías.",
+    )
+
+    resultado_municipio = controller.guardar_actividad(
+        **_datos_actividad_validos(municipio="Municipio inventado")
+    )
+    assert resultado_municipio == (False, "Debes seleccionar un municipio válido.")
 
 
 def test_importacion_actividades_revierte_todo_si_falla_una_fila(monkeypatch):
@@ -670,8 +802,11 @@ def test_validar_datos_registro_rechaza_campos_incompletos_o_invalidos():
     assert ControladorLogin._validar_datos_registro("Ana", "García", "an", "ana@test.com", "Pass123!") == "El nombre de usuario debe tener al menos 3 caracteres."
     assert ControladorLogin._validar_datos_registro("Ana", "García", "ana user", "ana@test.com", "Pass123!") == "El nombre de usuario no puede contener espacios."
     assert ControladorLogin._validar_datos_registro("Ana", "García", "ana", "correo", "Pass123!") == "Ingresa un correo válido."
-    assert ControladorLogin._validar_datos_registro("Ana", "García", "ana", "ana@test.com", "123") == "La contraseña debe tener al menos 6 caracteres."
-    assert ControladorLogin._validar_datos_registro("Ana", "García", "ana", "ana@test.com", "Pass123!") is None
+    assert ControladorLogin._validar_datos_registro("Ana", "García", "ana", "ana@test.com", "1234567") == "La contraseña debe tener al menos 8 caracteres."
+    assert "60 caracteres" in ControladorLogin._validar_datos_registro("A" * 61, "García", "ana", "ana@test.com", "Pass123!")
+    assert "60 caracteres" in ControladorLogin._validar_datos_registro("Ana", "García", "ana", "a" * 50 + "@example.com", "Pass123!")
+    assert "60 caracteres" in ControladorLogin._validar_datos_registro("Ana", "García", "ana", "ana@test.com", "P" * 61)
+    assert ControladorLogin._validar_datos_registro("Ana", "García", "ana", "ana@test.com", "12345678") is None
 
 
 def test_verificar_email_rechaza_codigo_con_longitud_o_formato_incorrecto(monkeypatch):

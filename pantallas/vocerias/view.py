@@ -17,7 +17,7 @@ from ui_helpers import (
     label_title,
     separator,
 )
-from db import MUNICIPIOS_TACHIRA
+from db import MUNICIPIOS_TACHIRA, VOCERIA_CENTRO_DISPENSADOR_OPCIONES, validar_correo
 from utils import set_favicon
 
 
@@ -309,7 +309,14 @@ class VistaVoceria:
         col_nombres = ctk.CTkFrame(fila2, fg_color="transparent")
         col_nombres.grid(row=0, column=0, sticky="ew", padx=(0, 5))
         ctk.CTkLabel(col_nombres, text="Nombres y Apellidos *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_nombres = ctk.CTkEntry(col_nombres, placeholder_text="Nombres y Apellidos", font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
+        ent_nombres = ctk.CTkEntry(
+            col_nombres, placeholder_text="Nombres y Apellidos", font=("Arial", 10),
+            fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"],
+            corner_radius=6, validate="key",
+            validatecommand=(col_nombres.register(
+                lambda texto: len(texto) <= 40 and not any(c.isdigit() or ord(c) < 32 for c in texto)
+            ), "%P"),
+        )
         ent_nombres.pack(fill="x", pady=(2, 0))
 
         col_ci = ctk.CTkFrame(fila2, fg_color="transparent")
@@ -426,13 +433,23 @@ class VistaVoceria:
         col_prof = ctk.CTkFrame(fila4, fg_color="transparent")
         col_prof.grid(row=0, column=1, sticky="ew", padx=5)
         ctk.CTkLabel(col_prof, text="Profesión/Oficio *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_prof = ctk.CTkEntry(col_prof, placeholder_text="Profesión/Oficio", font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
+        ent_prof = ctk.CTkEntry(
+            col_prof, placeholder_text="Profesión/Oficio", font=("Arial", 10),
+            fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"],
+            corner_radius=6, validate="key",
+            validatecommand=(col_prof.register(lambda texto: len(texto) <= 40), "%P"),
+        )
         ent_prof.pack(fill="x", pady=(2, 0))
 
         col_correo = ctk.CTkFrame(fila4, fg_color="transparent")
         col_correo.grid(row=0, column=2, sticky="ew", padx=(5, 0))
         ctk.CTkLabel(col_correo, text="Correo *", font=("Arial", 9, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_correo = ctk.CTkEntry(col_correo, placeholder_text="ejemplo@correo.com", font=("Arial", 10), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
+        ent_correo = ctk.CTkEntry(
+            col_correo, placeholder_text="ejemplo@correo.com", font=("Arial", 10),
+            fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"],
+            corner_radius=6, validate="key",
+            validatecommand=(col_correo.register(lambda texto: len(texto) <= 120), "%P"),
+        )
         ent_correo.pack(fill="x", pady=(2, 0))
 
         fila5 = ctk.CTkFrame(inner, fg_color="transparent")
@@ -541,20 +558,7 @@ class VistaVoceria:
         marco_form = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         marco_form.pack(fill="both", expand=True)
 
-        self.establecimientos_opciones = [
-            "Consultorio Popular TIPO I",
-            "Consultorio Popular TIPO II",
-            "Consultorio Popular TIPO III",
-            "Clinica Popular TIPO I",
-            "Clinica Popular TIPO II",
-            "CDI",
-            "SRI",
-            "CAT",
-            "Hospitales TIPO I",
-            "Hospitales TIPO II",
-            "Hospitales TIPO III",
-            "Hospitales TIPO IV",
-        ]
+        self.establecimientos_opciones = VOCERIA_CENTRO_DISPENSADOR_OPCIONES
 
         frame_generales = ctk.CTkFrame(marco_form, fg_color=t["bg_card"], corner_radius=8)
         frame_generales.pack(fill="x", pady=(0, 10))
@@ -586,7 +590,12 @@ class VistaVoceria:
         col_parroquia = ctk.CTkFrame(fila1, fg_color="transparent")
         col_parroquia.grid(row=0, column=2, sticky="ew", padx=(5, 0))
         ctk.CTkLabel(col_parroquia, text="Parroquia *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        self.ent_parroquia = ctk.CTkEntry(col_parroquia, placeholder_text="Parroquia", font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
+        self.ent_parroquia = ctk.CTkEntry(
+            col_parroquia, placeholder_text="Parroquia", font=("Arial", 11),
+            fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"],
+            corner_radius=6, validate="key",
+            validatecommand=(col_parroquia.register(lambda texto: len(texto) <= 100), "%P"),
+        )
         self.ent_parroquia.pack(fill="x", pady=(2, 0))
         self.ent_parroquia.bind("<KeyRelease>", lambda e: self.controlador._actualizar_estado_botones_formulario())
         self.ent_parroquia.bind("<FocusOut>", lambda e: self.controlador._actualizar_estado_botones_formulario())
@@ -618,7 +627,12 @@ class VistaVoceria:
         col_nom_centro = ctk.CTkFrame(fila3, fg_color="transparent")
         col_nom_centro.grid(row=0, column=0, sticky="ew", padx=(0, 5))
         ctk.CTkLabel(col_nom_centro, text="Nombre del Centro *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        self.ent_nombre_centro = ctk.CTkEntry(col_nom_centro, placeholder_text="Nombre del Centro", font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
+        self.ent_nombre_centro = ctk.CTkEntry(
+            col_nom_centro, placeholder_text="Nombre del Centro", font=("Arial", 11),
+            fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"],
+            corner_radius=6, validate="key",
+            validatecommand=(col_nom_centro.register(lambda texto: len(texto) <= 200), "%P"),
+        )
         self.ent_nombre_centro.pack(fill="x", pady=(2, 0))
         self.ent_nombre_centro.bind("<KeyRelease>", lambda e: self.controlador._actualizar_estado_botones_formulario())
         self.ent_nombre_centro.bind("<FocusOut>", lambda e: self.controlador._actualizar_estado_botones_formulario())
@@ -626,7 +640,12 @@ class VistaVoceria:
         col_nom_comite = ctk.CTkFrame(fila3, fg_color="transparent")
         col_nom_comite.grid(row=0, column=1, sticky="ew", padx=(5, 0))
         ctk.CTkLabel(col_nom_comite, text="Nombre del Comité *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        self.ent_nombre_comite = ctk.CTkEntry(col_nom_comite, placeholder_text="Nombre del Comité", font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"], corner_radius=6)
+        self.ent_nombre_comite = ctk.CTkEntry(
+            col_nom_comite, placeholder_text="Nombre del Comité", font=("Arial", 11),
+            fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"],
+            corner_radius=6, validate="key",
+            validatecommand=(col_nom_comite.register(lambda texto: len(texto) <= 200), "%P"),
+        )
         self.ent_nombre_comite.pack(fill="x", pady=(2, 0))
         self.ent_nombre_comite.bind("<KeyRelease>", lambda e: self.controlador._actualizar_estado_botones_formulario())
         self.ent_nombre_comite.bind("<FocusOut>", lambda e: self.controlador._actualizar_estado_botones_formulario())
@@ -815,8 +834,8 @@ class VistaVoceria:
 
                 for key, etiqueta in nombres_campos.items():
                     val = w[key].get().strip() if hasattr(w[key], "get") else ""
-                    if key == "correo" and (len(val) < 11 or "@" not in val):
-                        mostrar_error(f"⚠ Vocería #{idx}: El Correo Electrónico debe tener mínimo 11 caracteres y contener '@'")
+                    if key == "correo" and not validar_correo(val):
+                        mostrar_error(f"⚠ Vocería #{idx}: El Correo Electrónico no es válido")
                         if hasattr(w[key], "focus_set"):
                             w[key].focus_set()
                         return

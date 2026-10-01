@@ -44,18 +44,27 @@ class VistaLogin:
             justify="center",
         ).pack(pady=(0, 24))
 
+        validar_credencial = (inner.register(lambda texto: len(texto) <= 60), "%P")
         self.entrada_email = ctk.CTkEntry(
             inner,
             font=("Segoe UI", 12),
             corner_radius=6,
             placeholder_text="Nombre de usuario o correo",
             height=38,
+            validate="key",
+            validatecommand=validar_credencial,
         )
         self.entrada_email.pack(fill="x", pady=(0, 14))
 
         pw_frame = ctk.CTkFrame(inner, fg_color="transparent", corner_radius=0)
         pw_frame.pack(fill="x", pady=(0, 18))
 
+        validar_password = (
+            pw_frame.register(
+                lambda texto: len(texto) <= 60 and len(texto.encode("utf-8")) <= 72
+            ),
+            "%P",
+        )
         self.entrada_password = ctk.CTkEntry(
             pw_frame,
             font=("Segoe UI", 12),
@@ -63,6 +72,8 @@ class VistaLogin:
             show="●",
             placeholder_text="Contraseña",
             height=38,
+            validate="key",
+            validatecommand=validar_password,
         )
         self.entrada_password.pack(fill="x")
 

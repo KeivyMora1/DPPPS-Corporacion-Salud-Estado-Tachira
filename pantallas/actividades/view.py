@@ -2,7 +2,11 @@ import customtkinter as ctk
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from datetime import datetime, date
-from db import ActividadController, ALLOWED_EXTENSIONS, MAX_FILE_SIZE_MB, ExcelService, TEMPLATE_PATH, ASIC_PREDETERMINADOS, MUNICIPIOS_TACHIRA
+from db import (
+    ActividadController, ALLOWED_EXTENSIONS, MAX_FILE_SIZE_MB, ExcelService,
+    TEMPLATE_PATH, ASIC_PREDETERMINADOS, MUNICIPIOS_TACHIRA,
+    ACTIVIDAD_ESTABLECIMIENTO_OPCIONES,
+)
 from themes import THEME
 import os
 import threading
@@ -431,20 +435,7 @@ class VistaActividad:
         col_estab = ctk.CTkFrame(inner_ubic, fg_color="transparent")
         col_estab.grid(row=1, column=0, sticky="ew", padx=5, pady=2)
         ctk.CTkLabel(col_estab, text="Establecimiento de Salud *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        establecimientos = [
-            "Consultorio Popular TIPO I",
-            "Consultorio Popular TIPO II",
-            "Consultorio Popular TIPO III",
-            "Clinica Popular TIPO I",
-            "Clinica Popular TIPO II",
-            "CDI",
-            "SRI",
-            "CAT",
-            "Hospitales TIPO I",
-            "Hospitales TIPO II",
-            "Hospitales TIPO III",
-            "Hospitales TIPO IV",
-        ]
+        establecimientos = ACTIVIDAD_ESTABLECIMIENTO_OPCIONES
         ent_establecimiento = ctk.CTkOptionMenu(col_estab, values=establecimientos, fg_color=t["bg_base"], button_color=t["bg_card"], button_hover_color=t["bg_hover"], text_color=t["text_primary"], dropdown_fg_color=t["bg_base"], dropdown_text_color=t["text_primary"])
         if establecimientos:
             try:

@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import messagebox
 import customtkinter as ctk
 
-from db import AuthController
+from db import AuthController, validar_correo
 from .model import ModeloLogin
 from .view import VistaLogin
 from utils import centrar_ventana, set_favicon
@@ -26,20 +26,34 @@ class ControladorLogin:
             return "Completa todos los campos."
         if len(nombre) < 2:
             return "El nombre debe tener al menos 2 caracteres."
+        if len(nombre) > 60:
+            return "El nombre no puede superar 60 caracteres."
         if any(caracter.isdigit() for caracter in nombre):
             return "El nombre no puede contener números."
         if len(apellido) < 2:
             return "El apellido debe tener al menos 2 caracteres."
+        if len(apellido) > 60:
+            return "El apellido no puede superar 60 caracteres."
         if any(caracter.isdigit() for caracter in apellido):
             return "El apellido no puede contener números."
+        if len(f"{nombre} {apellido}") > 120:
+            return "El nombre completo no puede superar 120 caracteres."
         if len(username) < 3:
             return "El nombre de usuario debe tener al menos 3 caracteres."
+        if len(username) > 50:
+            return "El nombre de usuario no puede superar 50 caracteres."
         if any(caracter.isspace() for caracter in username):
             return "El nombre de usuario no puede contener espacios."
-        if "@" not in email or "." not in email.split("@")[-1] or len(email.split("@")[-1]) < 2:
+        if not validar_correo(email):
             return "Ingresa un correo válido."
-        if len(password) < 6:
-            return "La contraseña debe tener al menos 6 caracteres."
+        if len(email) > 60:
+            return "El correo no puede superar 60 caracteres."
+        if len(password) < 8:
+            return "La contraseña debe tener al menos 8 caracteres."
+        if len(password) > 60:
+            return "La contraseña no puede superar 60 caracteres."
+        if len(password.encode("utf-8")) > 72:
+            return "La contraseña no puede superar 72 bytes."
         return None
 
     def intentar_login(self):
@@ -95,21 +109,46 @@ class ControladorLogin:
 
         ctk.CTkLabel(frame, text="Registro", font=("Segoe UI", 18, "bold")).pack(pady=(0, 16))
 
-        nombre = ctk.CTkEntry(frame, placeholder_text="Nombre")
+        limite_nombre = (frame.register(lambda texto: len(texto) <= 60), "%P")
+        limite_usuario = (frame.register(lambda texto: len(texto) <= 50), "%P")
+        limite_correo = (frame.register(lambda texto: len(texto) <= 60), "%P")
+        limite_password = (
+            frame.register(
+                lambda texto: len(texto) <= 60 and len(texto.encode("utf-8")) <= 72
+            ),
+            "%P",
+        )
+
+        nombre = ctk.CTkEntry(
+            frame, placeholder_text="Nombre", validate="key",
+            validatecommand=limite_nombre,
+        )
         nombre.pack(fill="x", pady=(0, 8))
 
-        apellido = ctk.CTkEntry(frame, placeholder_text="Apellido")
+        apellido = ctk.CTkEntry(
+            frame, placeholder_text="Apellido", validate="key",
+            validatecommand=limite_nombre,
+        )
         apellido.pack(fill="x", pady=(0, 8))
 
-        username = ctk.CTkEntry(frame, placeholder_text="Nombre de usuario")
+        username = ctk.CTkEntry(
+            frame, placeholder_text="Nombre de usuario", validate="key",
+            validatecommand=limite_usuario,
+        )
         username.pack(fill="x", pady=(0, 8))
 
-        email = ctk.CTkEntry(frame, placeholder_text="Correo electrónico")
+        email = ctk.CTkEntry(
+            frame, placeholder_text="Correo electrónico", validate="key",
+            validatecommand=limite_correo,
+        )
         email.pack(fill="x", pady=(0, 8))
 
         password_frame = ctk.CTkFrame(frame, fg_color="transparent", corner_radius=0)
         password_frame.pack(fill="x", pady=(0, 12))
-        password = ctk.CTkEntry(password_frame, placeholder_text="Contraseña", show="●")
+        password = ctk.CTkEntry(
+            password_frame, placeholder_text="Contraseña", show="●",
+            validate="key", validatecommand=limite_password,
+        )
         password.pack(fill="x")
         password_visible = False
 
@@ -182,10 +221,18 @@ class ControladorLogin:
                     mensaje_info.tag_configure("negrita", font=("Segoe UI", 11, "bold"))
                     mensaje_info.configure(state="disabled")
                     mensaje_info.pack(fill="x", padx=10, pady=8)
+                    validar_password_propietario = (
+                        extras_administrador.register(
+                            lambda texto: len(texto.encode("utf-8")) <= 72
+                        ),
+                        "%P",
+                    )
                     password_propietario = ctk.CTkEntry(
                         extras_administrador,
                         placeholder_text="Contraseña del usuario propietario",
                         show="●",
+                        validate="key",
+                        validatecommand=validar_password_propietario,
                     )
                     password_propietario.pack(fill="x")
                 else:
@@ -314,7 +361,16 @@ class ControladorLogin:
         correo = ctk.CTkEntry(frame, placeholder_text="Correo electrónico")
         correo.pack(fill="x", pady=(0, 8))
 
-        codigo = ctk.CTkEntry(frame, placeholder_text="Código recibido")
+        def validar_codigo_recuperacion(texto):
+            return texto == "" or (texto.isdigit() and len(texto) <= 6)
+
+        vcmd_codigo = (ventana.register(validar_codigo_recuperacion), "%P")
+        codigo = ctk.CTkEntry(
+            frame,
+            placeholder_text="Código recibido",
+            validate="key",
+            validatecommand=vcmd_codigo,
+        )
         codigo.pack(fill="x", pady=(0, 8))
         codigo.pack_forget()
 

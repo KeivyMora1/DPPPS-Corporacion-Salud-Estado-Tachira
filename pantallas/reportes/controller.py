@@ -35,6 +35,9 @@ class ControladorReporte:
             return
 
         titulo = self.vista._entry_titulo.get().strip() or "Informe Consolidado"
+        if len(titulo) > 200 or any(ord(caracter) < 32 for caracter in titulo):
+            messagebox.showerror("Título inválido", "El título no puede superar 200 caracteres ni contener controles.")
+            return
         id_asic = self.vista.leer_asics_seleccionados()
 
         self.vista.parent.configure(cursor="wait")
