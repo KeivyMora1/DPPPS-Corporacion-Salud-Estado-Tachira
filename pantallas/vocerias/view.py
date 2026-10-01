@@ -899,7 +899,7 @@ class VistaVoceria:
 
         ventana = ctk.CTkToplevel(self.parent)
         set_favicon(ventana)
-        ventana.title(f"Detalle de Vocería #{voc['id_voceria']} - {voc.get('asic_nombre', '')}")
+        ventana.title(f"Detalle del Comité #{voc['id_voceria']} - {voc.get('asic_nombre', '')}")
         ventana.resizable(True, True)
         ventana.configure(fg_color=t["bg_surface"])
         ventana.grab_set()
@@ -918,35 +918,44 @@ class VistaVoceria:
         header_inner = ctk.CTkFrame(header_frame, fg_color="transparent")
         header_inner.pack(fill="x", padx=20, pady=15)
 
-        info_general = [
-            ("ASIC:", voc.get("asic_nombre", "")),
-            ("Tipo:", voc.get("tipo_nombre", "")),
-            ("Fecha:", voc.get("fecha_registro", "")),
-            ("Estado:", voc.get("estado", "")),
-            ("Municipio:", voc.get("municipio", "")),
-            ("Parroquia:", voc.get("parroquia", "")),
-            ("Centro dispensador:", voc.get("centro_dispensador", "")),
-            ("Nombre del Centro:", voc.get("nombre_centro", "")),
-            ("Nombre del Comité:", voc.get("nombre_comite", "")),
-        ]
+        fecha_registro = voc.get("created_at") or voc.get("fecha_registro", "")
+        if hasattr(fecha_registro, "strftime"):
+            fecha_registro = fecha_registro.strftime("%d/%m/%Y")
 
-        for i, (lbl_text, value) in enumerate(info_general):
-            row = i // 4
-            col = (i % 4) * 2
-            ctk.CTkLabel(header_inner, text=lbl_text, font=("Arial", 9, "bold"), text_color=t["text_muted"]).grid(row=row, column=col, sticky="w", padx=(0, 5), pady=3)
-            ctk.CTkLabel(header_inner, text=str(value), font=("Arial", 9), text_color=t["text_primary"]).grid(row=row, column=col + 1, sticky="w", padx=(0, 20), pady=3)
+        info_general = [
+            ("Comité", voc.get("nombre_comite", "")),
+            ("ASIC", voc.get("asic_nombre", "")),
+            ("Estado", voc.get("estado", "")),
+            ("Municipio", voc.get("municipio", "")),
+            ("Parroquia", voc.get("parroquia", "")),
+            ("Centro dispensador", voc.get("centro_dispensador", "")),
+            ("Nombre del centro", voc.get("nombre_centro", "")),
+            ("Fecha de registro", fecha_registro),
+        ]
+        for column in range(4):
+            header_inner.grid_columnconfigure(column, weight=1, uniform="comite_info")
+
+        for index, (label, value) in enumerate(info_general):
+            cell = ctk.CTkFrame(header_inner, fg_color="transparent")
+            cell.grid(row=index // 4, column=index % 4, sticky="nsew", padx=8, pady=4)
+            ctk.CTkLabel(cell, text=label, font=("Arial", 13, "bold"), text_color=t["text_muted"], height=18).pack(anchor="w")
+            ctk.CTkFrame(cell, height=1, fg_color=t["border"], corner_radius=0).pack(fill="x", pady=(2, 2))
+            ctk.CTkLabel(
+                cell, text=str(value or "-"), font=("Arial", 12), text_color=t["text_primary"],
+                wraplength=280, justify="left", anchor="w", height=20,
+            ).pack(anchor="w", fill="x")
 
         separator(ventana, horizontal=True, fg_color=t["border"]).pack(fill="x", padx=20, pady=(0, 10))
 
-        ctk.CTkLabel(ventana, text=f"Voceros/Items ({len(voc.get('items', []))})", font=("Arial", 12, "bold"), text_color=t["text_primary"]).pack(anchor="w", padx=20, pady=(10, 5))
+        ctk.CTkLabel(ventana, text=f"Integrantes del comité ({len(items)})", font=("Arial", 13, "bold"), text_color=t["text_primary"]).pack(anchor="w", padx=20, pady=(10, 5))
 
         marco_tabla = ctk.CTkFrame(ventana, fg_color="transparent", corner_radius=10)
         marco_tabla.pack(fill="both", expand=True, padx=20, pady=(0, 20))
 
         style = ttk.Style()
         style.theme_use("clam")
-        style.configure("DetalleItem.Treeview", background=t["bg_base"], foreground=t["text_primary"], fieldbackground=t["bg_base"], rowheight=28, borderwidth=0)
-        style.configure("DetalleItem.Treeview.Heading", background=t["bg_card"], foreground=t["text_primary"], font=("Arial", 10, "bold"), relief="flat", borderwidth=0)
+        style.configure("DetalleItem.Treeview", background=t["bg_base"], foreground=t["text_primary"], fieldbackground=t["bg_base"], font=("Arial", 11), rowheight=30, borderwidth=0)
+        style.configure("DetalleItem.Treeview.Heading", background=t["bg_card"], foreground=t["text_primary"], font=("Arial", 11, "bold"), relief="flat", borderwidth=0)
         style.map("DetalleItem.Treeview", background=[("selected", t["accent"])], foreground=[("selected", t["text_primary"])])
 
         columnas_items = ("tipo_voceria", "nombres", "ci", "telefono", "fecha_nacimiento", "edad", "sexo", "profesion", "correo", "fechas_eleccion")
@@ -964,9 +973,25 @@ class VistaVoceria:
         }
 
         tree = ttk.Treeview(marco_tabla, columns=columnas_items, show="headings", height=15, style="DetalleItem.Treeview")
+        configuracion_columnas = {
+            "tipo_voceria": (2.8, 250), "nombres": (1.2, 110), "ci": (0.75, 65),
+            "telefono": (1.0, 85), "fecha_nacimiento": (1.05, 90), "edad": (0.5, 45),
+            "sexo": (0.55, 45), "profesion": (0.95, 80), "correo": (1.2, 100),
+            "fechas_eleccion": (1.0, 85),
+        }
         for col in columnas_items:
             tree.heading(col, text=labels_items[col])
-            tree.column(col, width=100, minwidth=80, anchor="w" if col not in ("edad", "sexo") else "center")
+            tree.column(col, width=100, minwidth=configuracion_columnas[col][1], stretch=False,
+                        anchor="w" if col not in ("edad", "sexo") else "center")
+
+        def ajustar_columnas(event):
+            ancho_disponible = max(event.width - 4, 0)
+            peso_total = sum(configuracion_columnas[col][0] for col in columnas_items)
+            for col in columnas_items:
+                peso, minimo = configuracion_columnas[col]
+                tree.column(col, width=max(minimo, int(ancho_disponible * peso / peso_total)))
+
+        tree.bind("<Configure>", ajustar_columnas)
 
         for item in items:
             tree.insert("", "end", values=(
@@ -982,12 +1007,14 @@ class VistaVoceria:
                 item.get("fechas_eleccion", ""),
             ))
 
+        marco_tabla.grid_rowconfigure(0, weight=1)
+        marco_tabla.grid_columnconfigure(0, weight=1)
         scroll_y = ttk.Scrollbar(marco_tabla, orient="vertical", command=tree.yview)
         scroll_x = ttk.Scrollbar(marco_tabla, orient="horizontal", command=tree.xview)
         tree.configure(yscrollcommand=scroll_y.set, xscrollcommand=scroll_x.set)
-        tree.pack(side="left", fill="both", expand=True)
-        scroll_y.pack(side="right", fill="y")
-        scroll_x.pack(side="bottom", fill="x")
+        tree.grid(row=0, column=0, sticky="nsew")
+        scroll_y.grid(row=0, column=1, sticky="ns")
+        scroll_x.grid(row=1, column=0, sticky="ew")
 
         tree.bind("<Button-1>", self._on_tabla_click, add="+")
 

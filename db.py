@@ -119,6 +119,19 @@ MUNICIPIOS_TACHIRA = [
 
 VOCERIA_MUNICIPIO_OPCIONES = MUNICIPIOS_TACHIRA
 VOCERIA_ASIC_OPCIONES = [nombre for _, nombre in ASIC_PREDETERMINADOS]
+VOCERIA_TIPO_OPCIONES = [
+    "V. CONTRALORÍA",
+    "V. DEL ADULTO MAYOR",
+    "V. DE ENFERMEDADES CRÓNICAS TRASMISIBLES Y NO TRASMISIBLES",
+    "V. DE PERSONAS CON DISCAPACIDAD, ENCAMADOS Y CUIDADORES EN SALUD",
+    "V. DE SALUD Y VIDA",
+    "V. DE NIÑOS, NIÑAS Y ADOLESCENTES",
+    "V. DE LA JUVENTUD EN SALUD",
+    "V. DE EDUCACIÓN POPULAR EN SALUD INTERCULTURAL Y ANCESTRAL",
+    "V. DE INMUNIZACIONES",
+    "V. DE PROYECTOS EN SALUD",
+]
+VOCERIA_SEXO_OPCIONES = ["M", "F"]
 
 
 def build_voceria_template(output_path=None):
@@ -131,6 +144,8 @@ def build_voceria_template(output_path=None):
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font, PatternFill, Border, Side
     from openpyxl.worksheet.datavalidation import DataValidation
+    from openpyxl.utils import get_column_letter
+    from openpyxl.workbook.defined_name import DefinedName
 
     wb = Workbook()
     ws = wb.active
@@ -197,6 +212,12 @@ def build_voceria_template(output_path=None):
         for col_idx in (13, 18):
             ws.cell(row=row_idx, column=col_idx).number_format = "yyyy-mm-dd"
 
+    for row_idx in range(3, 1001):
+        ws.cell(row=row_idx, column=10).number_format = r"##\,###\,##0"
+        celda_edad = ws.cell(row=row_idx, column=14)
+        celda_edad.value = f'=IF(M{row_idx}="","",DATEDIF(M{row_idx},TODAY(),"Y"))'
+        celda_edad.number_format = "0"
+
     col_widths = {
         "A": 8.28515625, "B": 14.5703125, "C": 14.0, "D": 16.85546875,
         "E": 15.7109375, "F": 26.85546875, "G": 45.42578125,
@@ -208,27 +229,29 @@ def build_voceria_template(output_path=None):
     for col_letter, width in col_widths.items():
         ws.column_dimensions[col_letter].width = width
 
-    estado_options = ",".join(VOCERIA_ESTADO_OPCIONES)
-    municipio_options = ",".join(VOCERIA_MUNICIPIO_OPCIONES)
-    asic_options = ",".join(VOCERIA_ASIC_OPCIONES)
+    ws_listas = wb.create_sheet("_listas")
 
-    dv_estado = DataValidation(type="list", formula1=f'"{estado_options}"', allow_blank=True)
-    dv_estado.promptTitle = "Estado"
-    dv_estado.prompt = "Seleccione una opción válida."
-    dv_estado.add("B3:B1000")
-    ws.add_data_validation(dv_estado)
+    def agregar_lista(nombre, columna, opciones, rango, titulo):
+        for fila, opcion in enumerate(opciones, start=1):
+            ws_listas.cell(row=fila, column=columna, value=opcion)
 
-    dv_municipio = DataValidation(type="list", formula1=f'"{municipio_options}"', allow_blank=True)
-    dv_municipio.promptTitle = "Municipio"
-    dv_municipio.prompt = "Seleccione un municipio válido."
-    dv_municipio.add("C3:C1000")
-    ws.add_data_validation(dv_municipio)
+        letra_columna = get_column_letter(columna)
+        referencia = f"'_listas'!${letra_columna}$1:${letra_columna}${len(opciones)}"
+        wb.defined_names.add(DefinedName(nombre, attr_text=referencia))
 
-    dv_asic = DataValidation(type="list", formula1=f'"{asic_options}"', allow_blank=True)
-    dv_asic.promptTitle = "ASIC"
-    dv_asic.prompt = "Seleccione un ASIC válido."
-    dv_asic.add("E3:E1000")
-    ws.add_data_validation(dv_asic)
+        validacion = DataValidation(type="list", formula1=nombre, allow_blank=True)
+        validacion.promptTitle = titulo
+        validacion.prompt = "Seleccione una opción válida."
+        validacion.add(rango)
+        ws.add_data_validation(validacion)
+
+    agregar_lista("ListaEstados", 1, VOCERIA_ESTADO_OPCIONES, "B3:B1000", "Estado")
+    agregar_lista("ListaMunicipios", 2, VOCERIA_MUNICIPIO_OPCIONES, "C3:C1000", "Municipio")
+    agregar_lista("ListaAsic", 3, VOCERIA_ASIC_OPCIONES, "E3:E1000", "ASIC")
+    agregar_lista("ListaCentros", 4, VOCERIA_CENTRO_DISPENSADOR_OPCIONES, "G3:G1000", "Centro dispensador")
+    agregar_lista("ListaVocerias", 5, VOCERIA_TIPO_OPCIONES, "L3:L1000", "Vocería")
+    agregar_lista("ListaSexo", 6, VOCERIA_SEXO_OPCIONES, "O3:O1000", "Sexo")
+    ws_listas.sheet_state = "hidden"
 
     dv_fecha = DataValidation(
         type="date",
@@ -245,6 +268,36 @@ def build_voceria_template(output_path=None):
     dv_fecha.add("M3:M1000")
     dv_fecha.add("R3:R1000")
     ws.add_data_validation(dv_fecha)
+
+    dv_edad = DataValidation(
+        type="whole",
+        operator="between",
+        formula1="18",
+        formula2="99",
+        allow_blank=True,
+    )
+    dv_edad.promptTitle = "Edad"
+    dv_edad.prompt = "Ingrese una edad entera entre 18 y 99 años."
+    dv_edad.errorTitle = "Edad no válida"
+    dv_edad.error = "La edad debe ser un número entero entre 18 y 99."
+    dv_edad.showErrorMessage = True
+    dv_edad.add("N3:N1000")
+    ws.add_data_validation(dv_edad)
+
+    dv_ci = DataValidation(
+        type="whole",
+        operator="between",
+        formula1="1000000",
+        formula2="99999999",
+        allow_blank=True,
+    )
+    dv_ci.promptTitle = "C.I."
+    dv_ci.prompt = "Ingrese entre 7 y 8 dígitos. Se mostrarán comas cada tres dígitos."
+    dv_ci.errorTitle = "C.I. no válida"
+    dv_ci.error = "La C.I. debe ser un número entero de 7 u 8 dígitos."
+    dv_ci.showErrorMessage = True
+    dv_ci.add("J3:J1000")
+    ws.add_data_validation(dv_ci)
 
     wb.save(output_path)
     return output_path
@@ -2620,12 +2673,23 @@ class ExcelServiceVoceria:
                     datos[campo] = self._normalizar_telefono_excel(valor)
                 elif campo in ("fecha_nacimiento", "fechas_eleccion") and isinstance(valor, (date, datetime)):
                     datos[campo] = valor.strftime("%Y-%m-%d")
+                elif campo == "ci" and isinstance(valor, (int, float)) and not isinstance(valor, bool):
+                    datos[campo] = str(int(valor)) if float(valor).is_integer() else str(valor).strip()
                 elif campo == "edad" and isinstance(valor, (int, float)) and not isinstance(valor, bool):
                     datos[campo] = str(int(valor)) if float(valor).is_integer() else str(valor).strip()
                 else:
                     datos[campo] = str(valor).strip() if valor is not None else ""
             else:
                 datos[campo] = ""
+
+        if not datos.get("edad"):
+            fecha_nacimiento = self._parsear_fecha(datos.get("fecha_nacimiento"))
+            if fecha_nacimiento:
+                hoy = date.today()
+                edad = hoy.year - fecha_nacimiento.year - (
+                    (hoy.month, hoy.day) < (fecha_nacimiento.month, fecha_nacimiento.day)
+                )
+                datos["edad"] = str(edad)
         return datos
 
     def _normalizar_telefono_excel(self, valor):
