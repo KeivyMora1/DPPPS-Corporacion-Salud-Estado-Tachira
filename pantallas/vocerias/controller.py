@@ -3,6 +3,7 @@ import re
 import shutil
 import unicodedata
 import threading
+from copy import copy
 from datetime import date, datetime
 
 import customtkinter as ctk
@@ -49,7 +50,7 @@ class _ImportarVoceriaModal:
         header.pack(fill="x", padx=20, pady=(15, 5))
 
         ctk.CTkLabel(header, text="📥 Importar Vocerías desde Excel",
-                     font=("Arial", 14, "bold"), text_color=t["text_primary"]).pack(side="left")
+                     font=("Arial", 17, "bold"), text_color=t["text_primary"]).pack(side="left")
 
         ctk.CTkButton(header, text="✕", width=30, height=30,
                       fg_color="transparent", hover_color=t["bg_hover"],
@@ -59,7 +60,7 @@ class _ImportarVoceriaModal:
         ctk.CTkLabel(self.ventana,
                      text="Importa vocerías en bloque subiendo un archivo .xlsx con el formato de la plantilla.\n"
                           "El archivo se agrupa por 'NOMBRE DEL COMITÉ' y cada comité debe tener entre 7 y 10 vocerías.",
-                     font=("Arial", 9), text_color=t["text_muted"],
+                     font=("Arial", 11), text_color=t["text_muted"],
                      wraplength=750, justify="left").pack(anchor="w", padx=20, pady=(0, 10))
 
         self._frame_pasos = ctk.CTkFrame(self.ventana, fg_color="transparent")
@@ -68,9 +69,11 @@ class _ImportarVoceriaModal:
         btn_frame = ctk.CTkFrame(self.ventana, fg_color="transparent")
         btn_frame.pack(fill="x", padx=20, pady=(0, 15))
 
-        self._btn_cerrar = ctk.CTkButton(btn_frame, text="Cerrar",
-                                         font=("Arial", 10), fg_color=t["bg_card"],
-                                         hover_color=t["bg_hover"], corner_radius=8,
+        self._btn_cerrar = ctk.CTkButton(btn_frame, text="✕  Cerrar",
+                         width=118, height=38,
+                         font=("Arial", 12, "bold"), fg_color=t["bg_card"],
+                         hover_color=t["bg_hover"], text_color=t["text_primary"],
+                         border_width=1, border_color=t["accent"], corner_radius=8,
                                          command=self.ventana.destroy)
         self._btn_cerrar.pack(side="right")
 
@@ -91,30 +94,30 @@ class _ImportarVoceriaModal:
         inner.pack(fill="x", padx=20, pady=20)
 
         ctk.CTkLabel(inner, text="Paso 1 de 3 — Seleccionar archivo Excel",
-                     font=("Arial", 11, "bold"), text_color=t["text_primary"]).pack(anchor="w", pady=(0, 4))
+                     font=("Arial", 14, "bold"), text_color=t["text_primary"]).pack(anchor="w", pady=(0, 6))
 
         ctk.CTkLabel(inner,
                      text="El archivo debe seguir la plantilla descargable y contener: ESTADO, MUNICIPIO, PARROQUIA, ASIC, "
                           "NOMBRE DEL COMITÉ, CENTRO DISPENSADOR, NOMBRE DEL CENTRO, NOMBRES Y APELLIDO, C.I., "
                           "TELÉFONO, VOCERÍA, FECHA DE NACIMIENTO, EDAD, SEXO, PROFESIÓN/OFICIO, CORREO, FECHAS DE ELECCIÓN.",
-                     font=("Arial", 8), text_color=t["text_muted"],
+                     font=("Arial", 10), text_color=t["text_muted"],
                      wraplength=750, justify="left").pack(anchor="w", pady=(0, 15))
 
         self._lbl_ruta = ctk.CTkLabel(inner, text="Ningún archivo seleccionado",
-                                      font=("Arial", 9, "italic"), text_color=t["text_muted"])
+                                      font=("Arial", 11, "italic"), text_color=t["text_muted"])
         self._lbl_ruta.pack(anchor="w", pady=(0, 12))
 
         fila_botones = ctk.CTkFrame(inner, fg_color="transparent")
         fila_botones.pack(anchor="w")
 
         ctk.CTkButton(fila_botones, text="📂 Examinar…",
-                      font=("Arial", 9), fg_color=t["bg_card"],
+                      width=140, height=36, font=("Arial", 11), fg_color=t["bg_card"],
                       hover_color=t["bg_hover"], text_color=t["text_primary"],
                       corner_radius=8, command=self._seleccionar_archivo).pack(side="left", padx=(0, 10))
 
         self._btn_previsualizar = ctk.CTkButton(
             fila_botones, text="▶ Previsualizar",
-            font=("Arial", 9, "bold"), fg_color=t["bg_hover"],
+            width=150, height=36, font=("Arial", 11, "bold"), fg_color=t["bg_hover"],
             hover_color=t["bg_hover"], text_color=t["text_dim"],
             text_color_disabled=t["text_dim"], corner_radius=8,
             state="disabled", command=self._iniciar_previo)
@@ -175,7 +178,7 @@ class _ImportarVoceriaModal:
         inner.pack(fill="x", padx=15, pady=12)
 
         ctk.CTkLabel(inner, text="Paso 2 de 3 — Resultado del análisis",
-                     font=("Arial", 11, "bold"), text_color=t["text_primary"]).pack(anchor="w", pady=(0, 8))
+                     font=("Arial", 14, "bold"), text_color=t["text_primary"]).pack(anchor="w", pady=(0, 10))
 
         fila_resumen = ctk.CTkFrame(inner, fg_color="transparent")
         fila_resumen.pack(anchor="w")
@@ -183,8 +186,8 @@ class _ImportarVoceriaModal:
         def _chip(parent, texto, color):
             chip = ctk.CTkFrame(parent, fg_color=color, corner_radius=6)
             chip.pack(side="left", padx=(0, 8))
-            ctk.CTkLabel(chip, text=texto, font=("Arial", 8, "bold"),
-                         text_color=t["text_primary"]).pack(padx=8, pady=3)
+            ctk.CTkLabel(chip, text=texto, font=("Arial", 10, "bold"),
+                         text_color=t["text_primary"]).pack(padx=10, pady=5)
 
         _chip(fila_resumen, f"📄 Total filas: {total_filas}", t["bg_card"])
         _chip(fila_resumen, f"✅ Comités válidos: {len(comites_validos)}", t["success"])
@@ -207,7 +210,7 @@ class _ImportarVoceriaModal:
         inner_acc.pack(fill="x", padx=15, pady=12)
 
         ctk.CTkButton(inner_acc, text="← Seleccionar otro archivo",
-                      font=("Arial", 9), fg_color=t["bg_card"],
+                      height=38, font=("Arial", 11), fg_color=t["bg_card"],
                       hover_color=t["bg_hover"], text_color=t["text_primary"],
                       corner_radius=8, command=self._mostrar_paso1).pack(side="left", padx=(0, 10))
 
@@ -215,13 +218,13 @@ class _ImportarVoceriaModal:
             total_vocerias = sum(len(c["filas"]) for c in comites_validos)
             ctk.CTkButton(inner_acc,
                           text=f"✔ Importar {len(comites_validos)} comités ({total_vocerias} vocerías)",
-                          font=("Arial", 9, "bold"), fg_color=t["success"],
+                          height=38, font=("Arial", 11, "bold"), fg_color=t["success"],
                           hover_color=t["success_dim"], text_color=t["text_primary"],
                           corner_radius=8, command=self._confirmar_importar).pack(side="left")
         else:
             ctk.CTkLabel(inner_acc,
                          text="No hay comités válidos para importar. Corrige el archivo y vuelve a intentarlo.",
-                         font=("Arial", 8, "italic"), text_color=t["red"]).pack(side="left")
+                         font=("Arial", 10, "italic"), text_color=t["red"]).pack(side="left")
 
     def _seccion_comites_validos(self, comites):
         t = self.t
@@ -231,7 +234,7 @@ class _ImportarVoceriaModal:
         inner = ctk.CTkFrame(marco, fg_color="transparent")
         inner.pack(fill="both", expand=True, padx=10, pady=8)
 
-        ctk.CTkLabel(inner, text="✅ Comités listos para importar", font=("Arial", 9, "bold"),
+        ctk.CTkLabel(inner, text="✅ Comités listos para importar", font=("Arial", 11, "bold"),
                      text_color=t["success"]).pack(anchor="w", pady=(0, 4))
 
         tree_frame = ctk.CTkFrame(inner, fg_color="transparent")
@@ -241,10 +244,11 @@ class _ImportarVoceriaModal:
         style.theme_use("clam")
         style.configure("ImportVoceria.Treeview",
                         background=t["bg_base"], foreground=t["text_primary"],
-                        fieldbackground=t["bg_base"], rowheight=24)
+                        fieldbackground=t["bg_base"], rowheight=30,
+                        font=("Arial", 11))
         style.configure("ImportVoceria.Treeview.Heading",
                         background=t["bg_card"], foreground=t["text_primary"],
-                        font=("Arial", 9, "bold"), relief="flat")
+                        font=("Arial", 11, "bold"), relief="flat")
         style.map("ImportVoceria.Treeview",
                   background=[("selected", t["accent"])],
                   foreground=[("selected", t["text_primary"])])
@@ -285,7 +289,7 @@ class _ImportarVoceriaModal:
         inner = ctk.CTkFrame(marco, fg_color="transparent")
         inner.pack(fill="x", padx=10, pady=8)
 
-        ctk.CTkLabel(inner, text="❌ Comités con errores (no se importarán)", font=("Arial", 9, "bold"),
+        ctk.CTkLabel(inner, text="❌ Comités con errores (no se importarán)", font=("Arial", 11, "bold"),
                      text_color=t["red"]).pack(anchor="w", pady=(0, 4))
 
         tree_frame = ctk.CTkFrame(inner, fg_color="transparent")
@@ -295,10 +299,11 @@ class _ImportarVoceriaModal:
         style.theme_use("clam")
         style.configure("ImportVoceriaError.Treeview",
                         background=t["bg_base"], foreground=t["text_primary"],
-                        fieldbackground=t["bg_base"], rowheight=24)
+                        fieldbackground=t["bg_base"], rowheight=30,
+                        font=("Arial", 11))
         style.configure("ImportVoceriaError.Treeview.Heading",
                         background=t["bg_card"], foreground=t["text_primary"],
-                        font=("Arial", 9, "bold"), relief="flat")
+                        font=("Arial", 11, "bold"), relief="flat")
         style.map("ImportVoceriaError.Treeview",
                   background=[("selected", t["accent"])],
                   foreground=[("selected", t["text_primary"])])
@@ -337,7 +342,7 @@ class _ImportarVoceriaModal:
         inner = ctk.CTkFrame(marco, fg_color="transparent")
         inner.pack(fill="x", padx=10, pady=8)
 
-        ctk.CTkLabel(inner, text="⚠ Filas sin comité válido (no se importarán)", font=("Arial", 9, "bold"),
+        ctk.CTkLabel(inner, text="⚠ Filas sin comité válido (no se importarán)", font=("Arial", 11, "bold"),
                      text_color=t["amber"]).pack(anchor="w", pady=(0, 4))
 
         tree_frame = ctk.CTkFrame(inner, fg_color="transparent")
@@ -347,10 +352,11 @@ class _ImportarVoceriaModal:
         style.theme_use("clam")
         style.configure("ImportVoceriaError.Treeview",
                         background=t["bg_base"], foreground=t["text_primary"],
-                        fieldbackground=t["bg_base"], rowheight=24)
+                        fieldbackground=t["bg_base"], rowheight=30,
+                        font=("Arial", 11))
         style.configure("ImportVoceriaError.Treeview.Heading",
                         background=t["bg_card"], foreground=t["text_primary"],
-                        font=("Arial", 9, "bold"), relief="flat")
+                        font=("Arial", 11, "bold"), relief="flat")
 
         tree = ttk.Treeview(tree_frame, columns=("fila", "comite", "errores"), show="headings",
                             style="ImportVoceriaError.Treeview", height=min(len(filas_error), 6))
@@ -423,26 +429,26 @@ class _ImportarVoceriaModal:
         titulo = "Importación completada" if not errores_bd else "Importación completada con advertencias"
 
         ctk.CTkLabel(inner, text=f"{icono}  {titulo}",
-                     font=("Arial", 13, "bold"), text_color=color).pack(anchor="w", pady=(0, 10))
+                     font=("Arial", 16, "bold"), text_color=color).pack(anchor="w", pady=(0, 12))
 
         ctk.CTkLabel(inner, text=f"Se insertaron correctamente {comites_insertados} comités ({voceros_insertados} vocerías).",
-                     font=("Arial", 10), text_color=t["text_primary"]).pack(anchor="w")
+                     font=("Arial", 12), text_color=t["text_primary"]).pack(anchor="w")
 
         if errores_bd:
             ctk.CTkLabel(inner,
                          text=f"{len(errores_bd)} comités no pudieron insertarse (ver detalles abajo).",
-                         font=("Arial", 9), text_color=t["red"]).pack(anchor="w", pady=(4, 0))
+                         font=("Arial", 11), text_color=t["red"]).pack(anchor="w", pady=(4, 0))
             for err in errores_bd:
                 ctk.CTkLabel(inner, text=f"  • {err['nombre_comite']}: {err['error']}",
-                             font=("Arial", 8), text_color=t["red"]).pack(anchor="w")
+                             font=("Arial", 10), text_color=t["red"]).pack(anchor="w")
 
         ctk.CTkButton(inner, text="↩ Hacer otra importación",
-                      font=("Arial", 9), fg_color=t["bg_card"],
+                      height=38, font=("Arial", 11), fg_color=t["bg_card"],
                       hover_color=t["bg_hover"], text_color=t["text_primary"],
                       corner_radius=8, command=self._mostrar_paso1).pack(anchor="w", pady=(18, 0))
 
-        ctk.CTkButton(inner, text="Cerrar",
-                      font=("Arial", 9, "bold"), fg_color=t["accent"],
+        ctk.CTkButton(inner, text="✕  Cerrar",
+                  width=118, height=38, font=("Arial", 12, "bold"), fg_color=t["accent"],
                       hover_color=t["accent_dim"], text_color=t["text_primary"],
                       corner_radius=8, command=lambda: (self.ventana.destroy(), self.parent_view.controlador.cargar_datos_tabla())
                       ).pack(anchor="w", pady=(8, 0))
@@ -758,6 +764,16 @@ class ControladorVoceria:
             row_num = 3
             counter = 1
 
+            def copiar_estilo_fila(fila_destino):
+                fila_modelo = 3
+                for columna in range(1, ws.max_column + 1):
+                    celda_modelo = ws.cell(row=fila_modelo, column=columna)
+                    celda_destino = ws.cell(row=fila_destino, column=columna)
+                    if celda_modelo.has_style:
+                        celda_destino._style = copy(celda_modelo._style)
+                    celda_destino.alignment = Alignment(horizontal="center", vertical="center")
+                ws.row_dimensions[fila_destino].height = ws.row_dimensions[fila_modelo].height
+
             for comite_idx, comite in enumerate(lista_comites):
                 id_comite = comite.get("id_voceria")
                 if not id_comite:
@@ -781,13 +797,15 @@ class ControladorVoceria:
                     nombre_centro = comite_completo.get("nombre_centro", "")
 
                     for item in items:
+                        copiar_estilo_fila(row_num)
+
                         fnac = item.get("fecha_nacimiento")
-                        if isinstance(fnac, (date, datetime)):
-                            fnac = fnac.strftime("%d/%m/%Y")
+                        if isinstance(fnac, datetime):
+                            fnac = fnac.date()
 
                         felecc = item.get("fechas_eleccion")
-                        if isinstance(felecc, (date, datetime)):
-                            felecc = felecc.strftime("%d/%m/%Y")
+                        if isinstance(felecc, datetime):
+                            felecc = felecc.date()
 
                         ws.cell(row=row_num, column=1, value=counter)
                         ws.cell(row=row_num, column=2, value=estado)
@@ -801,18 +819,21 @@ class ControladorVoceria:
                         ws.cell(row=row_num, column=10, value=item.get("ci", ""))
                         ws.cell(row=row_num, column=11, value=item.get("telefono", ""))
                         ws.cell(row=row_num, column=12, value=item.get("tipo_voceria_nombre", ""))
-                        ws.cell(row=row_num, column=13, value=fnac or "")
+                        celda_fnac = ws.cell(row=row_num, column=13, value=fnac or "")
+                        celda_fnac.number_format = "dd-mm-yyyy"
                         ws.cell(row=row_num, column=14, value=item.get("edad", ""))
                         ws.cell(row=row_num, column=15, value=item.get("sexo", ""))
                         ws.cell(row=row_num, column=16, value=item.get("profesion", ""))
                         ws.cell(row=row_num, column=17, value=item.get("correo", ""))
-                        ws.cell(row=row_num, column=18, value=felecc or "")
+                        celda_felecc = ws.cell(row=row_num, column=18, value=felecc or "")
+                        celda_felecc.number_format = "dd-mm-yyyy"
 
                         row_num += 1
                         counter += 1
 
                     # Add blank row between committees (except after the last one)
                     if comite_idx < len(lista_comites) - 1:
+                        copiar_estilo_fila(row_num)
                         row_num += 1
 
                 except Exception as e:

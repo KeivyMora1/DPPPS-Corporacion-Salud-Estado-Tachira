@@ -151,7 +151,7 @@ def build_voceria_template(output_path=None):
 
     data_align = Alignment(horizontal="center", vertical="center")
     data_font = Font(size=11, name="Calibri")
-    for row_idx in range(3, 33):
+    for row_idx in range(3, 13):
         ws.row_dimensions[row_idx].height = 25.5
         cell_a = ws.cell(row=row_idx, column=1, value=row_idx - 2)
         cell_a.alignment = data_align
@@ -160,6 +160,10 @@ def build_voceria_template(output_path=None):
             cell = ws.cell(row=row_idx, column=col_idx)
             cell.alignment = data_align
             cell.font = data_font
+            if col_idx == 11:
+                cell.number_format = "@"
+        for col_idx in (13, 18):
+            ws.cell(row=row_idx, column=col_idx).number_format = "yyyy-mm-dd"
 
     col_widths = {
         "A": 8.28515625, "B": 14.5703125, "C": 14.0, "D": 16.85546875,
@@ -193,6 +197,22 @@ def build_voceria_template(output_path=None):
     dv_asic.prompt = "Seleccione un ASIC válido."
     dv_asic.add("E3:E1000")
     ws.add_data_validation(dv_asic)
+
+    dv_fecha = DataValidation(
+        type="date",
+        operator="between",
+        formula1="DATE(1900,1,1)",
+        formula2="DATE(9999,12,31)",
+        allow_blank=True,
+    )
+    dv_fecha.promptTitle = "Fecha"
+    dv_fecha.prompt = "Ingrese una fecha válida. Se mostrará como AAAA-MM-DD."
+    dv_fecha.errorTitle = "Fecha no válida"
+    dv_fecha.error = "Ingrese un valor de fecha válido."
+    dv_fecha.showErrorMessage = True
+    dv_fecha.add("M3:M1000")
+    dv_fecha.add("R3:R1000")
+    ws.add_data_validation(dv_fecha)
 
     wb.save(output_path)
     return output_path
@@ -2367,10 +2387,38 @@ class ExcelServiceVoceria:
         for campo in self.VOCERIA_HEADERS:
             if campo in idx and idx[campo] < len(fila):
                 valor = fila[idx[campo]]
-                datos[campo] = str(valor).strip() if valor is not None else ""
+                if campo == "telefono":
+                    datos[campo] = self._normalizar_telefono_excel(valor)
+                elif campo in ("fecha_nacimiento", "fechas_eleccion") and isinstance(valor, (date, datetime)):
+                    datos[campo] = valor.strftime("%Y-%m-%d")
+                elif campo == "edad" and isinstance(valor, (int, float)) and not isinstance(valor, bool):
+                    datos[campo] = str(int(valor)) if float(valor).is_integer() else str(valor).strip()
+                else:
+                    datos[campo] = str(valor).strip() if valor is not None else ""
             else:
                 datos[campo] = ""
         return datos
+
+    def _normalizar_telefono_excel(self, valor):
+        if valor is None:
+            return ""
+
+        es_numerico = isinstance(valor, (int, float)) and not isinstance(valor, bool)
+        if isinstance(valor, float):
+            if not valor.is_integer():
+                return str(valor).strip()
+            texto = str(int(valor))
+        else:
+            texto = str(valor).strip()
+
+        if es_numerico and len(texto) == 10 and texto.startswith(("412", "414", "416", "424", "426")):
+            texto = "0" + texto
+
+        texto_digitos = texto[1:] if texto.startswith("+") else texto
+        separadores = " ()-./"
+        if all(caracter.isdigit() or caracter.isspace() or caracter in separadores for caracter in texto_digitos):
+            return "".join(caracter for caracter in texto_digitos if caracter.isdigit())
+        return texto
 
     def _validar_fila(self, datos, numero_fila):
         errores = []
