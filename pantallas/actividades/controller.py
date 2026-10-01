@@ -34,21 +34,21 @@ class _ImportarModal:
         self.ventana = ctk.CTkToplevel(self.parent)
         set_favicon(self.ventana)
         self.ventana.title("Importar Actividades desde Excel")
-        self.ventana.geometry("750x650")
+        self.ventana.geometry("850x700")
         self.ventana.resizable(False, False)
         self.ventana.configure(fg_color=t["bg_surface"])
         self.ventana.grab_set()
 
         self.ventana.update_idletasks()
-        x = (self.ventana.winfo_screenwidth() // 2) - 375
-        y = (self.ventana.winfo_screenheight() // 2) - 325
+        x = (self.ventana.winfo_screenwidth() // 2) - 425
+        y = (self.ventana.winfo_screenheight() // 2) - 350
         self.ventana.geometry(f"+{x}+{y}")
 
         header = ctk.CTkFrame(self.ventana, fg_color="transparent")
         header.pack(fill="x", padx=20, pady=(15, 5))
 
         ctk.CTkLabel(header, text="📥 Importar Actividades desde Excel",
-                     font=("Arial", 14, "bold"), text_color=t["text_primary"]).pack(side="left")
+                     font=("Arial", 17, "bold"), text_color=t["text_primary"]).pack(side="left")
 
         ctk.CTkButton(header, text="✕", width=30, height=30,
                       fg_color="transparent", hover_color=t["bg_hover"],
@@ -57,7 +57,7 @@ class _ImportarModal:
 
         ctk.CTkLabel(self.ventana,
                      text="Importa actividades en bloque subiendo un archivo .xlsx con el formato de la plantilla.",
-                     font=("Arial", 9), text_color=t["text_muted"],
+                     font=("Arial", 11), text_color=t["text_muted"],
                      ).pack(anchor="w", padx=20, pady=(0, 10))
 
         self._frame_pasos = ctk.CTkFrame(self.ventana, fg_color="transparent")
@@ -66,9 +66,11 @@ class _ImportarModal:
         btn_frame = ctk.CTkFrame(self.ventana, fg_color="transparent")
         btn_frame.pack(fill="x", padx=20, pady=(0, 15))
 
-        self._btn_cerrar = ctk.CTkButton(btn_frame, text="Cerrar",
-                                         font=("Arial", 10), fg_color=t["bg_card"],
-                                         hover_color=t["bg_hover"], corner_radius=8,
+        self._btn_cerrar = ctk.CTkButton(btn_frame, text="✕  Cerrar",
+                         width=118, height=38,
+                         font=("Arial", 12, "bold"), fg_color=t["bg_card"],
+                         hover_color=t["bg_hover"], text_color=t["text_primary"],
+                         border_width=1, border_color=t["accent"], corner_radius=8,
                                          command=self.ventana.destroy)
         self._btn_cerrar.pack(side="right")
 
@@ -89,28 +91,33 @@ class _ImportarModal:
         inner.pack(fill="x", padx=20, pady=20)
 
         ctk.CTkLabel(inner, text="Paso 1 de 3 — Seleccionar archivo Excel",
-                     font=("Arial", 11, "bold"), text_color=t["text_primary"]).pack(anchor="w", pady=(0, 4))
+                     font=("Arial", 14, "bold"), text_color=t["text_primary"]).pack(anchor="w", pady=(0, 6))
 
         ctk.CTkLabel(inner,
                      text="El archivo debe seguir la plantilla descargable y contener al menos: FECHA, ASIC, ACTIVIDAD DESARROLLADA, TEMA TRATADO, LUGAR/UBICACIÓN y TOTAL DE ASISTENCIA.",
-                     font=("Arial", 8), text_color=t["text_muted"],
+                     font=("Arial", 10), text_color=t["text_muted"],
+                     wraplength=750, justify="left").pack(anchor="w", pady=(0, 6))
+
+        ctk.CTkLabel(inner,
+                     text="CANTIDAD DE COMITÉS DE SALUD debe ser un número entero de 0 a 99, no el nombre del comité.",
+                     font=("Arial", 10), text_color=t["text_muted"],
                      wraplength=650, justify="left").pack(anchor="w", pady=(0, 15))
 
         self._lbl_ruta = ctk.CTkLabel(inner, text="Ningún archivo seleccionado",
-                                      font=("Arial", 9, "italic"), text_color=t["text_muted"])
+                                      font=("Arial", 11, "italic"), text_color=t["text_muted"])
         self._lbl_ruta.pack(anchor="w", pady=(0, 12))
 
         fila_botones = ctk.CTkFrame(inner, fg_color="transparent")
         fila_botones.pack(anchor="w")
 
         ctk.CTkButton(fila_botones, text="📂 Examinar…",
-                      font=("Arial", 9), fg_color=t["bg_card"],
+                      width=140, height=36, font=("Arial", 11), fg_color=t["bg_card"],
                       hover_color=t["bg_hover"], text_color=t["text_primary"],
                       corner_radius=8, command=self._seleccionar_archivo).pack(side="left", padx=(0, 10))
 
         self._btn_previsualizar = ctk.CTkButton(
             fila_botones, text="▶ Previsualizar",
-            font=("Arial", 9, "bold"), fg_color=t["bg_hover"],
+            width=150, height=36, font=("Arial", 11, "bold"), fg_color=t["bg_hover"],
             hover_color=t["bg_hover"], text_color=t["text_dim"],
             text_color_disabled=t["text_dim"], corner_radius=8,
             state="disabled", command=self._iniciar_previo)
@@ -171,7 +178,7 @@ class _ImportarModal:
         inner.pack(fill="x", padx=15, pady=12)
 
         ctk.CTkLabel(inner, text="Paso 2 de 3 — Resultado del análisis",
-                     font=("Arial", 11, "bold"), text_color=t["text_primary"]).pack(anchor="w", pady=(0, 8))
+                     font=("Arial", 14, "bold"), text_color=t["text_primary"]).pack(anchor="w", pady=(0, 10))
 
         fila_resumen = ctk.CTkFrame(inner, fg_color="transparent")
         fila_resumen.pack(anchor="w")
@@ -179,8 +186,8 @@ class _ImportarModal:
         def _chip(parent, texto, color):
             chip = ctk.CTkFrame(parent, fg_color=color, corner_radius=6)
             chip.pack(side="left", padx=(0, 8))
-            ctk.CTkLabel(chip, text=texto, font=("Arial", 8, "bold"),
-                         text_color=t["text_primary"]).pack(padx=8, pady=3)
+            ctk.CTkLabel(chip, text=texto, font=("Arial", 10, "bold"),
+                         text_color=t["text_primary"]).pack(padx=10, pady=5)
 
         _chip(fila_resumen, f"📄 Total filas: {total}", t["bg_card"])
         _chip(fila_resumen, f"✅ Válidas: {len(validas)}", t["success"])
@@ -188,7 +195,8 @@ class _ImportarModal:
               t["red"] if errores else t["bg_hover"])
 
         if validas:
-            self._seccion_tabla("Filas listas para importar", t["success"], validas, "validas")
+            titulo_validas = "Filas listas para importar" if not errores else "Filas sin errores individuales"
+            self._seccion_tabla(titulo_validas, t["success"], validas, "validas")
         if errores:
             self._seccion_tabla("Filas con errores (no se importarán)", t["red"], errores, "errores")
 
@@ -199,20 +207,21 @@ class _ImportarModal:
         inner_acc.pack(fill="x", padx=15, pady=12)
 
         ctk.CTkButton(inner_acc, text="← Seleccionar otro archivo",
-                      font=("Arial", 9), fg_color=t["bg_card"],
+                      height=38, font=("Arial", 11), fg_color=t["bg_card"],
                       hover_color=t["bg_hover"], text_color=t["text_primary"],
                       corner_radius=8, command=self._mostrar_paso1).pack(side="left", padx=(0, 10))
 
-        if validas:
+        if validas and not errores:
             ctk.CTkButton(inner_acc,
                           text=f"✔ Importar {len(validas)} actividades",
-                          font=("Arial", 9, "bold"), fg_color=t["success"],
+                          height=38, font=("Arial", 11, "bold"), fg_color=t["success"],
                           hover_color=t["success_dim"], text_color=t["text_primary"],
                           corner_radius=8, command=self._confirmar_importar).pack(side="left")
         else:
             ctk.CTkLabel(inner_acc,
-                         text="No hay filas válidas para importar. Corrige el archivo y vuelve a intentarlo.",
-                         font=("Arial", 8, "italic"), text_color=t["red"]).pack(side="left")
+                         text=("El archivo contiene errores; no se importará ninguna actividad. Corrige el archivo y vuelve a intentarlo."
+                               if errores else "No hay filas válidas para importar. Corrige el archivo y vuelve a intentarlo."),
+                         font=("Arial", 10, "italic"), text_color=t["red"]).pack(side="left")
 
     def _seccion_tabla(self, titulo, color_titulo, filas, modo):
         t = self.t
@@ -222,7 +231,7 @@ class _ImportarModal:
         inner = ctk.CTkFrame(marco, fg_color="transparent")
         inner.pack(fill="both", expand=True, padx=10, pady=8)
 
-        ctk.CTkLabel(inner, text=titulo, font=("Arial", 9, "bold"),
+        ctk.CTkLabel(inner, text=titulo, font=("Arial", 11, "bold"),
                      text_color=color_titulo).pack(anchor="w", pady=(0, 4))
 
         if modo == "validas":
@@ -237,10 +246,11 @@ class _ImportarModal:
         style.theme_use("clam")
         style.configure("ImportModal.Treeview",
                         background=t["bg_base"], foreground=t["text_primary"],
-                        fieldbackground=t["bg_base"], rowheight=24)
+                        fieldbackground=t["bg_base"], rowheight=30,
+                        font=("Arial", 11))
         style.configure("ImportModal.Treeview.Heading",
                         background=t["bg_card"], foreground=t["text_primary"],
-                        font=("Arial", 9, "bold"), relief="flat")
+                        font=("Arial", 11, "bold"), relief="flat")
         style.map("ImportModal.Treeview",
                   background=[("selected", t["accent"])],
                   foreground=[("selected", t["text_primary"])])
@@ -249,12 +259,23 @@ class _ImportarModal:
                             style="ImportModal.Treeview", height=min(len(filas), 8))
 
         col_ancho = {"fila": 40, "asic": 150, "tipo": 130, "fecha": 90, "participantes": 80, "errores": 320}
+        if modo == "errores":
+            col_ancho["errores"] = 850
         col_labels = {"fila": "#", "asic": "ASIC", "tipo": "Tipo Actividad",
                       "fecha": "Fecha", "participantes": "Partic.", "errores": "Errores detectados"}
 
         for col in columnas:
-            tree.heading(col, text=col_labels[col])
-            tree.column(col, width=col_ancho[col], minwidth=40, anchor="w")
+            tree.heading(col, text=col_labels[col], anchor="center")
+            tree.column(col, width=col_ancho[col], minwidth=40,
+                        anchor="w" if col == "errores" else "center",
+                        stretch=modo != "errores")
+
+        def fecha_sin_hora(valor):
+            if isinstance(valor, datetime):
+                return valor.strftime("%Y-%m-%d")
+            if isinstance(valor, date):
+                return valor.isoformat()
+            return valor or ""
 
         for fila in filas:
             dc = fila.get("datos_crudos", {})
@@ -263,7 +284,7 @@ class _ImportarModal:
                     fila["numero_fila"],
                     dc.get("asic", ""),
                     dc.get("tipo_actividad", ""),
-                    str(fila["fecha"]) if fila.get("fecha") else dc.get("fecha", ""),
+                    fecha_sin_hora(fila.get("fecha") or dc.get("fecha")),
                     fila["participantes"],
                 )
             else:
@@ -271,7 +292,7 @@ class _ImportarModal:
                     fila["numero_fila"],
                     dc.get("asic", ""),
                     dc.get("tipo_actividad", ""),
-                    dc.get("fecha", ""),
+                    fecha_sin_hora(dc.get("fecha")),
                     " | ".join(fila.get("errores", [])),
                 )
             tree.insert("", "end", values=valores)
@@ -292,6 +313,13 @@ class _ImportarModal:
             tree.selection_remove(tree.selection())
 
     def _confirmar_importar(self):
+        if self._resultado_previo.get("filas_error"):
+            messagebox.showwarning(
+                "Archivo con errores",
+                "Corrige todas las filas con errores antes de importar. No se guardó ninguna actividad.",
+                parent=self.ventana,
+            )
+            return
         validas = self._resultado_previo["filas_validas"]
         if messagebox.askyesno("Confirmar importación",
                                f"Se importarán {len(validas)} actividades en la base de datos.\n\n¿Deseas continuar?",
@@ -336,26 +364,26 @@ class _ImportarModal:
         titulo = "Importación completada" if not errores_bd else "Importación completada con advertencias"
 
         ctk.CTkLabel(inner, text=f"{icono}  {titulo}",
-                     font=("Arial", 13, "bold"), text_color=color).pack(anchor="w", pady=(0, 10))
+                     font=("Arial", 16, "bold"), text_color=color).pack(anchor="w", pady=(0, 12))
 
         ctk.CTkLabel(inner, text=f"Se insertaron correctamente {insertadas} actividades.",
-                     font=("Arial", 10), text_color=t["text_primary"]).pack(anchor="w")
+                     font=("Arial", 12), text_color=t["text_primary"]).pack(anchor="w")
 
         if errores_bd:
             ctk.CTkLabel(inner,
                          text=f"{len(errores_bd)} actividades no pudieron insertarse (ver detalles abajo).",
-                         font=("Arial", 9), text_color=t["red"]).pack(anchor="w", pady=(4, 0))
+                         font=("Arial", 11), text_color=t["red"]).pack(anchor="w", pady=(4, 0))
             for err in errores_bd:
                 ctk.CTkLabel(inner, text=f"  • Fila {err['numero_fila']}: {err['error']}",
-                             font=("Arial", 8), text_color=t["red"]).pack(anchor="w")
+                             font=("Arial", 10), text_color=t["red"]).pack(anchor="w")
 
         ctk.CTkButton(inner, text="↩ Hacer otra importación",
-                      font=("Arial", 9), fg_color=t["bg_card"],
+                      height=38, font=("Arial", 11), fg_color=t["bg_card"],
                       hover_color=t["bg_hover"], text_color=t["text_primary"],
                       corner_radius=8, command=self._mostrar_paso1).pack(anchor="w", pady=(18, 0))
 
-        ctk.CTkButton(inner, text="Cerrar",
-                      font=("Arial", 9, "bold"), fg_color=t["accent"],
+        ctk.CTkButton(inner, text="✕  Cerrar",
+                  width=118, height=38, font=("Arial", 12, "bold"), fg_color=t["accent"],
                       hover_color=t["accent_dim"], text_color=t["text_primary"],
                       corner_radius=8, command=lambda: (self.ventana.destroy(), self.parent_view.controlador.cargar_datos_tabla())
                       ).pack(anchor="w", pady=(8, 0))
@@ -367,6 +395,7 @@ class ControladorActividad:
 
         self.asic_map = {}
         self.tipo_map = {}
+        self.filtros_actuales = None
         self._cargar_catalogos()
 
         self.vista = VistaActividad(parent, self)
@@ -420,13 +449,15 @@ class ControladorActividad:
                 messagebox.showerror("Error en Filtros", "La fecha 'Hasta' debe tener el formato AAAA-MM-DD (ej: 2026-05-17).")
                 return
 
-        self.cargar_datos_tabla(filtros)
+        self.filtros_actuales = filtros
+        self.cargar_datos_tabla()
 
     def limpiar_filtros(self):
         self.vista.combo_filtro_asic.set("Todos")
         self.vista.combo_filtro_tipo.set("Todos")
         self.vista.ent_filtro_desde.set_date("")
         self.vista.ent_filtro_hasta.set_date("")
+        self.filtros_actuales = None
         self.cargar_datos_tabla()
 
     def cargar_datos_tabla(self, filtros=None):
@@ -434,7 +465,9 @@ class ControladorActividad:
             self.vista.tabla.delete(item)
 
         try:
-            lista = self.modelo.listar_actividades(filtros)
+            if filtros is not None:
+                self.filtros_actuales = filtros
+            lista = self.modelo.listar_actividades(self.filtros_actuales)
             for act in lista:
                 f = act["fecha"]
                 if isinstance(f, (date, datetime)):
@@ -526,6 +559,86 @@ class ControladorActividad:
             import shutil
             shutil.copy2(TEMPLATE_PATH, destino)
             messagebox.showinfo("Plantilla guardada", f"Plantilla guardada en:\n{destino}")
+
+    def exportar_consolidado(self):
+        import openpyxl
+        from copy import copy
+
+        try:
+            actividades = self.modelo.listar_actividades(self.filtros_actuales)
+            if not actividades:
+                messagebox.showinfo("Sin datos", "No hay actividades para exportar con los filtros actuales.")
+                return
+
+            destino = filedialog.asksaveasfilename(
+                title="Guardar consolidado de actividades como...",
+                defaultextension=".xlsx",
+                initialfile="Consolidado_Actividades.xlsx",
+                filetypes=[("Archivos Excel", "*.xlsx")],
+            )
+            if not destino:
+                return
+
+            if not os.path.exists(TEMPLATE_PATH):
+                messagebox.showerror("Plantilla no encontrada", f"No se encuentra la plantilla en:\n{TEMPLATE_PATH}")
+                return
+
+            workbook = openpyxl.load_workbook(TEMPLATE_PATH)
+            sheet = workbook.active
+            fila_modelo = 4
+
+            def copiar_estilo_fila(fila_destino):
+                for columna in range(1, sheet.max_column + 1):
+                    celda_modelo = sheet.cell(row=fila_modelo, column=columna)
+                    celda_destino = sheet.cell(row=fila_destino, column=columna)
+                    if celda_modelo.has_style:
+                        celda_destino._style = copy(celda_modelo._style)
+                    if celda_modelo.number_format:
+                        celda_destino.number_format = celda_modelo.number_format
+                sheet.row_dimensions[fila_destino].height = sheet.row_dimensions[fila_modelo].height
+
+            campos_participantes = (
+                "cant_medicos",
+                "cant_promotores_salud",
+                "cant_voceros_comite_salud",
+                "cant_vocero_consejo_direccion",
+                "cant_coordinador_docencia",
+                "cant_autoridades",
+                "cant_otros_actores",
+                "cant_personas_comunidad",
+                "cant_estudiantes_aspirantes",
+            )
+
+            for fila, actividad in enumerate(actividades, start=fila_modelo):
+                if fila != fila_modelo:
+                    copiar_estilo_fila(fila)
+
+                fecha_actividad = actividad.get("fecha")
+                if isinstance(fecha_actividad, datetime):
+                    fecha_actividad = fecha_actividad.date()
+
+                valores = (
+                    fecha_actividad or "",
+                    actividad.get("estado") or "",
+                    actividad.get("municipio") or "",
+                    actividad.get("parroquia") or "",
+                    actividad.get("asic_nombre") or "",
+                    actividad.get("establecimiento_salud") or "",
+                    actividad.get("nombre_establecimiento") or "",
+                    actividad.get("comites_salud") if actividad.get("comites_salud") is not None else "",
+                    actividad.get("tipo_nombre") or "",
+                    actividad.get("tema") or "",
+                    *(actividad.get(campo) if actividad.get(campo) is not None else "" for campo in campos_participantes),
+                    actividad.get("total_participantes") if actividad.get("total_participantes") is not None else "",
+                )
+                for columna, valor in enumerate(valores, start=1):
+                    sheet.cell(row=fila, column=columna, value=valor)
+                sheet.cell(row=fila, column=1).number_format = "dd-mm-yyyy"
+
+            workbook.save(destino)
+            messagebox.showinfo("Éxito", f"Consolidado exportado correctamente a:\n{destino}")
+        except Exception as exc:
+            messagebox.showerror("Error", f"Ocurrió un error al exportar: {str(exc)}")
 
     def abrir_modal_importar(self):
         if not self._verificar_permiso_escritura():

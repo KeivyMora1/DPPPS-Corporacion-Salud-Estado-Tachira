@@ -140,8 +140,8 @@ class VistaVoceria:
 
             self._ocultar_botones_accion()
 
-        ctk.CTkButton(marco_acciones_top, text="⬇ Descargar Plantilla", font=("Arial", 9), fg_color=t["bg_card"], hover_color=t["bg_hover"], corner_radius=8, command=self.controlador.descargar_plantilla).pack(side="right", padx=5)
         ctk.CTkButton(marco_acciones_top, text="📊 Exportar Consolidado", font=("Arial", 9, "bold"), fg_color=t["accent"], hover_color=t["accent_dim"], corner_radius=8, command=self.controlador.exportar_consolidado).pack(side="right", padx=5)
+        ctk.CTkButton(marco_acciones_top, text="⬇ Descargar Plantilla", font=("Arial", 9), fg_color=t["bg_card"], hover_color=t["bg_hover"], corner_radius=8, command=self.controlador.descargar_plantilla).pack(side="right", padx=5)
         if self.puede_escribir:
             ctk.CTkButton(marco_acciones_top, text="📥 Importar Vocerías", font=("Arial", 9, "bold"), fg_color=t["success"], hover_color=t["success_dim"], corner_radius=8, command=self.controlador.abrir_modal_importar).pack(side="right")
 

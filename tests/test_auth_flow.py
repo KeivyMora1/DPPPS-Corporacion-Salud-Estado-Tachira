@@ -368,6 +368,115 @@ def test_guardar_actividad_valida_comites_salud():
         )
 
 
+def test_importacion_actividades_revierte_todo_si_falla_una_fila(monkeypatch):
+    class ConexionFalsa:
+        def __init__(self):
+            self.commits = 0
+            self.rollbacks = 0
+            self.cerrada = False
+
+        def commit(self):
+            self.commits += 1
+
+        def rollback(self):
+            self.rollbacks += 1
+
+        def close(self):
+            self.cerrada = True
+
+    class AuthFalsa:
+        def obtener_usuario_actual(self):
+            return {"id_usuario": 1}
+
+        def usuario_puede_escribir(self, usuario):
+            return True
+
+    class ActividadDAOFalsa:
+        def __init__(self):
+            self.filas = 0
+
+        def crear(self, **kwargs):
+            self.filas += 1
+            if self.filas == 2:
+                raise ValueError("Error simulado en la segunda fila")
+
+    conexion = ConexionFalsa()
+    servicio = object.__new__(db_module.ExcelService)
+    servicio.id_usuario_registro = 1
+    servicio._actividad_dao = ActividadDAOFalsa()
+    monkeypatch.setattr(db_module, "AuthController", AuthFalsa)
+    monkeypatch.setattr(db_module, "get_connection", lambda: conexion)
+
+    resultado = servicio.importar([
+        {"numero_fila": 4, "id_asic": 1, "id_tipo": 1, "fecha": date(2026, 9, 1), "comites_salud": 0, "participantes": 1},
+        {"numero_fila": 5, "id_asic": 1, "id_tipo": 1, "fecha": date(2026, 9, 2), "comites_salud": 0, "participantes": 1},
+    ])
+
+    assert resultado["insertadas"] == 0
+    assert resultado["errores_al_insertar"][0]["numero_fila"] == 5
+    assert conexion.commits == 0
+    assert conexion.rollbacks == 1
+    assert conexion.cerrada
+
+
+def test_importacion_vocerias_revierte_todo_si_falla_un_comite(monkeypatch):
+    class ConexionFalsa:
+        def __init__(self):
+            self.commits = 0
+            self.rollbacks = 0
+            self.cerrada = False
+
+        def commit(self):
+            self.commits += 1
+
+        def rollback(self):
+            self.rollbacks += 1
+
+        def close(self):
+            self.cerrada = True
+
+    class AuthFalsa:
+        def obtener_usuario_actual(self):
+            return {"id_usuario": 1}
+
+        def usuario_puede_escribir(self, usuario):
+            return True
+
+    class VoceriaControllerFalso:
+        def __init__(self):
+            self.comites = 0
+
+        def guardar_voceria(self, **kwargs):
+            self.comites += 1
+            if self.comites == 2:
+                return False, "Error simulado en el segundo comité"
+            return True, "Guardado"
+
+    conexion = ConexionFalsa()
+    controlador = VoceriaControllerFalso()
+    servicio = object.__new__(ExcelServiceVoceria)
+    servicio.id_usuario_registro = 1
+    servicio._tipo_voceria_dao = object()
+    monkeypatch.setattr(servicio, "_resolver_asic", lambda nombre: 1)
+    monkeypatch.setattr(servicio, "_resolver_tipo_voceria", lambda nombre: 1)
+    monkeypatch.setattr(db_module, "AuthController", AuthFalsa)
+    monkeypatch.setattr(db_module, "VoceriaController", lambda: controlador)
+    monkeypatch.setattr(db_module, "get_connection", lambda: conexion)
+    comites = [
+        {"nombre_comite": nombre, "filas": [{"datos": {"asic": "ASIC", "voceria": "Vocería", "nombre_comite": nombre}}]}
+        for nombre in ("Comité 1", "Comité 2")
+    ]
+
+    resultado = servicio.importar(comites)
+
+    assert resultado["comites_insertados"] == 0
+    assert resultado["voceros_insertados"] == 0
+    assert resultado["errores_al_insertar"][0]["nombre_comite"] == "Comité 2"
+    assert conexion.commits == 0
+    assert conexion.rollbacks == 1
+    assert conexion.cerrada
+
+
 def test_registrar_usuario_envia_codigo_y_marca_cuenta_no_verificada(monkeypatch):
     controller = AuthController()
     captured = {}

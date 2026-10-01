@@ -124,6 +124,12 @@ class VistaActividad:
                       command=self.controlador.cargar_datos_tabla
                       ).pack(side="left", padx=10)
 
+        ctk.CTkButton(marco_acciones_top, text="📊 Exportar Consolidado",
+                  font=("Arial", 9, "bold"), fg_color=t["accent"],
+                  hover_color=t["accent_dim"], corner_radius=8,
+                  command=self.controlador.exportar_consolidado
+                  ).pack(side="right", padx=5)
+
         if self.puede_escribir:
             self.btn_editar = ctk.CTkButton(marco_acciones_top, text="Editar",
                           font=("Arial", 9), fg_color=t["accent_dim"],

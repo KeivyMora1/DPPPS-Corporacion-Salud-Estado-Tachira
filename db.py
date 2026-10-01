@@ -585,10 +585,12 @@ class ActividadDAO:
                estado="", municipio="", parroquia="", establecimiento_salud="", nombre_establecimiento="",
                comites_salud="", tema="",
                medicos=0, promotores_salud=0, voceros_comite_salud=0, vocero_consejo_direccion=0,
-               coordinador_docencia=0, autoridades_presentes=0, otros_actores=0,
-               personas_comunidad=0, estudiantes_aspirantes=0, participantes=0, total_participantes=None):
+             coordinador_docencia=0, autoridades_presentes=0, otros_actores=0,
+             personas_comunidad=0, estudiantes_aspirantes=0, participantes=0, total_participantes=None,
+             connection=None):
         fecha_bd = self._parse_fecha(fecha).strftime("%Y-%m-%d")
-        conn = get_connection()
+        owns_connection = connection is None
+        conn = connection or get_connection()
         cursor = conn.cursor()
         tema_texto = str(tema).strip() if tema is not None else ""
         sql = """
@@ -606,23 +608,31 @@ class ActividadDAO:
             )
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
-        cursor.execute(sql, (
-            id_asic, id_tipo, id_usuario_registro,
-            fecha_bd,
-            estado, municipio, parroquia, establecimiento_salud,
-            nombre_establecimiento, comites_salud,
-            tema_texto,
-            medicos, promotores_salud, voceros_comite_salud,
-            vocero_consejo_direccion, coordinador_docencia,
-            autoridades_presentes, otros_actores,
-            personas_comunidad, estudiantes_aspirantes,
-            total_participantes if total_participantes is not None else participantes,
-        ))
-        conn.commit()
-        nuevo_id = cursor.lastrowid
-        cursor.close()
-        conn.close()
-        return nuevo_id
+        try:
+            cursor.execute(sql, (
+                id_asic, id_tipo, id_usuario_registro,
+                fecha_bd,
+                estado, municipio, parroquia, establecimiento_salud,
+                nombre_establecimiento, comites_salud,
+                tema_texto,
+                medicos, promotores_salud, voceros_comite_salud,
+                vocero_consejo_direccion, coordinador_docencia,
+                autoridades_presentes, otros_actores,
+                personas_comunidad, estudiantes_aspirantes,
+                total_participantes if total_participantes is not None else participantes,
+            ))
+            nuevo_id = cursor.lastrowid
+            if owns_connection:
+                conn.commit()
+            return nuevo_id
+        except Exception:
+            if owns_connection:
+                conn.rollback()
+            raise
+        finally:
+            cursor.close()
+            if owns_connection:
+                conn.close()
 
     def actualizar(self, id_actividad, id_asic, id_tipo, fecha=None,
                   estado="", municipio="", parroquia="", establecimiento_salud="",
@@ -836,21 +846,30 @@ class ComiteDAO:
         conn.close()
         return item
 
-    def crear(self, id_asic, id_usuario_registro, estado="", municipio="", parroquia="", centro_dispensador="", nombre_centro="", nombre_comite=""):
-        conn = get_connection()
+    def crear(self, id_asic, id_usuario_registro, estado="", municipio="", parroquia="", centro_dispensador="", nombre_centro="", nombre_comite="", connection=None):
+        owns_connection = connection is None
+        conn = connection or get_connection()
         cursor = conn.cursor()
-        cursor.execute(
-            """
-            INSERT INTO comite (id_asic, id_usuario_registro, estado, municipio, parroquia, centro_dispensador, nombre_centro, nombre_comite)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """,
-            (id_asic, id_usuario_registro, estado, municipio, parroquia, centro_dispensador, nombre_centro, nombre_comite)
-        )
-        conn.commit()
-        nuevo_id = cursor.lastrowid
-        cursor.close()
-        conn.close()
-        return nuevo_id
+        try:
+            cursor.execute(
+                """
+                INSERT INTO comite (id_asic, id_usuario_registro, estado, municipio, parroquia, centro_dispensador, nombre_centro, nombre_comite)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (id_asic, id_usuario_registro, estado, municipio, parroquia, centro_dispensador, nombre_centro, nombre_comite)
+            )
+            nuevo_id = cursor.lastrowid
+            if owns_connection:
+                conn.commit()
+            return nuevo_id
+        except Exception:
+            if owns_connection:
+                conn.rollback()
+            raise
+        finally:
+            cursor.close()
+            if owns_connection:
+                conn.close()
 
     def actualizar(self, id_comite, id_asic, id_usuario_registro, estado="", municipio="", parroquia="", centro_dispensador="", nombre_centro="", nombre_comite=""):
         conn = get_connection()
@@ -976,21 +995,23 @@ class VoceriaDAO:
         return comite
 
     def crear(self, id_asic, id_tipo, id_usuario_registro, estado, municipio, parroquia,
-              centro_dispensador, nombre_centro, nombre_comite, items):
+              centro_dispensador, nombre_centro, nombre_comite, items, connection=None):
         comite_dao = ComiteDAO()
-        id_comite = comite_dao.crear(
-            id_asic=id_asic,
-            id_usuario_registro=id_usuario_registro,
-            estado=estado or "",
-            municipio=municipio or "",
-            parroquia=parroquia or "",
-            centro_dispensador=centro_dispensador or "",
-            nombre_centro=nombre_centro or "",
-            nombre_comite=nombre_comite or "",
-        )
-        conn = get_connection()
+        owns_connection = connection is None
+        conn = connection or get_connection()
         cursor = conn.cursor()
         try:
+            id_comite = comite_dao.crear(
+                id_asic=id_asic,
+                id_usuario_registro=id_usuario_registro,
+                estado=estado or "",
+                municipio=municipio or "",
+                parroquia=parroquia or "",
+                centro_dispensador=centro_dispensador or "",
+                nombre_centro=nombre_centro or "",
+                nombre_comite=nombre_comite or "",
+                connection=conn,
+            )
             if items:
                 sql = """
                     INSERT INTO voceria (id_comite, id_tipo_voceria, nombres, ci, telefono, fecha_nacimiento, edad,
@@ -1011,14 +1032,17 @@ class VoceriaDAO:
                         item.get("correo"),
                         item.get("fechas_eleccion"),
                     ))
-            conn.commit()
+            if owns_connection:
+                conn.commit()
             return id_comite
         except Exception:
-            conn.rollback()
+            if owns_connection:
+                conn.rollback()
             raise
         finally:
             cursor.close()
-            conn.close()
+            if owns_connection:
+                conn.close()
 
     def actualizar(self, id_voceria, id_asic, id_tipo, estado, municipio, parroquia,
                    centro_dispensador, nombre_centro, nombre_comite, items):
@@ -1632,7 +1656,8 @@ class VoceriaController:
         return self.voceria_dao.obtener_con_items(id_voceria)
 
     def guardar_voceria(self, id_asic, id_tipo=None, estado=None, municipio=None, parroquia=None,
-                         centro_dispensador=None, nombre_centro=None, nombre_comite=None, items=None, id_voceria=None):
+                         centro_dispensador=None, nombre_centro=None, nombre_comite=None, items=None, id_voceria=None,
+                         connection=None):
         """
         Guarda vocería con sus items (voceros).
         items: lista de dicts con los campos de cada vocero
@@ -1735,7 +1760,7 @@ class VoceriaController:
         try:
             if id_voceria is None:
                 self.voceria_dao.crear(id_asic, id_tipo, id_usuario_registro, estado, municipio, parroquia,
-                                       centro_dispensador, nombre_centro, nombre_comite, items)
+                                       centro_dispensador, nombre_centro, nombre_comite, items, connection=connection)
                 return True, "Vocería registrada correctamente."
             else:
                 self.voceria_dao.actualizar(id_voceria, id_asic, id_tipo, estado, municipio, parroquia,
@@ -1893,6 +1918,9 @@ HEADER_ALIASES = {
     "nombre del establecimiento de salud": "nombre_establecimiento_salud",
     "comites de salud": "comites_de_salud",
     "comités de salud": "comites_de_salud",
+    "cantidad de comites de salud": "comites_de_salud",
+    "cantidad de comités de salud": "comites_de_salud",
+    "cantidad de comites de salud 0 99": "comites_de_salud",
     "ubicación": "ubicacion",
     "ubicacion": "ubicacion",
     # Tipo de actividad
@@ -1996,6 +2024,7 @@ class ExcelService:
             asic_nombre  = str(datos_crudos["asic"]).strip()          if datos_crudos["asic"]          else ""
             tipo_nombre  = str(datos_crudos["tipo_actividad"]).strip() if datos_crudos["tipo_actividad"] else ""
             tema = str(datos_crudos.get("tema") or "").strip()
+            comites_salud = self._parse_int(self._obtener_valor_columna(fila, idx, "comites_de_salud"))
             try:
                 participantes = self._calcular_total_asistencia(fila, idx, datos_crudos)
                 if participantes is None or participantes < 0:
@@ -2012,6 +2041,11 @@ class ExcelService:
                 errores.append("El campo 'ACTIVIDAD DESARROLLADA' está vacío.")
             if not tema:
                 errores.append("El campo 'TEMA TRATADO' está vacío.")
+            if comites_salud is None or not 0 <= comites_salud <= 99:
+                errores.append(
+                    "'CANTIDAD DE COMITÉS DE SALUD' debe ser un número entero entre 0 y 99; "
+                    "ingrese la cantidad, no el nombre del comité."
+                )
             id_asic = None
             id_tipo = None
             if asic_nombre:
@@ -2038,7 +2072,7 @@ class ExcelService:
                 "parroquia": self._obtener_valor_columna(fila, idx, "parroquia"),
                 "establecimiento_salud": self._obtener_valor_columna(fila, idx, "establecimiento_salud"),
                 "nombre_establecimiento": self._obtener_valor_columna(fila, idx, "nombre_establecimiento_salud"),
-                "comites_salud": self._obtener_valor_columna(fila, idx, "comites_de_salud"),
+                "comites_salud": comites_salud,
                 "tema": tema,
                 "medicos": self._parse_int(self._obtener_valor_columna(fila, idx, "medicos")),
                 "promotores_salud": self._parse_int(self._obtener_valor_columna(fila, idx, "promotores_en_salud")),
@@ -2064,17 +2098,21 @@ class ExcelService:
         }
     def importar(self, filas_validas: list) -> dict:
         """
-        Inserta en BD todas las filas ya validadas.
+        Inserta en BD todas las filas ya validadas dentro de una única transacción.
         Retorna: {insertadas, errores_al_insertar}
         """
         auth = AuthController()
         usuario = auth.obtener_usuario_actual()
         if not auth.usuario_puede_escribir(usuario):
             raise PermissionError(auth.mensaje_sin_permiso())
-        insertadas = 0
-        errores_al_insertar = []
-        for fila in filas_validas:
-            try:
+        if not filas_validas:
+            return {"insertadas": 0, "errores_al_insertar": []}
+
+        conn = get_connection()
+        fila_actual = None
+        try:
+            for fila in filas_validas:
+                fila_actual = fila
                 self._actividad_dao.crear(
                     id_asic=fila["id_asic"],
                     id_tipo=fila["id_tipo"],
@@ -2085,7 +2123,7 @@ class ExcelService:
                     parroquia=fila.get("parroquia") or "",
                     establecimiento_salud=fila.get("establecimiento_salud") or "",
                     nombre_establecimiento=fila.get("nombre_establecimiento") or "",
-                    comites_salud=fila.get("comites_salud") or "",
+                    comites_salud=fila.get("comites_salud"),
                     tema=fila.get("tema") or "",
                     medicos=fila.get("medicos") or 0,
                     promotores_salud=fila.get("promotores_salud") or 0,
@@ -2097,14 +2135,21 @@ class ExcelService:
                     personas_comunidad=fila.get("personas_comunidad") or 0,
                     estudiantes_aspirantes=fila.get("estudiantes_aspirantes") or 0,
                     participantes=fila["participantes"],
+                    connection=conn,
                 )
-                insertadas += 1
-            except Exception as exc:
-                errores_al_insertar.append({
-                    "numero_fila": fila["numero_fila"],
+            conn.commit()
+            return {"insertadas": len(filas_validas), "errores_al_insertar": []}
+        except Exception as exc:
+            conn.rollback()
+            return {
+                "insertadas": 0,
+                "errores_al_insertar": [{
+                    "numero_fila": fila_actual.get("numero_fila") if fila_actual else "-",
                     "error": str(exc),
-                })
-        return {"insertadas": insertadas, "errores_al_insertar": errores_al_insertar}
+                }],
+            }
+        finally:
+            conn.close()
     def _normalizar_encabezado(self, texto):
         if texto is None:
             return ""
@@ -2525,12 +2570,20 @@ class ExcelServiceVoceria:
         from db import VoceriaController
         voceria_ctrl = VoceriaController()
 
+        if not comites_validos:
+            return {
+                "comites_insertados": 0,
+                "voceros_insertados": 0,
+                "errores_al_insertar": [],
+            }
+
+        conn = get_connection()
+        comite_actual = None
         comites_insertados = 0
         voceros_insertados = 0
-        errores_al_insertar = []
-
-        for comite in comites_validos:
-            try:
+        try:
+            for comite in comites_validos:
+                comite_actual = comite
                 primera_fila = comite["filas"][0]["datos"]
                 id_asic = self._resolver_asic(primera_fila.get("asic", ""))
                 if not id_asic:
@@ -2571,24 +2624,31 @@ class ExcelServiceVoceria:
                     nombre_centro=primera_fila.get("nombre_centro", ""),
                     nombre_comite=primera_fila.get("nombre_comite", ""),
                     items=items,
+                    connection=conn,
                 )
-                if ok:
-                    comites_insertados += 1
-                    voceros_insertados += len(items)
-                else:
+                if not ok:
                     raise Exception(msg)
+                comites_insertados += 1
+                voceros_insertados += len(items)
 
-            except Exception as exc:
-                errores_al_insertar.append({
-                    "nombre_comite": comite["nombre_comite"],
+            conn.commit()
+            return {
+                "comites_insertados": comites_insertados,
+                "voceros_insertados": voceros_insertados,
+                "errores_al_insertar": [],
+            }
+        except Exception as exc:
+            conn.rollback()
+            return {
+                "comites_insertados": 0,
+                "voceros_insertados": 0,
+                "errores_al_insertar": [{
+                    "nombre_comite": comite_actual.get("nombre_comite", "(desconocido)") if comite_actual else "(desconocido)",
                     "error": str(exc)
-                })
-
-        return {
-            "comites_insertados": comites_insertados,
-            "voceros_insertados": voceros_insertados,
-            "errores_al_insertar": errores_al_insertar
-        }
+                }],
+            }
+        finally:
+            conn.close()
 
     def _resolver_asic(self, nombre: str):
         key = nombre.lower().strip()

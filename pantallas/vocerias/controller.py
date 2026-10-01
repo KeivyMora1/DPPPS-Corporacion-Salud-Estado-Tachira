@@ -197,7 +197,10 @@ class _ImportarVoceriaModal:
             _chip(fila_resumen, f"⚠ Filas sin comité: {len(filas_error_sin_comite)}", t["amber"])
 
         if comites_validos:
-            self._seccion_comites_validos(comites_validos)
+            self._seccion_comites_validos(
+                comites_validos,
+                importacion_bloqueada=bool(comites_error or filas_error_sin_comite),
+            )
         if comites_error:
             self._seccion_comites_error(comites_error)
         if filas_error_sin_comite:
@@ -214,7 +217,7 @@ class _ImportarVoceriaModal:
                       hover_color=t["bg_hover"], text_color=t["text_primary"],
                       corner_radius=8, command=self._mostrar_paso1).pack(side="left", padx=(0, 10))
 
-        if comites_validos:
+        if comites_validos and not comites_error and not filas_error_sin_comite:
             total_vocerias = sum(len(c["filas"]) for c in comites_validos)
             ctk.CTkButton(inner_acc,
                           text=f"✔ Importar {len(comites_validos)} comités ({total_vocerias} vocerías)",
@@ -223,10 +226,12 @@ class _ImportarVoceriaModal:
                           corner_radius=8, command=self._confirmar_importar).pack(side="left")
         else:
             ctk.CTkLabel(inner_acc,
-                         text="No hay comités válidos para importar. Corrige el archivo y vuelve a intentarlo.",
+                         text=("El archivo contiene errores; no se importará ningún comité. Corrige el archivo y vuelve a intentarlo."
+                               if comites_error or filas_error_sin_comite else
+                               "No hay comités válidos para importar. Corrige el archivo y vuelve a intentarlo."),
                          font=("Arial", 10, "italic"), text_color=t["red"]).pack(side="left")
 
-    def _seccion_comites_validos(self, comites):
+    def _seccion_comites_validos(self, comites, importacion_bloqueada=False):
         t = self.t
         marco = ctk.CTkFrame(self._frame_pasos, fg_color=t["bg_surface"], corner_radius=10)
         marco.pack(fill="both", expand=True, pady=(0, 8), padx=10)
@@ -234,7 +239,8 @@ class _ImportarVoceriaModal:
         inner = ctk.CTkFrame(marco, fg_color="transparent")
         inner.pack(fill="both", expand=True, padx=10, pady=8)
 
-        ctk.CTkLabel(inner, text="✅ Comités listos para importar", font=("Arial", 11, "bold"),
+        titulo = "Comités sin errores individuales" if importacion_bloqueada else "Comités listos para importar"
+        ctk.CTkLabel(inner, text=f"✅ {titulo}", font=("Arial", 11, "bold"),
                      text_color=t["success"]).pack(anchor="w", pady=(0, 4))
 
         tree_frame = ctk.CTkFrame(inner, fg_color="transparent")
@@ -320,8 +326,8 @@ class _ImportarVoceriaModal:
 
         tree.heading("comite", text="Nombre del Comité")
         tree.heading("errores", text="Errores detectados")
-        tree.column("comite", width=300, minwidth=200, anchor="w")
-        tree.column("errores", width=450, minwidth=300, anchor="w")
+        tree.column("comite", width=300, minwidth=200, anchor="w", stretch=False)
+        tree.column("errores", width=850, minwidth=600, anchor="w", stretch=False)
 
         for nombre, errores in comites_agrupados.items():
             errores_unicos = list(dict.fromkeys(errores))
@@ -364,9 +370,9 @@ class _ImportarVoceriaModal:
         tree.heading("fila", text="# Fila")
         tree.heading("comite", text="Comité")
         tree.heading("errores", text="Errores")
-        tree.column("fila", width=60, minwidth=50, anchor="center")
-        tree.column("comite", width=200, minwidth=150, anchor="w")
-        tree.column("errores", width=500, minwidth=300, anchor="w")
+        tree.column("fila", width=60, minwidth=50, anchor="center", stretch=False)
+        tree.column("comite", width=200, minwidth=150, anchor="w", stretch=False)
+        tree.column("errores", width=850, minwidth=600, anchor="w", stretch=False)
 
         for err in filas_error:
             tree.insert("", "end", values=(
@@ -383,6 +389,14 @@ class _ImportarVoceriaModal:
         tree.pack(fill="x")
 
     def _confirmar_importar(self):
+        if (self._resultado_previo.get("comites_error")
+                or self._resultado_previo.get("filas_error_sin_comite")):
+            messagebox.showwarning(
+                "Archivo con errores",
+                "Corrige todas las filas y comités con errores antes de importar. No se guardó ninguna vocería.",
+                parent=self.ventana,
+            )
+            return
         comites_validos = self._resultado_previo["comites_validos"]
         total_vocerias = sum(len(c["filas"]) for c in comites_validos)
         if messagebox.askyesno("Confirmar importación",
