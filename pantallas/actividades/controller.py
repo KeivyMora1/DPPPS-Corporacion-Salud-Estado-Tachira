@@ -13,6 +13,62 @@ from utils import set_favicon
 from .model import ModeloActividad
 from .view import VistaActividad
 
+
+def generar_plantilla_actividad(ruta_entrada, ruta_salida, nombres_tipos):
+    import openpyxl
+    from openpyxl.worksheet.datavalidation import DataValidation
+    from openpyxl.utils import get_column_letter
+
+    if os.path.normcase(os.path.abspath(ruta_entrada)) == os.path.normcase(
+        os.path.abspath(ruta_salida)
+    ):
+        raise ValueError("La plantilla generada debe guardarse en un archivo distinto al original.")
+
+    nombres_tipos = [str(nombre).strip() for nombre in nombres_tipos if str(nombre).strip()]
+    if not nombres_tipos:
+        raise ValueError("No hay tipos de actividad disponibles para incluir en la plantilla.")
+
+    workbook = openpyxl.load_workbook(ruta_entrada)
+    hoja_actividades = workbook.active
+    formula_lista_directa = f'"{",".join(nombres_tipos)}"'
+    if (
+        len(formula_lista_directa) <= 255
+        and all("," not in nombre and '"' not in nombre for nombre in nombres_tipos)
+    ):
+        formula_lista = formula_lista_directa
+    else:
+        columna_opciones = hoja_actividades.max_column + 1
+        letra_columna_opciones = get_column_letter(columna_opciones)
+        for fila, nombre in enumerate(nombres_tipos, start=1):
+            hoja_actividades.cell(row=fila, column=columna_opciones, value=nombre)
+        hoja_actividades.column_dimensions[letra_columna_opciones].hidden = True
+        formula_lista = (
+            f"=${letra_columna_opciones}$1:"
+            f"${letra_columna_opciones}${len(nombres_tipos)}"
+        )
+
+    for validacion in list(hoja_actividades.data_validations.dataValidation):
+        es_columna_tipo = any(
+            rango.min_col <= 9 <= rango.max_col and rango.min_row <= 4
+            for rango in validacion.sqref.ranges
+        )
+        if es_columna_tipo:
+            hoja_actividades.data_validations.dataValidation.remove(validacion)
+
+    validacion_tipos = DataValidation(
+        type="list",
+        formula1=formula_lista,
+        allow_blank=True,
+        showDropDown=False,
+        showErrorMessage=True,
+        errorTitle="Tipo de actividad inválido",
+        error="Selecciona un tipo de actividad de la lista.",
+    )
+    hoja_actividades.add_data_validation(validacion_tipos)
+    validacion_tipos.add("I4:I1048576")
+    workbook.save(ruta_salida)
+
+
 class _ImportarModal:
     def __init__(self, parent_view):
         self.parent_view = parent_view
@@ -559,10 +615,22 @@ class ControladorActividad:
             initialfile="plantilla_importacion_actividad.xlsx",
             filetypes=[("Archivos Excel", "*.xlsx")],
         )
-        if destino:
-            import shutil
-            shutil.copy2(TEMPLATE_PATH, destino)
-            messagebox.showinfo("Plantilla guardada", f"Plantilla guardada en:\n{destino}")
+        if not destino:
+            return
+
+        try:
+            nombres_tipos = [
+                tipo["nombre"] for tipo in self.modelo.listar_tipos_actividad()
+            ]
+            generar_plantilla_actividad(TEMPLATE_PATH, destino, nombres_tipos)
+        except Exception as exc:
+            messagebox.showerror(
+                "Error al generar la plantilla",
+                f"No se pudo generar la plantilla de importación: {exc}",
+            )
+            return
+
+        messagebox.showinfo("Plantilla guardada", f"Plantilla guardada en:\n{destino}")
 
     def exportar_consolidado(self):
         import openpyxl

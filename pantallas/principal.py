@@ -14,12 +14,14 @@ from ui_helpers import (
 from pantallas.actividades.controller import ControladorActividad
 from pantallas.vocerias.controller import ControladorVoceria
 from pantallas.reportes.controller import ControladorReporte
+from pantallas.tipos_actividad.controller import ControladorTipoActividad
 
 SECCION_INICIAL = "actividades"
 CONTROLADORES = {
     "actividades": ControladorActividad,
     "vocerias": ControladorVoceria,
     "reportes": ControladorReporte,
+    "tipos_actividad": ControladorTipoActividad,
 }
 
 
@@ -57,6 +59,9 @@ class ModeloPrincipal:
             return roles.get(self.usuario.get("rol"), "Lector")
         return "Lector"
 
+    def es_propietario(self):
+        return bool(self.usuario and self.usuario.get("rol") == "propietario")
+
 
 class VistaPrincipal:
 
@@ -64,6 +69,7 @@ class VistaPrincipal:
         ("actividades", "Actividades"),
         ("vocerias",    "Vocerias CS"),
         ("reportes",    "Reportes"),
+        ("tipos_actividad", "Tipos de actividad"),
     ]
 
     def __init__(self, root, controlador):
@@ -125,7 +131,15 @@ class VistaPrincipal:
         self.nav_frame = frame(self.sidebar_inner, fg_color="#2d2d2d", corner_radius=0)
         self.nav_frame.pack(fill="x", padx=10)
 
-        for clave, label_text in self.MENU_ITEMS:
+        items_menu = self.MENU_ITEMS
+        if not self.controlador.modelo.es_propietario():
+            items_menu = [
+                (clave, texto)
+                for clave, texto in items_menu
+                if clave != "tipos_actividad"
+            ]
+
+        for clave, label_text in items_menu:
             btn = btn_nav(self.nav_frame, label_text, lambda c=clave: self.controlador.navegar(c))
             btn.pack(fill="x", pady=3, padx=4)
             self.frames_menu[clave] = {"button": btn}
@@ -281,6 +295,13 @@ class ControladorPrincipal:
 
     def navegar(self, seccion):
         if self.vista is None:
+            return
+
+        if seccion == "tipos_actividad" and not self.modelo.es_propietario():
+            messagebox.showwarning(
+                "Acceso restringido",
+                "Solo el usuario propietario puede acceder a Tipos de actividad.",
+            )
             return
 
         self.vista.seccion_actual = seccion

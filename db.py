@@ -890,13 +890,6 @@ class TipoActividadDAO:
         conn.commit()
         cursor.close()
         conn.close()
-    def desactivar(self, id_tipo):
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM tipo_actividad WHERE id_tipo = %s", (id_tipo,))
-        conn.commit()
-        cursor.close()
-        conn.close()
 
 
 class ComiteDAO:
@@ -1567,31 +1560,68 @@ class ActividadController:
         nombres_permitidos = {normalizar(nombre) for _, nombre in asics_predeterminados}
         return [a for a in asics if normalizar(a["nombre"]) in nombres_permitidos]
     def listar_tipos_actividad(self):
-        """Retorna solo los tipos de actividad permitidos por la plantilla del sistema."""
-        tipos_predeterminados = TIPOS_ACTIVIDAD_PREDETERMINADOS
+        """Asegura los tipos iniciales y retorna todo el catálogo disponible."""
+        tipos = self.tipo_dao.obtener_todos()
+        if not tipos and self.auth.puede_escribir():
+            for _, nombre in TIPOS_ACTIVIDAD_PREDETERMINADOS:
+                self.tipo_dao.crear(nombre=nombre)
+            tipos = self.tipo_dao.obtener_todos()
+        return tipos
 
-        def normalizar(nombre):
-            return " ".join((nombre or "").strip().lower().split())
+    def usuario_es_propietario(self):
+        usuario = self.auth.obtener_usuario_actual()
+        return bool(usuario and usuario.get("rol") == "propietario")
 
-        if self.auth.puede_escribir():
-            try:
-                existentes = self.tipo_dao.obtener_todos()
-                nombres_existentes = {normalizar(t["nombre"]) for t in existentes}
-                nombres_permitidos = {normalizar(nombre) for _, nombre in tipos_predeterminados}
+    def crear_tipo_actividad(self, nombre):
+        if not self.usuario_es_propietario():
+            return False, "Solo el usuario propietario puede gestionar tipos de actividad."
 
-                for tipo in existentes:
-                    if normalizar(tipo["nombre"]) not in nombres_permitidos:
-                        self.tipo_dao.desactivar(tipo["id_tipo"])
+        nombre = (nombre or "").strip()
+        if not nombre:
+            return False, "El nombre del tipo de actividad es obligatorio."
+        if len(nombre) > 150:
+            return False, "El nombre del tipo de actividad no puede superar 150 caracteres."
 
-                for codigo, nombre in tipos_predeterminados:
-                    if normalizar(nombre) not in nombres_existentes:
-                        self.tipo_dao.crear(codigo, nombre, f"Tipo de actividad predeterminado: {nombre}")
-            except Exception:
-                pass
+        clave = " ".join(nombre.casefold().split())
+        if any(
+            " ".join((tipo["nombre"] or "").strip().casefold().split()) == clave
+            for tipo in self.tipo_dao.obtener_todos()
+        ):
+            return False, "Ya existe un tipo de actividad con ese nombre."
+
+        self.tipo_dao.crear(nombre=nombre)
+        return True, "Tipo de actividad agregado exitosamente."
+
+    def actualizar_tipo_actividad(self, id_tipo, nombre):
+        if not self.usuario_es_propietario():
+            return False, "Solo el usuario propietario puede gestionar tipos de actividad."
+
+        nombre = (nombre or "").strip()
+        if not nombre:
+            return False, "El nombre del tipo de actividad es obligatorio."
+        if len(nombre) > 150:
+            return False, "El nombre del tipo de actividad no puede superar 150 caracteres."
+
+        try:
+            id_tipo = int(id_tipo)
+        except (TypeError, ValueError):
+            return False, "El tipo de actividad seleccionado no es válido."
 
         tipos = self.tipo_dao.obtener_todos()
-        nombres_permitidos = {normalizar(nombre) for _, nombre in tipos_predeterminados}
-        return [t for t in tipos if normalizar(t["nombre"]) in nombres_permitidos]
+        tipo_actual = next((tipo for tipo in tipos if tipo["id_tipo"] == id_tipo), None)
+        if tipo_actual is None:
+            return False, "El tipo de actividad seleccionado ya no existe."
+
+        clave = " ".join(nombre.casefold().split())
+        if any(
+            tipo["id_tipo"] != id_tipo
+            and " ".join((tipo["nombre"] or "").strip().casefold().split()) == clave
+            for tipo in tipos
+        ):
+            return False, "Ya existe un tipo de actividad con ese nombre."
+
+        self.tipo_dao.actualizar(id_tipo, nombre=nombre)
+        return True, "Tipo de actividad actualizado exitosamente."
     def guardar_actividad(self, id_asic, id_tipo, fecha=None, estado=None, municipio=None, parroquia=None,
                            establecimiento_salud=None, nombre_establecimiento=None, comites_salud=None,
                            tema="", medicos=0, promotores_salud=0, voceros_comite_salud=0,
@@ -3169,6 +3199,49 @@ class PDFService:
         asignar_valores_fila(3, [sesiones[0], sesiones[1], comites_escuela[0], comites_escuela[1]])
         asignar_valores_fila(4, [promocion[0], promocion[1], jornadas[0], jornadas[1], inmunizaciones[0], inmunizaciones[1]])
         asignar_valores_fila(5, [entrevista[0], entrevista[1], actividades_asic[0]])
+
+        tipos_fijos = {
+            self._normalizar_texto(nombre)
+            for _, nombre in TIPOS_ACTIVIDAD_PREDETERMINADOS
+        }
+        tipos_fijos.add(llave_actualizacion)
+        tipos_incluidos = set(tipos_fijos)
+        tabla_resumen = root.find(".//w:tbl", ns)
+        fila_base = root.findall(".//w:tbl/w:tr", ns)[2]
+
+        for fila in resumen_tipo:
+            nombre = str(fila.get("nombre") or "").strip()
+            clave = self._normalizar_texto(nombre)
+            if not nombre or clave in tipos_incluidos:
+                continue
+
+            fila_personalizada = deepcopy(fila_base)
+            celdas = fila_personalizada.findall("./w:tc", ns)
+            parrafo_nombre = next(
+                (
+                    parrafo for parrafo in celdas[0].findall("./w:p", ns)
+                    if "salud toca tu puerta" in self._normalizar_texto(
+                        self._texto_parrafo(parrafo, ns)
+                    )
+                ),
+                None,
+            )
+            if parrafo_nombre is not None:
+                self._poner_texto_en_parrafo(parrafo_nombre, nombre, ns)
+
+            nodos_numericos = [
+                nodo for nodo in celdas[1].findall(".//w:t", ns)
+                if (nodo.text or "").strip().isdigit()
+            ]
+            valores = [
+                int(fila.get("total_actividades", 0) or 0),
+                int(fila.get("total_participantes", 0) or 0),
+            ]
+            for nodo, valor in zip(nodos_numericos, valores):
+                nodo.text = str(valor)
+
+            tabla_resumen.append(fila_personalizada)
+            tipos_incluidos.add(clave)
 
         return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 

@@ -54,3 +54,7 @@ python main.py
 
 - Usuario: `admin`
 - Contraseña: la que ingresaste en el paso 3 (o `admin123` si presionaste Enter)
+
+## Tipos de actividad
+
+En el menú lateral, la pantalla **Tipos de actividad** permite consultar el catálogo y, para usuarios con permisos de escritura, agregar tipos y cambiar sus nombres. Los tipos no se pueden eliminar. El catálogo completo se usa en los formularios, filtros, importación y reportes de actividades. Cada descarga de la plantilla de importación incluye en el desplegable de tipo de actividad las opciones vigentes en la base de datos.

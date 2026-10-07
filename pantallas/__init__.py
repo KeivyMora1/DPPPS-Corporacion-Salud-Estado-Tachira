@@ -9,4 +9,5 @@ __all__ = [
     "actividades",
     "reportes",
     "vocerias",
+    "tipos_actividad",
 ]
