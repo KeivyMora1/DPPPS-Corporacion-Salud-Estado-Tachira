@@ -48,6 +48,20 @@ CREATE TABLE IF NOT EXISTS asic (
 );
 
 -- ============================================================
+-- TABLA: parroquia
+-- Catálogo legado; el catálogo geográfico vigente se mantiene en db.py.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS parroquia (
+    id_parroquia INT AUTO_INCREMENT PRIMARY KEY,
+    id_asic INT NOT NULL,
+    municipio VARCHAR(100) NOT NULL,
+    nombre VARCHAR(100) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY ux_parroquia_asic_municipio_nombre (id_asic, municipio, nombre),
+    FOREIGN KEY (id_asic) REFERENCES asic(id_asic)
+);
+
+-- ============================================================
 -- TABLA: tipo_actividad
 -- Modelo solicitado:
 -- id, nombre, created_at
@@ -163,7 +177,6 @@ INSERT IGNORE INTO asic (nombre) VALUES
     ('Antonio Rómulo Costa'),
     ('Ayacucho'),
     ('Bolívar'),
-    ('Capacho Independencia'),
     ('Capacho Libertad'),
     ('Cárdenas'),
     ('Córdoba'),
@@ -173,15 +186,16 @@ INSERT IGNORE INTO asic (nombre) VALUES
     ('Fernández Feo'),
     ('García de Hevia'),
     ('Guásimos'),
+    ('Independencia'),
     ('Jáuregui'),
-    ('Junín'),
+    ('Junin · Rafael Urdaneta'),
     ('Libertador'),
     ('Michelena'),
-    ('Panamericano'),
+    ('Panamericano · San Judas Tadeo'),
     ('Sabaneta'),
     ('Samuel Darío Maldonado'),
+    ('San Josecito'),
     ('Sucre'),
-    ('Torbes'),
     ('Ureña'),
     ('Uribante');
 
@@ -205,4 +219,3 @@ INSERT IGNORE INTO tipo_voceria (nombre) VALUES
     ('V. DE EDUCACIÓN POPULAR EN SALUD INTERCULTURAL Y ANCESTRAL'),
     ('V. DE INMUNIZACIONES'),
     ('V. DE PROYECTOS EN SALUD');
-

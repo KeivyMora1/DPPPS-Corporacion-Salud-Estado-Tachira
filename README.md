@@ -44,6 +44,14 @@ python db.py
 
 Cuando lo pida, ingresa la contraseña que quieres para el usuario `admin`.
 
+Si la base de datos ya existe, aplica los cambios del esquema antes de iniciar la aplicación:
+
+```bash
+python scripts/update_db.py
+```
+
+El catálogo geográfico vigente de Táchira (municipios y parroquias) está definido en la aplicación y no requiere borrar ni modificar registros existentes en la tabla legada `parroquia`.
+
 ### 4. Iniciar la aplicación
 
 ```bash
@@ -58,3 +66,5 @@ python main.py
 ## Tipos de actividad
 
 En el menú lateral, la pantalla **Tipos de actividad** permite consultar el catálogo y, para usuarios con permisos de escritura, agregar tipos y cambiar sus nombres. Los tipos no se pueden eliminar. El catálogo completo se usa en los formularios, filtros, importación y reportes de actividades. Cada descarga de la plantilla de importación incluye en el desplegable de tipo de actividad las opciones vigentes en la base de datos.
+
+Las plantillas incluyen la hoja visible **Catalogos** con las opciones que alimentan los desplegables de ubicación. No la elimines ni la ocultes.

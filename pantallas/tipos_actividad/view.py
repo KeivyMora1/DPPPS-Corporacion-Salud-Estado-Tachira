@@ -2,7 +2,7 @@ from datetime import datetime
 import customtkinter as ctk
 from tkinter import ttk
 
-from themes import THEME
+from constants import THEME
 from utils import centrar_ventana, set_favicon
 
 

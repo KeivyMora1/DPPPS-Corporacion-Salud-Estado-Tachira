@@ -10,6 +10,9 @@ class ModeloVoceria:
     def listar_asics(self):
         return self.controller.listar_asics()
 
+    def listar_ubicaciones_asic(self):
+        return self.controller.listar_ubicaciones_asic()
+
     def listar_tipos_voceria(self):
         return self.controller.listar_tipos_voceria()
 

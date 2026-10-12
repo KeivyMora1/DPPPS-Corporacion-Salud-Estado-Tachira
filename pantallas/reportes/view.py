@@ -4,7 +4,7 @@ from tkinter import messagebox, ttk
 
 import customtkinter as ctk
 
-from themes import THEME
+from constants import THEME
 from ui_helpers import (
     btn_success,
     btn_secondary,

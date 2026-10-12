@@ -6,66 +6,107 @@ from tkinter import filedialog, messagebox
 import customtkinter as ctk
 from tkinter import ttk
 
-from db import ALLOWED_EXTENSIONS, MAX_FILE_SIZE_MB, ExcelService, TEMPLATE_PATH, ASIC_PREDETERMINADOS, MUNICIPIOS_TACHIRA
-from themes import THEME
+from constants import (
+    ALLOWED_EXTENSIONS,
+    MAX_FILE_SIZE_MB,
+    TEMPLATE_PATH,
+    UBICACIONES_ASIC_PREDETERMINADAS,
+    THEME,
+)
+from db import ExcelService
 from utils import set_favicon
 
 from .model import ModeloActividad
 from .view import VistaActividad
 
 
-def generar_plantilla_actividad(ruta_entrada, ruta_salida, nombres_tipos):
+def generar_plantilla_actividad(
+    ruta_entrada, ruta_salida, nombres_tipos, ubicaciones_asic=None
+):
     import openpyxl
-    from openpyxl.worksheet.datavalidation import DataValidation
+    from openpyxl.workbook.defined_name import DefinedName
     from openpyxl.utils import get_column_letter
 
-    if os.path.normcase(os.path.abspath(ruta_entrada)) == os.path.normcase(
-        os.path.abspath(ruta_salida)
-    ):
+    if ruta_entrada == ruta_salida:
         raise ValueError("La plantilla generada debe guardarse en un archivo distinto al original.")
-
-    nombres_tipos = [str(nombre).strip() for nombre in nombres_tipos if str(nombre).strip()]
-    if not nombres_tipos:
-        raise ValueError("No hay tipos de actividad disponibles para incluir en la plantilla.")
+    if ubicaciones_asic is None:
+        from constants import UBICACIONES_ASIC_PREDETERMINADAS
+        ubicaciones_asic = [
+            {"asic_nombre": asic, "municipio": municipio, "parroquia": parroquia}
+            for asic, municipio, parroquia in UBICACIONES_ASIC_PREDETERMINADAS
+        ]
+    if not ubicaciones_asic:
+        raise ValueError("No hay ubicaciones ASIC disponibles para incluir en la plantilla.")
 
     workbook = openpyxl.load_workbook(ruta_entrada)
-    hoja_actividades = workbook.active
-    formula_lista_directa = f'"{",".join(nombres_tipos)}"'
-    if (
-        len(formula_lista_directa) <= 255
-        and all("," not in nombre and '"' not in nombre for nombre in nombres_tipos)
-    ):
-        formula_lista = formula_lista_directa
-    else:
-        columna_opciones = hoja_actividades.max_column + 1
-        letra_columna_opciones = get_column_letter(columna_opciones)
-        for fila, nombre in enumerate(nombres_tipos, start=1):
-            hoja_actividades.cell(row=fila, column=columna_opciones, value=nombre)
-        hoja_actividades.column_dimensions[letra_columna_opciones].hidden = True
-        formula_lista = (
-            f"=${letra_columna_opciones}$1:"
-            f"${letra_columna_opciones}${len(nombres_tipos)}"
+
+    for nombre_hoja in ("_ubicaciones", "Catalogos"):
+        if nombre_hoja in workbook.sheetnames:
+            del workbook[nombre_hoja]
+            
+    hoja_ubicaciones = workbook.create_sheet("Catalogos")
+
+    nombres_asics = sorted({
+        ubicacion["asic_nombre"] for ubicacion in ubicaciones_asic
+    })
+
+    parroquias_por_municipio = {}
+    for ubicacion in ubicaciones_asic:
+        municipio = ubicacion["municipio"]
+        parroquias_por_municipio.setdefault(municipio, set()).add(
+            ubicacion["parroquia"]
         )
 
-    for validacion in list(hoja_actividades.data_validations.dataValidation):
-        es_columna_tipo = any(
-            rango.min_col <= 9 <= rango.max_col and rango.min_row <= 4
-            for rango in validacion.sqref.ranges
-        )
-        if es_columna_tipo:
-            hoja_actividades.data_validations.dataValidation.remove(validacion)
+    municipios = sorted(parroquias_por_municipio)
 
-    validacion_tipos = DataValidation(
-        type="list",
-        formula1=formula_lista,
-        allow_blank=True,
-        showDropDown=False,
-        showErrorMessage=True,
-        errorTitle="Tipo de actividad inválido",
-        error="Selecciona un tipo de actividad de la lista.",
-    )
-    hoja_actividades.add_data_validation(validacion_tipos)
-    validacion_tipos.add("I4:I1048576")
+    def agregar_lista_dependiente(nombre, columna, opciones):
+        for fila, opcion in enumerate(opciones, start=2):
+            hoja_ubicaciones.cell(row=fila, column=columna, value=opcion)
+        letra = get_column_letter(columna)
+        hoja_ubicaciones.cell(row=1, column=columna, value=nombre)
+        
+        # Remove old defined name if exists
+        if nombre in workbook.defined_names:
+            del workbook.defined_names[nombre]
+            
+        workbook.defined_names.add(DefinedName(
+            nombre,
+            attr_text=(
+                f"'{hoja_ubicaciones.title}'!"
+                f"${letra}$2:${letra}${len(opciones) + 1}"
+            ),
+        ))
+
+    # Col 1: Actividades
+    agregar_lista_dependiente("CatalogoActividades", 1, nombres_tipos)
+    
+    # Col 2: ASIC
+    agregar_lista_dependiente("CatalogoASIC", 2, nombres_asics)
+    
+    # Col 3: Municipios
+    agregar_lista_dependiente("CatalogoMunicipios", 3, municipios)
+    
+    # Col 4+: Parroquias
+    columna_parroquias = 4
+    for indice, municipio in enumerate(municipios, start=1):
+        col_idx = columna_parroquias + indice - 1
+        agregar_lista_dependiente(
+            f"Parroquia{indice}", col_idx,
+            sorted(parroquias_por_municipio[municipio]),
+        )
+        hoja_ubicaciones.cell(row=1, column=col_idx, value=municipio)
+
+    # Clean up old Parroquia defined names that are no longer used
+    max_parroquia_idx = len(municipios)
+    for nombre in list(workbook.defined_names):
+        if nombre.startswith("Parroquia"):
+            try:
+                idx = int(nombre.replace("Parroquia", ""))
+                if idx > max_parroquia_idx:
+                    del workbook.defined_names[nombre]
+            except ValueError:
+                pass
+
     workbook.save(ruta_salida)
 
 
@@ -450,6 +491,7 @@ class ControladorActividad:
         self.modelo = ModeloActividad()
 
         self.asic_map = {}
+        self.ubicaciones_por_asic = {}
         self.tipo_map = {}
         self.filtros_actuales = None
         self._cargar_catalogos()
@@ -467,9 +509,21 @@ class ControladorActividad:
         return False
 
     def _cargar_catalogos(self):
+        self.ubicaciones_por_municipio = {}
         try:
             asics = self.modelo.listar_asics()
-            self.asic_map = {a["nombre"]: a["id_asic"] for a in asics}
+            for ubicacion in self.modelo.listar_ubicaciones_asic():
+                self.ubicaciones_por_asic.setdefault(
+                    ubicacion["asic_nombre"], []
+                ).append(ubicacion)
+                self.ubicaciones_por_municipio.setdefault(
+                    ubicacion["municipio"], []
+                ).append(ubicacion)
+            self.asic_map = {
+                asic["nombre"]: asic["id_asic"]
+                for asic in asics
+                if asic["nombre"] in self.ubicaciones_por_asic
+            }
 
             tipos = self.modelo.listar_tipos_actividad()
             self.tipo_map = {t["nombre"]: t["id_tipo"] for t in tipos}
@@ -622,7 +676,12 @@ class ControladorActividad:
             nombres_tipos = [
                 tipo["nombre"] for tipo in self.modelo.listar_tipos_actividad()
             ]
-            generar_plantilla_actividad(TEMPLATE_PATH, destino, nombres_tipos)
+            generar_plantilla_actividad(
+                TEMPLATE_PATH,
+                destino,
+                nombres_tipos,
+                self.modelo.listar_ubicaciones_asic(),
+            )
         except Exception as exc:
             messagebox.showerror(
                 "Error al generar la plantilla",

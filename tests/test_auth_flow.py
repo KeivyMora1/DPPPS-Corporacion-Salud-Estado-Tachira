@@ -5,9 +5,22 @@ from xml.etree import ElementTree as ET
 from datetime import date, timedelta
 
 import mysql.connector
+import pytest
 
-from db import AuthController, PDFService, TIPOS_ACTIVIDAD_PREDETERMINADOS, ActividadController, ExcelServiceVoceria, VoceriaController
+from db import AuthController, PDFService, ActividadController, ExcelServiceVoceria, VoceriaController
+from constants import TIPOS_ACTIVIDAD_PREDETERMINADOS
 import db as db_module
+
+
+@pytest.fixture(autouse=True)
+def usar_catalogo_de_ubicaciones_en_memoria(monkeypatch):
+    monkeypatch.setattr(
+        db_module.ParroquiaDAO,
+        "listar_por_asic",
+        lambda self, id_asic: [
+            {"municipio": "San Cristóbal", "parroquia": "San Sebastián"}
+        ],
+    )
 
 
 def test_asegurar_esquema_autenticacion_no_falla_si_la_bd_aun_no_existe(monkeypatch):
@@ -206,7 +219,7 @@ def test_guardar_actividad_acepta_fecha_unica(monkeypatch):
         fecha="2026-09-05",
         estado="Táchira",
         municipio="San Cristóbal",
-        parroquia="San José",
+        parroquia="San Sebastián",
         establecimiento_salud="Hospitales TIPO I",
         nombre_establecimiento="Hospital Central",
         comites_salud=1,
@@ -235,7 +248,7 @@ def _datos_actividad_validos(**cambios):
         "fecha": "2000-01-01",
         "estado": "Táchira",
         "municipio": "San Cristóbal",
-        "parroquia": "San José",
+        "parroquia": "San Sebastián",
         "establecimiento_salud": "CDI",
         "nombre_establecimiento": "Centro de Salud",
         "comites_salud": "0",
@@ -288,7 +301,7 @@ def _guardar_voceria_con_item(monkeypatch, **cambios):
         id_tipo=1,
         estado="Táchira",
         municipio="San Cristóbal",
-        parroquia="San José",
+        parroquia="San Sebastián",
         centro_dispensador="CDI",
         nombre_centro="Centro de Salud",
         nombre_comite="Comité Central",
@@ -418,6 +431,16 @@ def test_excel_actividad_rechaza_datos_que_el_formulario_no_acepta(tmp_path):
     servicio._actividad_dao = type(
         "ActividadDAOFalsa", (), {"verificar_duplicado": lambda *args, **kwargs: False}
     )()
+    servicio._parroquia_dao = type(
+        "ParroquiaDAOFalsa",
+        (),
+        {
+            "listar_por_asic": lambda self, id_asic: [
+                {"municipio": "San Cristóbal", "parroquia": "Parroquia"}
+            ]
+        },
+    )()
+    servicio._cache_ubicaciones = {}
 
     resultado = servicio.previsualizar(str(ruta))
 

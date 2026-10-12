@@ -1,47 +1,35 @@
 from datetime import date, datetime, timedelta
-MODO = "local"
-DATABASE = {
-    "local": {
-        "host": "localhost",
-        "port": 3306,
-        "user": "root",
-        "password": "",
-        "database": "dppps_informes"
-    },
-    "lan": {
-        "host": "192.168.1.100",
-        "port": 3306,
-        "user": "dppps_app",
-        "password": "contraseña_segura",
-        "database": "dppps_informes"
-    }
-}
-
-TEMPLATE_PATH = "assets/templates/plantilla_importacion_actividad.xlsx"
-VOCERIA_TEMPLATE_PATH = "assets/templates/plantilla_importacion_voceria.xlsx"
-
-MAX_FILE_SIZE_MB = 10
-ALLOWED_EXTENSIONS = [".xlsx"]
-VOCERIA_CENTRO_DISPENSADOR_OPCIONES = [
-    "Consultorio Popular TIPO I", "Consultorio Popular TIPO II",
-    "Consultorio Popular TIPO III", "Clinica Popular TIPO I",
-    "Clinica Popular TIPO II", "CDI", "SRI", "CAT",
-    "Hospitales TIPO I", "Hospitales TIPO II", "Hospitales TIPO III",
-    "Hospitales TIPO IV",
-]
-ACTIVIDAD_ESTABLECIMIENTO_OPCIONES = VOCERIA_CENTRO_DISPENSADOR_OPCIONES
+from constants import (
+    MODO,
+    DATABASE,
+    TEMPLATE_PATH,
+    VOCERIA_TEMPLATE_PATH,
+    MAX_FILE_SIZE_MB,
+    ALLOWED_EXTENSIONS,
+    VOCERIA_CENTRO_DISPENSADOR_OPCIONES,
+    ACTIVIDAD_ESTABLECIMIENTO_OPCIONES,
+    EMAIL_REGEX,
+    ASIC_PREDETERMINADOS,
+    VOCERIA_ESTADO_OPCIONES,
+    PARROQUIAS_POR_MUNICIPIO_TACHIRA,
+    MUNICIPIOS_TACHIRA,
+    ASIC_POR_MUNICIPIO,
+    UBICACIONES_ASIC_PREDETERMINADAS,
+    VOCERIA_MUNICIPIO_OPCIONES,
+    VOCERIA_ASIC_OPCIONES,
+    VOCERIA_TIPO_OPCIONES,
+    VOCERIA_SEXO_OPCIONES,
+    TIPOS_ACTIVIDAD_PREDETERMINADOS,
+    APP_TITLE,
+    APP_VERSION,
+)
 
 
 def validar_correo(correo):
     correo = (correo or "").strip()
     if len(correo) > 120:
         return False
-    if not re.fullmatch(
-        r"[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@"
-        r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
-        r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+",
-        correo,
-    ):
+    if not EMAIL_REGEX.fullmatch(correo):
         return False
     parte_local = correo.split("@", 1)[0]
     return not parte_local.startswith(".") and not parte_local.endswith(".") and ".." not in parte_local
@@ -55,86 +43,7 @@ def validar_archivo_excel(ruta_archivo):
     if os.path.getsize(ruta_archivo) > MAX_FILE_SIZE_MB * 1024 * 1024:
         raise ValueError(f"El archivo no puede superar {MAX_FILE_SIZE_MB} MB.")
 
-ASIC_PREDETERMINADOS = [
-    ("ASIC-01", "Andrés Bello"),
-    ("ASIC-02", "Antonio Rómulo Costa"),
-    ("ASIC-03", "Ayacucho"),
-    ("ASIC-04", "Bolívar"),
-    ("ASIC-05", "Capacho Independencia"),
-    ("ASIC-06", "Capacho Libertad"),
-    ("ASIC-07", "Cárdenas"),
-    ("ASIC-08", "Córdoba"),
-    ("ASIC-09", "Dr. Hugo Murzi"),
-    ("ASIC-10", "Dr. Jacinto Convit"),
-    ("ASIC-11", "Dr. José María Vargas"),
-    ("ASIC-12", "Fernández Feo"),
-    ("ASIC-13", "García de Hevia"),
-    ("ASIC-14", "Guásimos"),
-    ("ASIC-15", "Jáuregui"),
-    ("ASIC-16", "Junín"),
-    ("ASIC-17", "Libertador"),
-    ("ASIC-18", "Michelena"),
-    ("ASIC-19", "Panamericano"),
-    ("ASIC-20", "Sabaneta"),
-    ("ASIC-21", "Samuel Darío Maldonado"),
-    ("ASIC-22", "Sucre"),
-    ("ASIC-23", "Torbes"),
-    ("ASIC-24", "Ureña"),
-    ("ASIC-25", "Uribante"),
-]
-
-VOCERIA_ESTADO_OPCIONES = ["Táchira"]
-
-MUNICIPIOS_TACHIRA = [
-    "Andrés Bello",
-    "Antonio Rómulo Costa",
-    "Ayacucho",
-    "Bolívar",
-    "Cárdenas",
-    "Córdoba",
-    "Fernández Feo",
-    "Francisco de Miranda",
-    "García de Hevia",
-    "Guásimos",
-    "Independencia",
-    "Jáuregui",
-    "José María Vargas",
-    "Junín",
-    "Libertad",
-    "Libertador",
-    "Lobatera",
-    "Michelena",
-    "Panamericano",
-    "Pedro María Ureña",
-    "Rafael Urdaneta",
-    "Samuel Darío Maldonado",
-    "San Cristóbal",
-    "San Judas Tadeo",
-    "Seboruco",
-    "Simón Rodríguez",
-    "Sucre",
-    "Torbes",
-    "Uribante",
-]
-
-VOCERIA_MUNICIPIO_OPCIONES = MUNICIPIOS_TACHIRA
-VOCERIA_ASIC_OPCIONES = [nombre for _, nombre in ASIC_PREDETERMINADOS]
-VOCERIA_TIPO_OPCIONES = [
-    "V. CONTRALORÍA",
-    "V. DEL ADULTO MAYOR",
-    "V. DE ENFERMEDADES CRÓNICAS TRASMISIBLES Y NO TRASMISIBLES",
-    "V. DE PERSONAS CON DISCAPACIDAD, ENCAMADOS Y CUIDADORES EN SALUD",
-    "V. DE SALUD Y VIDA",
-    "V. DE NIÑOS, NIÑAS Y ADOLESCENTES",
-    "V. DE LA JUVENTUD EN SALUD",
-    "V. DE EDUCACIÓN POPULAR EN SALUD INTERCULTURAL Y ANCESTRAL",
-    "V. DE INMUNIZACIONES",
-    "V. DE PROYECTOS EN SALUD",
-]
-VOCERIA_SEXO_OPCIONES = ["M", "F"]
-
-
-def build_voceria_template(output_path=None):
+def build_voceria_template(output_path=None, ubicaciones_asic=None):
     """Genera la plantilla Excel para vocerías CS con listas desplegables."""
     if output_path is None:
         output_path = VOCERIA_TEMPLATE_PATH
@@ -210,7 +119,7 @@ def build_voceria_template(output_path=None):
             if col_idx == 11:
                 cell.number_format = "@"
         for col_idx in (13, 18):
-            ws.cell(row=row_idx, column=col_idx).number_format = "yyyy-mm-dd"
+            ws.cell(row=row_idx, column=col_idx).number_format = "dd-mm-yyyy"
 
     for row_idx in range(3, 1001):
         ws.cell(row=row_idx, column=10).number_format = r"##\,###\,##0"
@@ -229,29 +138,142 @@ def build_voceria_template(output_path=None):
     for col_letter, width in col_widths.items():
         ws.column_dimensions[col_letter].width = width
 
-    ws_listas = wb.create_sheet("_listas")
-
+    ws_listas = wb.create_sheet("Catalogos")
+    if ubicaciones_asic is None:
+        ubicaciones_asic = [
+            {"asic_nombre": asic, "municipio": municipio, "parroquia": parroquia}
+            for asic, municipio, parroquia in UBICACIONES_ASIC_PREDETERMINADAS
+        ]
+    if not ubicaciones_asic:
+        raise ValueError("No hay ubicaciones ASIC disponibles para incluir en la plantilla.")
     def agregar_lista(nombre, columna, opciones, rango, titulo):
-        for fila, opcion in enumerate(opciones, start=1):
+        for fila, opcion in enumerate(opciones, start=2):
             ws_listas.cell(row=fila, column=columna, value=opcion)
 
         letra_columna = get_column_letter(columna)
-        referencia = f"'_listas'!${letra_columna}$1:${letra_columna}${len(opciones)}"
+        ws_listas.cell(row=1, column=columna, value=titulo)
+        referencia = (
+            f"'{ws_listas.title}'!${letra_columna}$2:"
+            f"${letra_columna}${len(opciones) + 1}"
+        )
         wb.defined_names.add(DefinedName(nombre, attr_text=referencia))
 
-        validacion = DataValidation(type="list", formula1=nombre, allow_blank=True)
+        validacion = DataValidation(type="list", formula1=f"{nombre}", allow_blank=True)
         validacion.promptTitle = titulo
         validacion.prompt = "Seleccione una opción válida."
         validacion.add(rango)
         ws.add_data_validation(validacion)
+        return validacion
 
     agregar_lista("ListaEstados", 1, VOCERIA_ESTADO_OPCIONES, "B3:B1000", "Estado")
-    agregar_lista("ListaMunicipios", 2, VOCERIA_MUNICIPIO_OPCIONES, "C3:C1000", "Municipio")
-    agregar_lista("ListaAsic", 3, VOCERIA_ASIC_OPCIONES, "E3:E1000", "ASIC")
     agregar_lista("ListaCentros", 4, VOCERIA_CENTRO_DISPENSADOR_OPCIONES, "G3:G1000", "Centro dispensador")
     agregar_lista("ListaVocerias", 5, VOCERIA_TIPO_OPCIONES, "L3:L1000", "Vocería")
     agregar_lista("ListaSexo", 6, VOCERIA_SEXO_OPCIONES, "O3:O1000", "Sexo")
-    ws_listas.sheet_state = "hidden"
+
+    columna_asic = 7
+    columna_municipios = 8
+    nombres_asics = sorted({
+        ubicacion["asic_nombre"] for ubicacion in ubicaciones_asic
+    })
+    municipios = sorted({
+        ubicacion["municipio"] for ubicacion in ubicaciones_asic
+    })
+    parroquias_por_municipio = {}
+    for ubicacion in ubicaciones_asic:
+        municipio = ubicacion["municipio"]
+        parroquias_por_municipio.setdefault(municipio, set()).add(
+            ubicacion["parroquia"]
+        )
+    for fila, asic in enumerate(nombres_asics, start=1):
+        ws_listas.cell(row=fila + 1, column=columna_asic, value=asic)
+    for fila, municipio in enumerate(municipios, start=1):
+        ws_listas.cell(row=fila + 1, column=columna_municipios, value=municipio)
+
+    letra_columna_asic = get_column_letter(columna_asic)
+    hoja_nombre = f"'{ws_listas.title}'!"
+    ws_listas.cell(row=1, column=columna_asic, value="ASIC")
+    ws_listas.cell(row=1, column=columna_municipios, value="Municipios")
+    wb.defined_names.add(DefinedName(
+        "CatalogoASIC",
+        attr_text=f"{hoja_nombre}${letra_columna_asic}$2:${letra_columna_asic}${len(nombres_asics) + 1}",
+    ))
+    wb.defined_names.add(DefinedName(
+        "CatalogoMunicipios",
+        attr_text=(
+            f"{hoja_nombre}${get_column_letter(columna_municipios)}$2:"
+            f"${get_column_letter(columna_municipios)}${len(municipios) + 1}"
+        ),
+    ))
+    columna_parroquias = columna_municipios + 1
+    for indice, municipio in enumerate(municipios, start=1):
+        columna = columna_parroquias + indice - 1
+        opciones = sorted(parroquias_por_municipio[municipio])
+        ws_listas.cell(row=1, column=columna, value=municipio)
+        for fila, opcion in enumerate(opciones, start=2):
+            ws_listas.cell(row=fila, column=columna, value=opcion)
+        letra = get_column_letter(columna)
+        wb.defined_names.add(DefinedName(
+            f"Parroquia{indice}",
+            attr_text=f"{hoja_nombre}${letra}$2:${letra}${len(opciones) + 1}",
+        ))
+
+    validacion_asic = DataValidation(
+        type="list",
+        formula1="CatalogoASIC",
+        allow_blank=True,
+        showErrorMessage=True,
+        errorTitle="ASIC no válido",
+        error="Selecciona un ASIC de la lista.",
+    )
+    validacion_asic.add("E3:E1000")
+    ws.add_data_validation(validacion_asic)
+    validacion_asic.promptTitle = "ASIC"
+    validacion_asic.prompt = "Seleccione el ASIC correspondiente."
+    validacion_asic.showInputMessage = True
+
+    dv_municipio = DataValidation(
+        type="list",
+        formula1="CatalogoMunicipios",
+        allow_blank=True,
+    )
+    dv_municipio.showErrorMessage = True
+    dv_municipio.errorTitle = "Municipio no válido"
+    dv_municipio.error = "Selecciona un municipio de la lista."
+    dv_municipio.promptTitle = "Municipio"
+    dv_municipio.prompt = "Seleccione un municipio."
+    dv_municipio.showInputMessage = True
+    dv_municipio.add("C3:C1000")
+    ws.add_data_validation(dv_municipio)
+
+    dv_parroquia = DataValidation(
+        type="list",
+        formula1='INDIRECT("Parroquia"&MATCH(C3,CatalogoMunicipios,0))',
+        allow_blank=True,
+    )
+    dv_parroquia.showErrorMessage = True
+    dv_parroquia.errorTitle = "Parroquia no válida"
+    dv_parroquia.error = "Selecciona una parroquia correspondiente al municipio."
+    dv_parroquia.promptTitle = "Parroquia según municipio"
+    dv_parroquia.prompt = "Seleccione primero el municipio."
+    dv_parroquia.showInputMessage = True
+    dv_parroquia.add("D3:D1000")
+    ws.add_data_validation(dv_parroquia)
+
+    dv_telefono = DataValidation(
+        type="textLength",
+        operator="between",
+        formula1="11",
+        formula2="12",
+        allow_blank=True,
+    )
+    dv_telefono.promptTitle = ""
+    dv_telefono.prompt = "xxxx-xxxxxxx"
+    dv_telefono.showInputMessage = True
+    dv_telefono.errorTitle = "Teléfono inválido"
+    dv_telefono.error = "El teléfono debe tener entre 11 y 12 caracteres (ej: 0414-1234567)."
+    dv_telefono.showErrorMessage = True
+    dv_telefono.add("K3:K1000")
+    ws.add_data_validation(dv_telefono)
 
     dv_fecha = DataValidation(
         type="date",
@@ -260,10 +282,11 @@ def build_voceria_template(output_path=None):
         formula2="DATE(9999,12,31)",
         allow_blank=True,
     )
-    dv_fecha.promptTitle = "Fecha"
-    dv_fecha.prompt = "Ingrese una fecha válida. Se mostrará como AAAA-MM-DD."
+    dv_fecha.promptTitle = ""
+    dv_fecha.prompt = "DD-MM-AAAA"
+    dv_fecha.showInputMessage = True
     dv_fecha.errorTitle = "Fecha no válida"
-    dv_fecha.error = "Ingrese un valor de fecha válido."
+    dv_fecha.error = "Ingrese un valor de fecha válido (DD-MM-AAAA)."
     dv_fecha.showErrorMessage = True
     dv_fecha.add("M3:M1000")
     dv_fecha.add("R3:R1000")
@@ -303,17 +326,6 @@ def build_voceria_template(output_path=None):
     return output_path
 
 
-TIPOS_ACTIVIDAD_PREDETERMINADOS = [
-    ("TIPO-01", "Salud toca tu puerta"),
-    ("TIPO-02", "Sesiones educativas"),
-    ("TIPO-03", "Los Comités de Salud van a la escuela"),
-    ("TIPO-04", "Actividades de Promoción y Prevención Social"),
-    ("TIPO-05", "Participación Activa en Jornadas"),
-    ("TIPO-06", "Participación Activa en Inmunizaciones"),
-    ("TIPO-07", "Entrevista servicio social"),
-]
-APP_TITLE = "DPPPS — Sistema de Consolidación de Informes"
-APP_VERSION = "1.0.0"
 import mysql.connector
 import random
 import smtplib
@@ -839,6 +851,21 @@ class AsicDAO:
         conn.commit()
         cursor.close()
         conn.close()
+
+class ParroquiaDAO:
+    def obtener_todas(self):
+        return [
+            {"asic_nombre": asic, "municipio": municipio, "parroquia": parroquia}
+            for asic, municipio, parroquia in UBICACIONES_ASIC_PREDETERMINADAS
+        ]
+
+    def listar_por_asic(self, id_asic):
+        """Retorna la geografía estatal, independiente del ASIC seleccionado."""
+        return [
+            {"municipio": municipio, "parroquia": parroquia}
+            for municipio, parroquias in PARROQUIAS_POR_MUNICIPIO_TACHIRA.items()
+            for parroquia in parroquias
+        ]
 
 class TipoActividadDAO:
     def obtener_todos(self):
@@ -1528,6 +1555,7 @@ class ActividadController:
     def __init__(self):
         self.actividad_dao = ActividadDAO()
         self.asic_dao = AsicDAO()
+        self.parroquia_dao = ParroquiaDAO()
         self.tipo_dao = TipoActividadDAO()
         self.auth = AuthController()
     def listar_actividades(self, filtros=None):
@@ -1559,6 +1587,9 @@ class ActividadController:
         asics = self.asic_dao.obtener_todos()
         nombres_permitidos = {normalizar(nombre) for _, nombre in asics_predeterminados}
         return [a for a in asics if normalizar(a["nombre"]) in nombres_permitidos]
+
+    def listar_ubicaciones_asic(self):
+        return self.parroquia_dao.obtener_todas()
     def listar_tipos_actividad(self):
         """Asegura los tipos iniciales y retorna todo el catálogo disponible."""
         tipos = self.tipo_dao.obtener_todos()
@@ -1657,6 +1688,13 @@ class ActividadController:
             return False, "Debes seleccionar un estado válido."
         if municipio not in MUNICIPIOS_TACHIRA:
             return False, "Debes seleccionar un municipio válido."
+        ubicaciones_asic = self.parroquia_dao.listar_por_asic(id_asic)
+        if not any(
+            ubicacion["municipio"] == municipio
+            and ubicacion["parroquia"] == parroquia
+            for ubicacion in ubicaciones_asic
+        ):
+            return False, "La parroquia debe corresponder al municipio seleccionado."
         if establecimiento_salud not in ACTIVIDAD_ESTABLECIMIENTO_OPCIONES:
             return False, "Debes seleccionar un establecimiento de salud válido."
 
@@ -1792,6 +1830,7 @@ class VoceriaController:
         self.voceria_dao = VoceriaDAO()
         self.tipo_voceria_dao = TipoVoceriaDAO()
         self.asic_dao = AsicDAO()
+        self.parroquia_dao = ParroquiaDAO()
         self.auth = AuthController()
 
     def _parsear_fecha(self, valor):
@@ -1816,6 +1855,9 @@ class VoceriaController:
     def listar_asics(self):
         asics = self.asic_dao.obtener_todos()
         return asics
+
+    def listar_ubicaciones_asic(self):
+        return self.parroquia_dao.obtener_todas()
 
     def listar_tipos_voceria(self):
         tipos = self.tipo_voceria_dao.obtener_todos()
@@ -1860,6 +1902,13 @@ class VoceriaController:
             return False, "Debes seleccionar un estado válido."
         if municipio not in MUNICIPIOS_TACHIRA:
             return False, "Debes seleccionar un municipio válido."
+        ubicaciones_asic = self.parroquia_dao.listar_por_asic(id_asic)
+        if not any(
+            ubicacion["municipio"] == municipio
+            and ubicacion["parroquia"] == parroquia
+            for ubicacion in ubicaciones_asic
+        ):
+            return False, "La parroquia debe corresponder al municipio seleccionado."
         if centro_dispensador not in VOCERIA_CENTRO_DISPENSADOR_OPCIONES:
             return False, "Debes seleccionar un centro dispensador válido."
         if not items:
@@ -2165,11 +2214,15 @@ class ExcelService:
         self.id_usuario_registro = id_usuario_registro
         self._actividad_dao = ActividadDAO()
         self._asic_dao = AsicDAO()
+        self._parroquia_dao = ParroquiaDAO()
         self._tipo_dao = TipoActividadDAO()
         self._cache_asic: dict = {}
         self._cache_tipo: dict = {}
+        self._cache_ubicaciones: dict = {}
 
-    def _validar_campos_fila(self, fila, idx, fecha, tema, comites_salud, participantes):
+    def _validar_campos_fila(
+        self, fila, idx, fecha, tema, comites_salud, participantes, id_asic
+    ):
         errores = []
         valores_obligatorios = {
             "ESTADO": self._obtener_valor_columna(fila, idx, "estado"),
@@ -2199,6 +2252,14 @@ class ExcelService:
             errores.append("'ESTADO' no es válido.")
         if municipio and municipio not in MUNICIPIOS_TACHIRA:
             errores.append("'MUNICIPIO' no es válido.")
+        if id_asic and not any(
+            ubicacion["municipio"] == municipio
+            and ubicacion["parroquia"] == str(
+                valores_obligatorios["PARROQUIA"] or ""
+            ).strip()
+            for ubicacion in self._ubicaciones_asic(id_asic)
+        ):
+            errores.append("'PARROQUIA' no corresponde al municipio seleccionado.")
         if establecimiento and establecimiento not in ACTIVIDAD_ESTABLECIMIENTO_OPCIONES:
             errores.append("'ESTABLECIMIENTO DE SALUD' no es válido.")
 
@@ -2242,6 +2303,13 @@ class ExcelService:
             errores.append("'TOTAL DE ASISTENCIA' debe coincidir con la suma de las categorías de participantes.")
 
         return errores
+
+    def _ubicaciones_asic(self, id_asic):
+        if id_asic not in self._cache_ubicaciones:
+            self._cache_ubicaciones[id_asic] = self._parroquia_dao.listar_por_asic(
+                id_asic
+            )
+        return self._cache_ubicaciones[id_asic]
 
     def previsualizar(self, ruta_archivo: str) -> dict:
         """
@@ -2296,6 +2364,7 @@ class ExcelService:
             asic_nombre  = str(datos_crudos["asic"]).strip()          if datos_crudos["asic"]          else ""
             tipo_nombre  = str(datos_crudos["tipo_actividad"]).strip() if datos_crudos["tipo_actividad"] else ""
             tema = str(datos_crudos.get("tema") or "").strip()
+            id_asic = self._resolver_asic(asic_nombre) if asic_nombre else None
             comites_salud = self._parse_int(self._obtener_valor_columna(fila, idx, "comites_de_salud"))
             try:
                 participantes = self._calcular_total_asistencia(fila, idx, datos_crudos)
@@ -2307,17 +2376,15 @@ class ExcelService:
             fecha_actividad = self._parsear_fecha(datos_crudos.get("fecha"))
             errores.extend(self._validar_campos_fila(
                 fila, idx, fecha_actividad, tema, comites_salud, participantes,
+                id_asic,
             ))
             if not asic_nombre:
                 errores.append("El campo 'ASIC' está vacío.")
+            elif id_asic is None:
+                errores.append(f"ASIC no encontrado en BD: «{asic_nombre}».")
             if not tipo_nombre:
                 errores.append("El campo 'ACTIVIDAD DESARROLLADA' está vacío.")
-            id_asic = None
             id_tipo = None
-            if asic_nombre:
-                id_asic = self._resolver_asic(asic_nombre)
-                if id_asic is None:
-                    errores.append(f"ASIC no encontrado en BD: «{asic_nombre}».")
             if tipo_nombre:
                 id_tipo = self._resolver_tipo(tipo_nombre)
                 if id_tipo is None:
@@ -2583,9 +2650,11 @@ class ExcelServiceVoceria:
     def __init__(self, id_usuario_registro: int):
         self.id_usuario_registro = id_usuario_registro
         self._asic_dao = AsicDAO()
+        self._parroquia_dao = ParroquiaDAO()
         self._tipo_voceria_dao = TipoVoceriaDAO()
         self._cache_asic: dict = {}
         self._cache_tipo_voceria: dict = {}
+        self._cache_ubicaciones: dict = {}
 
     def previsualizar(self, ruta_archivo: str) -> dict:
         """
@@ -2797,6 +2866,18 @@ class ExcelServiceVoceria:
         municipio = (datos.get("municipio") or "").strip()
         if municipio and municipio not in MUNICIPIOS_TACHIRA:
             errores.append(f"Fila {numero_fila}: Municipio no válido.")
+        asic_nombre = (datos.get("asic") or "").strip()
+        id_asic = self._resolver_asic(asic_nombre) if asic_nombre else None
+        if asic_nombre and id_asic is None:
+            errores.append(f"Fila {numero_fila}: ASIC no encontrado: «{asic_nombre}».")
+        elif id_asic and not any(
+            ubicacion["municipio"] == municipio
+            and ubicacion["parroquia"] == (datos.get("parroquia") or "").strip()
+            for ubicacion in self._ubicaciones_asic(id_asic)
+        ):
+            errores.append(
+                f"Fila {numero_fila}: La parroquia no corresponde al municipio seleccionado."
+            )
         centro_dispensador = (datos.get("centro_dispensador") or "").strip()
         if centro_dispensador and centro_dispensador not in VOCERIA_CENTRO_DISPENSADOR_OPCIONES:
             errores.append(f"Fila {numero_fila}: Centro dispensador no válido.")
@@ -2822,6 +2903,13 @@ class ExcelServiceVoceria:
         elif fecha_eleccion and fecha_eleccion < hoy - timedelta(days=730):
             errores.append(f"Fila {numero_fila}: La Fecha de Elección no puede tener más de 2 años.")
         return errores
+
+    def _ubicaciones_asic(self, id_asic):
+        if id_asic not in self._cache_ubicaciones:
+            self._cache_ubicaciones[id_asic] = self._parroquia_dao.listar_por_asic(
+                id_asic
+            )
+        return self._cache_ubicaciones[id_asic]
 
     def _validar_comite(self, nombre_comite, filas):
         errores = []

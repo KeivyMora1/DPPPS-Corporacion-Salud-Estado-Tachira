@@ -2,12 +2,15 @@ import customtkinter as ctk
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from datetime import datetime, date
-from db import (
-    ActividadController, ALLOWED_EXTENSIONS, MAX_FILE_SIZE_MB, ExcelService,
-    TEMPLATE_PATH, ASIC_PREDETERMINADOS, MUNICIPIOS_TACHIRA,
+
+from constants import (
+    ALLOWED_EXTENSIONS,
+    MAX_FILE_SIZE_MB,
+    TEMPLATE_PATH,
     ACTIVIDAD_ESTABLECIMIENTO_OPCIONES,
+    THEME,
 )
-from themes import THEME
+from db import ActividadController, ExcelService
 import os
 import threading
 
@@ -336,8 +339,93 @@ class VistaActividad:
         marco_form = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         marco_form.pack(fill="both", expand=True)
 
-        # --- ASIC y Tipo ---
-        ctk.CTkLabel(marco_form, text="ASIC *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(2, 2))
+        # Contenedor para campos de Ubicación
+        frame_ubicacion = ctk.CTkFrame(marco_form, fg_color="transparent")
+        frame_ubicacion.pack(fill="x", pady=(2, 6))
+
+        # --- Ubicación (campos de la plantilla) ---
+        ctk.CTkLabel(frame_ubicacion, text="Ubicación", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(2, 2))
+
+        marco_ubicacion = ctk.CTkFrame(frame_ubicacion, fg_color=t["bg_card"], corner_radius=8)
+        marco_ubicacion.pack(fill="x", pady=(0, 4))
+        inner_ubic = ctk.CTkFrame(marco_ubicacion, fg_color="transparent")
+        inner_ubic.pack(fill="x", padx=10, pady=8)
+        for column in range(3):
+            inner_ubic.grid_columnconfigure(column, weight=1, uniform="ubicacion")
+
+        # Fila 1: Estado, Municipio, Parroquia
+        col_estado = ctk.CTkFrame(inner_ubic, fg_color="transparent")
+        col_estado.grid(row=0, column=0, sticky="ew", padx=5, pady=2)
+        ctk.CTkLabel(col_estado, text="Estado *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        ent_estado = ctk.CTkOptionMenu(col_estado, values=["Táchira"], fg_color=t["bg_base"], button_color=t["bg_card"], button_hover_color=t["bg_hover"], text_color=t["text_primary"], dropdown_fg_color=t["bg_base"], dropdown_text_color=t["text_primary"])
+        ent_estado.set("Táchira")
+        ent_estado.pack(fill="x", pady=(2, 0))
+
+        col_municipio = ctk.CTkFrame(inner_ubic, fg_color="transparent")
+        col_municipio.grid(row=0, column=1, sticky="ew", padx=5, pady=2)
+        ctk.CTkLabel(col_municipio, text="Municipio *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        todos_municipios = sorted(list(self.controlador.ubicaciones_por_municipio.keys())) or ["Seleccionar..."]
+        ent_municipio = ctk.CTkOptionMenu(
+            col_municipio, values=todos_municipios, fg_color=t["bg_base"],
+            button_color=t["bg_card"], button_hover_color=t["bg_hover"],
+            text_color=t["text_primary"], dropdown_fg_color=t["bg_base"],
+            dropdown_text_color=t["text_primary"],
+        )
+        if todos_municipios:
+            ent_municipio.set(todos_municipios[0])
+        ent_municipio.pack(fill="x", pady=(2, 0))
+
+        col_parroquia = ctk.CTkFrame(inner_ubic, fg_color="transparent")
+        col_parroquia.grid(row=0, column=2, sticky="ew", padx=5, pady=2)
+        ctk.CTkLabel(col_parroquia, text="Parroquia *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        ent_parroquia = ctk.CTkOptionMenu(
+            col_parroquia, values=["Seleccionar..."], fg_color=t["bg_base"],
+            button_color=t["bg_card"], button_hover_color=t["bg_hover"],
+            text_color=t["text_primary"], dropdown_fg_color=t["bg_base"],
+            dropdown_text_color=t["text_primary"],
+        )
+        ent_parroquia.pack(fill="x", pady=(2, 0))
+        lbl_ubicacion_legada = ctk.CTkLabel(
+            inner_ubic,
+            text="La parroquia existente no corresponde al municipio del catálogo. "
+            "Selecciona municipio y parroquia válidos antes de guardar.",
+            font=("Arial", 9),
+            text_color=t["red"],
+            wraplength=800,
+            justify="left",
+        )
+
+        # Fila 2: Establecimiento, Nombre Establecimiento, Comités de Salud
+        col_estab = ctk.CTkFrame(inner_ubic, fg_color="transparent")
+        col_estab.grid(row=1, column=0, sticky="ew", padx=5, pady=2)
+        ctk.CTkLabel(col_estab, text="Establecimiento de Salud *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        establecimientos = ACTIVIDAD_ESTABLECIMIENTO_OPCIONES
+        ent_establecimiento = ctk.CTkOptionMenu(col_estab, values=establecimientos, fg_color=t["bg_base"], button_color=t["bg_card"], button_hover_color=t["bg_hover"], text_color=t["text_primary"], dropdown_fg_color=t["bg_base"], dropdown_text_color=t["text_primary"])
+        if establecimientos:
+            try:
+                ent_establecimiento.set(establecimientos[0])
+            except Exception:
+                pass
+        ent_establecimiento.pack(fill="x", pady=(2, 0))
+
+        col_nom_estab = ctk.CTkFrame(inner_ubic, fg_color="transparent")
+        col_nom_estab.grid(row=1, column=1, sticky="ew", padx=5, pady=2)
+        ctk.CTkLabel(col_nom_estab, text="Nombre del Establecimiento *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        ent_nombre_establecimiento = ctk.CTkEntry(col_nom_estab, font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"],
+                                                  border_color=t["border"], corner_radius=6)
+        ent_nombre_establecimiento.pack(fill="x", pady=(2, 0))
+        self._poner_placeholder_entry(ent_nombre_establecimiento, "Nombre del establecimiento")
+        ent_nombre_establecimiento.bind("<FocusIn>", lambda e: self._limpiar_placeholder_entry(ent_nombre_establecimiento, "Nombre del establecimiento"))
+        ent_nombre_establecimiento.bind("<FocusOut>", lambda e: self._poner_placeholder_entry(ent_nombre_establecimiento, "Nombre del establecimiento"))
+
+        col_comites = ctk.CTkFrame(inner_ubic, fg_color="transparent")
+        col_comites.grid(row=1, column=2, sticky="ew", padx=5, pady=2)
+        ent_comites = entry_numeric(col_comites, "Comités de Salud *", max_digits=2,
+                        fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
+        ent_comites.insert(0, "0")
+
+        # --- ASIC, Tipo de Actividad y Fecha (después de Ubicación) ---
+        ctk.CTkLabel(marco_form, text="ASIC *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(8, 2))
         nombres_asics = sorted(list(self.controlador.asic_map.keys()))
         combo_asic = ctk.CTkOptionMenu(
             marco_form,
@@ -375,7 +463,6 @@ class VistaActividad:
                 pass
         combo_tipo.pack(fill="x")
 
-        # --- Fecha ---
         marco_fechas = ctk.CTkFrame(marco_form, fg_color="transparent")
         marco_fechas.pack(fill="x", pady=8)
 
@@ -387,78 +474,70 @@ class VistaActividad:
             ent_fecha_inicio.cal.configure(maxdate=date.today())
         ent_fecha_fin = ent_fecha_inicio
 
-        # Contenedor para campos opcionales/avanzados (siempre visible)
-        frame_avanzado = ctk.CTkFrame(marco_form, fg_color="transparent")
-        frame_avanzado.pack(fill="x", pady=(6, 6))
+        def actualizar_parroquias(
+            municipio, parroquia_deseada=None, conservar_sin_coincidencia=False
+        ):
+            ubicaciones = self.controlador.ubicaciones_por_municipio.get(
+                municipio, []
+            )
+            parroquias = sorted({
+                ubicacion["parroquia"]
+                for ubicacion in ubicaciones
+            })
+            opciones = parroquias or ["Seleccionar..."]
+            if conservar_sin_coincidencia and parroquia_deseada not in parroquias:
+                opciones = ["Seleccionar..."] + parroquias
+            ent_parroquia.configure(values=opciones)
+            ent_parroquia.set(
+                parroquia_deseada if parroquia_deseada in parroquias
+                else opciones[0]
+            )
 
-        # --- Ubicación (campos de la plantilla) ---
-        ctk.CTkLabel(frame_avanzado, text="Ubicación", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(8, 2))
+        def actualizar_asics_por_municipio(municipio, asic_deseado=None):
+            ubicaciones = self.controlador.ubicaciones_por_municipio.get(municipio, [])
+            asics_disponibles = sorted({ubicacion["asic_nombre"] for ubicacion in ubicaciones})
+            opciones = asics_disponibles or ["Seleccionar..."]
+            combo_asic.configure(values=opciones)
+            if asic_deseado and asic_deseado in opciones:
+                combo_asic.set(asic_deseado)
+            elif combo_asic.get() not in opciones:
+                combo_asic.set(opciones[0] if opciones else "")
 
-        marco_ubicacion = ctk.CTkFrame(frame_avanzado, fg_color=t["bg_card"], corner_radius=8)
-        marco_ubicacion.pack(fill="x", pady=(0, 4))
-        inner_ubic = ctk.CTkFrame(marco_ubicacion, fg_color="transparent")
-        inner_ubic.pack(fill="x", padx=10, pady=8)
-        for column in range(3):
-            inner_ubic.grid_columnconfigure(column, weight=1, uniform="ubicacion")
+        def actualizar_municipios(
+            asic_seleccionado, municipio_deseado=None, parroquia_deseada=None,
+            conservar_sin_coincidencia=False,
+        ):
+            ubicaciones = self.controlador.ubicaciones_por_asic.get(
+                asic_seleccionado, []
+            )
+            municipios_disponibles = sorted({
+                ubicacion["municipio"] for ubicacion in ubicaciones
+            })
+            opciones = list(todos_municipios)
+            if municipio_deseado and municipio_deseado not in opciones:
+                opciones = [municipio_deseado] + opciones
+            ent_municipio.configure(values=opciones)
+            municipio = municipio_deseado if municipio_deseado else (municipios_disponibles[0] if municipios_disponibles else opciones[0])
+            ent_municipio.set(municipio)
+            actualizar_parroquias(
+                municipio, parroquia_deseada, conservar_sin_coincidencia
+            )
 
-        # Fila 1: Estado, Municipio, Parroquia
-        col_estado = ctk.CTkFrame(inner_ubic, fg_color="transparent")
-        col_estado.grid(row=0, column=0, sticky="ew", padx=5, pady=2)
-        ctk.CTkLabel(col_estado, text="Estado *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_estado = ctk.CTkOptionMenu(col_estado, values=["Táchira"], fg_color=t["bg_base"], button_color=t["bg_card"], button_hover_color=t["bg_hover"], text_color=t["text_primary"], dropdown_fg_color=t["bg_base"], dropdown_text_color=t["text_primary"])
-        ent_estado.set("Táchira")
-        ent_estado.pack(fill="x", pady=(2, 0))
+        ent_municipio.configure(command=lambda municipio: (
+            actualizar_asics_por_municipio(municipio),
+            actualizar_parroquias(municipio)
+        ))
+        combo_asic.configure(
+            command=lambda asic: (
+                None if ent_municipio.get() in {
+                    u["municipio"] for u in self.controlador.ubicaciones_por_asic.get(asic, [])
+                } else actualizar_municipios(asic)
+            )
+        )
+        if todos_municipios and todos_municipios[0] != "Seleccionar...":
+            actualizar_asics_por_municipio(ent_municipio.get())
+            actualizar_parroquias(ent_municipio.get())
 
-        col_municipio = ctk.CTkFrame(inner_ubic, fg_color="transparent")
-        col_municipio.grid(row=0, column=1, sticky="ew", padx=5, pady=2)
-        ctk.CTkLabel(col_municipio, text="Municipio *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        municipios = MUNICIPIOS_TACHIRA
-        ent_municipio = ctk.CTkOptionMenu(col_municipio, values=municipios, fg_color=t["bg_base"], button_color=t["bg_card"], button_hover_color=t["bg_hover"], text_color=t["text_primary"], dropdown_fg_color=t["bg_base"], dropdown_text_color=t["text_primary"])
-        if municipios:
-            try:
-                ent_municipio.set(municipios[0])
-            except Exception:
-                pass
-        ent_municipio.pack(fill="x", pady=(2, 0))
-
-        col_parroquia = ctk.CTkFrame(inner_ubic, fg_color="transparent")
-        col_parroquia.grid(row=0, column=2, sticky="ew", padx=5, pady=2)
-        ctk.CTkLabel(col_parroquia, text="Parroquia *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_parroquia = ctk.CTkEntry(col_parroquia, font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"],
-                                     border_color=t["border"], corner_radius=6)
-        ent_parroquia.pack(fill="x", pady=(2, 0))
-        self._poner_placeholder_entry(ent_parroquia, "Parroquia")
-        ent_parroquia.bind("<FocusIn>", lambda e: self._limpiar_placeholder_entry(ent_parroquia, "Parroquia"))
-        ent_parroquia.bind("<FocusOut>", lambda e: self._poner_placeholder_entry(ent_parroquia, "Parroquia"))
-
-        # Fila 2: Establecimiento, Nombre Establecimiento, Comités de Salud
-        col_estab = ctk.CTkFrame(inner_ubic, fg_color="transparent")
-        col_estab.grid(row=1, column=0, sticky="ew", padx=5, pady=2)
-        ctk.CTkLabel(col_estab, text="Establecimiento de Salud *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        establecimientos = ACTIVIDAD_ESTABLECIMIENTO_OPCIONES
-        ent_establecimiento = ctk.CTkOptionMenu(col_estab, values=establecimientos, fg_color=t["bg_base"], button_color=t["bg_card"], button_hover_color=t["bg_hover"], text_color=t["text_primary"], dropdown_fg_color=t["bg_base"], dropdown_text_color=t["text_primary"])
-        if establecimientos:
-            try:
-                ent_establecimiento.set(establecimientos[0])
-            except Exception:
-                pass
-        ent_establecimiento.pack(fill="x", pady=(2, 0))
-
-        col_nom_estab = ctk.CTkFrame(inner_ubic, fg_color="transparent")
-        col_nom_estab.grid(row=1, column=1, sticky="ew", padx=5, pady=2)
-        ctk.CTkLabel(col_nom_estab, text="Nombre del Establecimiento *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        ent_nombre_establecimiento = ctk.CTkEntry(col_nom_estab, font=("Arial", 11), fg_color=t["bg_base"], text_color=t["text_primary"],
-                                                  border_color=t["border"], corner_radius=6)
-        ent_nombre_establecimiento.pack(fill="x", pady=(2, 0))
-        self._poner_placeholder_entry(ent_nombre_establecimiento, "Nombre del establecimiento")
-        ent_nombre_establecimiento.bind("<FocusIn>", lambda e: self._limpiar_placeholder_entry(ent_nombre_establecimiento, "Nombre del establecimiento"))
-        ent_nombre_establecimiento.bind("<FocusOut>", lambda e: self._poner_placeholder_entry(ent_nombre_establecimiento, "Nombre del establecimiento"))
-
-        col_comites = ctk.CTkFrame(inner_ubic, fg_color="transparent")
-        col_comites.grid(row=1, column=2, sticky="ew", padx=5, pady=2)
-        ent_comites = entry_numeric(col_comites, "Comités de Salud *", max_digits=2,
-                        fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
-        ent_comites.insert(0, "0")
 
         # --- Descripción ---
         ctk.CTkLabel(marco_form, text="Tema Tratado * (máximo 150 caracteres)", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(8, 2))
@@ -503,9 +582,12 @@ class VistaActividad:
         txt_desc.edit_modified(False)
 
         # --- Participantes por categoría ---
-        ctk.CTkLabel(frame_avanzado, text="Participantes", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(10, 2))
+        frame_participantes = ctk.CTkFrame(marco_form, fg_color="transparent")
+        frame_participantes.pack(fill="x", pady=(6, 6))
 
-        marco_part = ctk.CTkFrame(frame_avanzado, fg_color=t["bg_card"], corner_radius=8)
+        ctk.CTkLabel(frame_participantes, text="Participantes", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(10, 2))
+
+        marco_part = ctk.CTkFrame(frame_participantes, fg_color=t["bg_card"], corner_radius=8)
         marco_part.pack(fill="x", pady=(0, 4))
         inner_part = ctk.CTkFrame(marco_part, fg_color="transparent")
         inner_part.pack(fill="x", padx=10, pady=8)
@@ -598,21 +680,23 @@ class VistaActividad:
             except Exception:
                 pass
 
-            municipio_valor = datos_edicion.get("municipio", "") or ""
-            if municipio_valor in municipios:
-                ent_municipio.set(municipio_valor)
-            elif municipio_valor:
-                try:
-                    ent_municipio.set(municipio_valor)
-                except Exception:
-                    pass
-
-            ent_parroquia.delete(0, tk.END)
-            if datos_edicion.get("parroquia"):
-                ent_parroquia.insert(0, str(datos_edicion["parroquia"]))
-                ent_parroquia.configure(text_color=t["text_primary"])
-            else:
-                self._poner_placeholder_entry(ent_parroquia, "Parroquia")
+            actualizar_municipios(
+                combo_asic.get(),
+                datos_edicion.get("municipio", "") or "",
+                datos_edicion.get("parroquia", "") or "",
+                conservar_sin_coincidencia=True,
+            )
+            ubicacion_edicion_valida = any(
+                ubicacion["municipio"] == datos_edicion.get("municipio")
+                and ubicacion["parroquia"] == datos_edicion.get("parroquia")
+                for ubicacion in self.controlador.ubicaciones_por_asic.get(
+                    combo_asic.get(), []
+                )
+            )
+            if not ubicacion_edicion_valida:
+                lbl_ubicacion_legada.grid(
+                    row=2, column=0, columnspan=3, sticky="w", padx=5, pady=(3, 2)
+                )
 
             estab_valor = datos_edicion.get("establecimiento_salud", "") or ""
             if estab_valor in establecimientos:

@@ -1,7 +1,7 @@
 import zipfile
 
-from db import ActividadController, TIPOS_ACTIVIDAD_PREDETERMINADOS
-from db import PDFService
+from db import ActividadController, PDFService
+from constants import TIPOS_ACTIVIDAD_PREDETERMINADOS
 from openpyxl import Workbook, load_workbook
 from openpyxl.worksheet.datavalidation import DataValidation
 from pantallas.actividades.controller import generar_plantilla_actividad
