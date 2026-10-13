@@ -346,5 +346,4 @@ __all__ = [
     "ControladorPrincipal",
     "MainView",
     "SECCION_INICIAL",
-    "SECCIONES",
 ]

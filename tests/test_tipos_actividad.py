@@ -1,6 +1,6 @@
 import zipfile
 
-from db import ActividadController, PDFService
+from db import ActividadController, InformeWordService
 from constants import TIPOS_ACTIVIDAD_PREDETERMINADOS
 from openpyxl import Workbook, load_workbook
 from openpyxl.worksheet.datavalidation import DataValidation
@@ -119,7 +119,7 @@ def test_solo_propietario_puede_administrar_tipos_de_actividad():
 
 def test_reporte_word_incluye_tipos_personalizados_y_sus_totales(tmp_path):
     ruta = tmp_path / "reporte_tipos_personalizados.docx"
-    PDFService().generar_word(
+    InformeWordService().generar_docx(
         {
             "resumen_por_tipo": [
                 {

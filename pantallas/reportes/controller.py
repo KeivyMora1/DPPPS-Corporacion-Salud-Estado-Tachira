@@ -72,7 +72,7 @@ class ControladorReporte:
 
         def _tarea():
             try:
-                self.modelo.generar_word(self._previo, ruta)
+                self.modelo.generar_docx(self._previo, ruta)
                 self.vista.parent.after(0, lambda: (
                     self.vista.parent.configure(cursor=""),
                     messagebox.showinfo("Word generado", f"Documento Word guardado en:\n{ruta}")

@@ -1,4 +1,4 @@
-from db import AuthController, AsicDAO, ConsolidacionService, PDFService
+from db import AuthController, AsicDAO, ConsolidacionService, InformeWordService
 
 
 class ModeloReporte:
@@ -29,8 +29,8 @@ class ModeloReporte:
         previo["observaciones"] = ""
         return previo
 
-    def generar_word(self, previo, ruta):
-        PDFService().generar_word(previo, ruta)
+    def generar_docx(self, previo, ruta):
+        InformeWordService().generar_docx(previo, ruta)
 
 
 __all__ = ["ModeloReporte"]

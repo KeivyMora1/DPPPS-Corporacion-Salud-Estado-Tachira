@@ -17,7 +17,7 @@ pip install -r requirements.txt
 
 ### 2. Configurar la base de datos
 
-Abre `db.py` y ajusta la sección **CONFIGURACIÓN GENERAL** (inicio del archivo):
+Abre [constants.py](./constants.py) y ajusta `MODO` y `DATABASE`:
 
 ```python
 MODO = "local"   # o "lan" si usas un servidor en red
@@ -36,13 +36,11 @@ DATABASE = {
 
 ### 3. Ejecutar el setup inicial
 
-> Solo se hace **una vez** para crear la base de datos, las tablas y el usuario admin.
+Ejecuta este comando para crear la base de datos y sus tablas:
 
 ```bash
-python db.py
+python -m db.setup
 ```
-
-Cuando lo pida, ingresa la contraseña que quieres para el usuario `admin`.
 
 Si la base de datos ya existe, aplica los cambios del esquema antes de iniciar la aplicación:
 

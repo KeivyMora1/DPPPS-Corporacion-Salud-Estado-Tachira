@@ -1,7 +1,5 @@
 import os
 
-from db import get_connection
-
 
 def set_favicon(ventana):
     """Establece el favicon común para cualquier ventana de la app."""

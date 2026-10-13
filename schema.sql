@@ -1,7 +1,7 @@
 -- ============================================================
 -- db/schema.sql
 -- Script completo para crear la base de datos del sistema DPPPS
--- Ejecutado por python db.py para inicializar la BD desde cero.
+-- Ejecutado por python -m db.setup para inicializar la BD desde cero.
 -- Compatible con MariaDB y MySQL.
 -- ============================================================
 
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS asic (
 
 -- ============================================================
 -- TABLA: parroquia
--- Catálogo legado; el catálogo geográfico vigente se mantiene en db.py.
+-- Catálogo legado; el catálogo geográfico vigente se mantiene en constants.py.
 -- ============================================================
 CREATE TABLE IF NOT EXISTS parroquia (
     id_parroquia INT AUTO_INCREMENT PRIMARY KEY,

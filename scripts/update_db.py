@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Aplica schema.sql a la base de datos usando la config de db.py.
+"""Aplica schema.sql a la base de datos usando la configuración del paquete db.
 
 Uso:
   python scripts/update_db.py [--schema PATH] [--backup] [--use-cli]
