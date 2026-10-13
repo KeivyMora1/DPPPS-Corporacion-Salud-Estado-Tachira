@@ -1,5 +1,10 @@
 import re
+import os
+from pathlib import Path
 
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 MODO = "local"
 DATABASE = {
@@ -24,6 +29,10 @@ VOCERIA_TEMPLATE_PATH = "assets/templates/plantilla_importacion_voceria.xlsx"
 
 APP_TITLE = "DPPPS — Sistema de Consolidación de Informes"
 APP_VERSION = "1.0.0"
+
+USUARIO_PROPIETARIO_PREDETERMINADO = "admin"
+PASSWORD_PROPIETARIO_PREDETERMINADO = "12345678"
+EMAIL_PROPIETARIO_PREDETERMINADO = os.getenv("OWNER_EMAIL", "").strip()
 
 MAX_FILE_SIZE_MB = 10
 ALLOWED_EXTENSIONS = [".xlsx"]

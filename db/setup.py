@@ -3,9 +3,16 @@
 import argparse
 from pathlib import Path
 
+import bcrypt
 import mysql.connector
 
-from constants import DATABASE, MODO
+from constants import (
+    DATABASE,
+    EMAIL_PROPIETARIO_PREDETERMINADO,
+    MODO,
+    PASSWORD_PROPIETARIO_PREDETERMINADO,
+    USUARIO_PROPIETARIO_PREDETERMINADO,
+)
 
 
 def crear_base_de_datos() -> None:
@@ -40,7 +47,9 @@ def ejecutar_schema(ruta_schema: str | Path | None = None) -> None:
     try:
         cursor = connection.cursor()
         try:
-            statements = [statement.strip() for statement in sql.split(";") if statement.strip()]
+            clean_lines = [line for line in sql.splitlines() if not line.strip().startswith("--")]
+            clean_sql = "\n".join(clean_lines)
+            statements = [statement.strip() for statement in clean_sql.split(";") if statement.strip()]
             for statement in statements:
                 try:
                     cursor.execute(statement)
@@ -55,6 +64,54 @@ def ejecutar_schema(ruta_schema: str | Path | None = None) -> None:
     print("[OK] Tablas creadas correctamente.")
 
 
+def crear_usuario_propietario() -> None:
+    """Create the default owner account when the user table is empty."""
+    connection = mysql.connector.connect(**DATABASE[MODO])
+    try:
+        cursor = connection.cursor()
+        try:
+            cursor.execute("SELECT COUNT(*) FROM usuario")
+            cantidad_usuarios = cursor.fetchone()[0]
+            if cantidad_usuarios:
+                print("[INFO] Ya existen usuarios; no se creó el usuario propietario inicial.")
+                return
+
+            if not EMAIL_PROPIETARIO_PREDETERMINADO:
+                raise ValueError(
+                    "Configura OWNER_EMAIL en el archivo .env con un valor no vacío "
+                    "antes de crear el usuario propietario."
+                )
+
+            password_hash = bcrypt.hashpw(
+                PASSWORD_PROPIETARIO_PREDETERMINADO.encode("utf-8"),
+                bcrypt.gensalt(),
+            ).decode("utf-8")
+            cursor.execute(
+                """
+                INSERT INTO usuario (
+                    username, password_hash, nombre_completo, email, rol, email_verificado
+                )
+                VALUES (%s, %s, %s, %s, 'propietario', TRUE)
+                """,
+                (
+                    USUARIO_PROPIETARIO_PREDETERMINADO,
+                    password_hash,
+                    "Usuario propietario",
+                    EMAIL_PROPIETARIO_PREDETERMINADO,
+                ),
+            )
+            connection.commit()
+        finally:
+            cursor.close()
+    finally:
+        connection.close()
+
+    print(
+        f"[OK] Usuario propietario creado: "
+        f"{USUARIO_PROPIETARIO_PREDETERMINADO}."
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Initialize the DPPPS database.")
     parser.add_argument(
@@ -67,6 +124,7 @@ def main() -> None:
     print("=== Setup inicial del Sistema DPPPS ===\n")
     crear_base_de_datos()
     ejecutar_schema(args.schema)
+    crear_usuario_propietario()
     print("\n[LISTO] Setup completado exitosamente.")
     print("   Ya puedes ejecutar la aplicación con: python main.py")
 

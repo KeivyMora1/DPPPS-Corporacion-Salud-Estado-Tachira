@@ -17,7 +17,13 @@ pip install -r requirements.txt
 
 ### 2. Configurar la base de datos
 
-Abre [constants.py](./constants.py) y ajusta `MODO` y `DATABASE`:
+En [constants.py](./constants.py), configura `MODO` y los datos de conexión a MySQL/MariaDB (`DATABASE`).
+
+Indica el correo que se guardará en la cuenta propietaria. Para ello, crea un archivo `.env` a partir de `.env.example` y reemplaza el valor de `OWNER_EMAIL`:
+
+```env
+OWNER_EMAIL=escribe_aqui_el_correo
+```
 
 ```python
 MODO = "local"   # o "lan" si usas un servidor en red
@@ -36,7 +42,7 @@ DATABASE = {
 
 ### 3. Ejecutar el setup inicial
 
-Ejecuta este comando para crear la base de datos y sus tablas:
+Ejecuta este comando para crear la base de datos, sus tablas y el usuario propietario con el correo configurado en `OWNER_EMAIL`:
 
 ```bash
 python -m db.setup
@@ -59,7 +65,9 @@ python main.py
 **Credenciales por defecto:**
 
 - Usuario: `admin`
-- Contraseña: la que ingresaste en el paso 3 (o `admin123` si presionaste Enter)
+- Contraseña: `12345678`
+
+El setup crea esta cuenta con rol de **propietario** al inicializar una base de datos sin usuarios. Si la tabla ya contiene usuarios, no los modifica ni crea otra cuenta. Cambia la contraseña predeterminada después del primer inicio de sesión.
 
 ## Tipos de actividad
 

@@ -78,9 +78,11 @@ def apply_with_connector(params, schema_path):
         database=params.get("database")
     )
     cursor = conn.cursor()
-    print("[INFO] Ejecutando statements del schema...")
     try:
-        statements = [s.strip() for s in sql.split(';') if s.strip()]
+        print("[INFO] Ejecutando statements del schema...")
+        clean_lines = [line for line in sql.splitlines() if not line.strip().startswith("--")]
+        clean_sql = "\n".join(clean_lines)
+        statements = [s.strip() for s in clean_sql.split(';') if s.strip()]
         for stmt in statements:
             cursor.execute(stmt)
         conn.commit()

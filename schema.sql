@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS asic (
 
 -- ============================================================
 -- TABLA: parroquia
--- Catálogo legado; el catálogo geográfico vigente se mantiene en constants.py.
+-- Catálogo legado: el catálogo geográfico vigente se mantiene en constants.py.
 -- ============================================================
 CREATE TABLE IF NOT EXISTS parroquia (
     id_parroquia INT AUTO_INCREMENT PRIMARY KEY,
