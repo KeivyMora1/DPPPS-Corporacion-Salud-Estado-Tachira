@@ -1,4 +1,4 @@
-from db import AuthController, AsicDAO, ConsolidacionService, PDFService
+from db import AuthController, AsicDAO, ConsolidacionService, InformeWordService, ReporteSemanalService
 
 
 class ModeloReporte:
@@ -7,6 +7,7 @@ class ModeloReporte:
     def __init__(self):
         self.auth = AuthController()
         self.usuario = self.auth.obtener_usuario_actual()
+        self.servicio_semanal = ReporteSemanalService()
 
     def get_usuario(self):
         return self.usuario
@@ -29,8 +30,19 @@ class ModeloReporte:
         previo["observaciones"] = ""
         return previo
 
-    def generar_word(self, previo, ruta):
-        PDFService().generar_word(previo, ruta)
+    def generar_docx(self, previo, ruta):
+        InformeWordService().generar_docx(previo, ruta)
+
+    def obtener_semana_de_fecha(self, fecha):
+        return self.servicio_semanal.obtener_semana_de_fecha(fecha)
+
+    def generar_ranking_semanal(self, fecha_inicio, fecha_fin):
+        return self.servicio_semanal.obtener_ranking_semanal(fecha_inicio, fecha_fin)
+
+    def generar_docx_semanal(self, mes_nombre: str, numero_semana: int, ranking: list, ruta_salida: str):
+        return self.servicio_semanal.generar_docx(mes_nombre, numero_semana, ranking, ruta_salida)
 
 
 __all__ = ["ModeloReporte"]
+
+

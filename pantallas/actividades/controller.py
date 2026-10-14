@@ -13,7 +13,7 @@ from constants import (
     UBICACIONES_ASIC_PREDETERMINADAS,
     THEME,
 )
-from db import ExcelService
+from db import ExcelService, AuthController
 from utils import set_favicon
 
 from .model import ModeloActividad
@@ -24,21 +24,22 @@ def generar_plantilla_actividad(
     ruta_entrada, ruta_salida, nombres_tipos, ubicaciones_asic=None
 ):
     import openpyxl
+    from openpyxl.worksheet.datavalidation import DataValidation
     from openpyxl.workbook.defined_name import DefinedName
     from openpyxl.utils import get_column_letter
 
     if ruta_entrada == ruta_salida:
         raise ValueError("La plantilla generada debe guardarse en un archivo distinto al original.")
+    if not nombres_tipos:
+        raise ValueError("No hay tipos de actividad disponibles para incluir en la plantilla.")
     if ubicaciones_asic is None:
-        from constants import UBICACIONES_ASIC_PREDETERMINADAS
-        ubicaciones_asic = [
-            {"asic_nombre": asic, "municipio": municipio, "parroquia": parroquia}
-            for asic, municipio, parroquia in UBICACIONES_ASIC_PREDETERMINADAS
-        ]
+        from db import ParroquiaDAO
+        ubicaciones_asic = ParroquiaDAO().obtener_todas()
     if not ubicaciones_asic:
         raise ValueError("No hay ubicaciones ASIC disponibles para incluir en la plantilla.")
 
     workbook = openpyxl.load_workbook(ruta_entrada)
+    hoja_actividad = workbook.active
 
     for nombre_hoja in ("_ubicaciones", "Catalogos"):
         if nombre_hoja in workbook.sheetnames:
@@ -65,7 +66,6 @@ def generar_plantilla_actividad(
         letra = get_column_letter(columna)
         hoja_ubicaciones.cell(row=1, column=columna, value=nombre)
         
-        # Remove old defined name if exists
         if nombre in workbook.defined_names:
             del workbook.defined_names[nombre]
             
@@ -77,17 +77,10 @@ def generar_plantilla_actividad(
             ),
         ))
 
-    # Col 1: Actividades
-    agregar_lista_dependiente("CatalogoActividades", 1, nombres_tipos)
-    
-    # Col 2: ASIC
-    agregar_lista_dependiente("CatalogoASIC", 2, nombres_asics)
-    
-    # Col 3: Municipios
-    agregar_lista_dependiente("CatalogoMunicipios", 3, municipios)
-    
-    # Col 4+: Parroquias
-    columna_parroquias = 4
+    agregar_lista_dependiente("CatalogoASIC", 1, nombres_asics)
+    agregar_lista_dependiente("CatalogoMunicipios", 2, municipios)
+
+    columna_parroquias = 3
     for indice, municipio in enumerate(municipios, start=1):
         col_idx = columna_parroquias + indice - 1
         agregar_lista_dependiente(
@@ -96,7 +89,6 @@ def generar_plantilla_actividad(
         )
         hoja_ubicaciones.cell(row=1, column=col_idx, value=municipio)
 
-    # Clean up old Parroquia defined names that are no longer used
     max_parroquia_idx = len(municipios)
     for nombre in list(workbook.defined_names):
         if nombre.startswith("Parroquia"):
@@ -106,6 +98,47 @@ def generar_plantilla_actividad(
                     del workbook.defined_names[nombre]
             except ValueError:
                 pass
+
+    rangos_validacion = {
+        "E4:E1048576": "=CatalogoASIC",
+        "C4:C1048576": "=CatalogoMunicipios",
+        "D4:D1048576": '=INDIRECT("Parroquia"&MATCH(C4,CatalogoMunicipios,0))',
+    }
+    for validacion in list(hoja_actividad.data_validations.dataValidation):
+        if str(validacion.sqref) in {*rangos_validacion, "I4:I1048576"}:
+            hoja_actividad.data_validations.dataValidation.remove(validacion)
+
+    for rango, formula in rangos_validacion.items():
+        validacion = DataValidation(
+            type="list",
+            formula1=formula,
+            allow_blank=True,
+            showErrorMessage=True,
+            showDropDown=False,
+        )
+        validacion.add(rango)
+        hoja_actividad.add_data_validation(validacion)
+
+    opciones_directas = ",".join(nombres_tipos)
+    if len(opciones_directas) <= 253:
+        formula_tipos = f'"{opciones_directas}"'
+    else:
+        columna_opciones = hoja_actividad.max_column + 1
+        letra_opciones = get_column_letter(columna_opciones)
+        for fila, nombre_tipo in enumerate(nombres_tipos, start=1):
+            hoja_actividad.cell(row=fila, column=columna_opciones, value=nombre_tipo)
+        hoja_actividad.column_dimensions[letra_opciones].hidden = True
+        formula_tipos = f"=${letra_opciones}$1:${letra_opciones}${len(nombres_tipos)}"
+
+    validacion_tipos = DataValidation(
+        type="list",
+        formula1=formula_tipos,
+        allow_blank=True,
+        showErrorMessage=True,
+        showDropDown=False,
+    )
+    validacion_tipos.add("I4:I1048576")
+    hoja_actividad.add_data_validation(validacion_tipos)
 
     workbook.save(ruta_salida)
 
@@ -117,7 +150,6 @@ class _ImportarModal:
         self.t = parent_view.t
         self.controller = parent_view.controlador.modelo.controller
         self.auth = self.controller.actividad_dao.auth if hasattr(self.controller.actividad_dao, 'auth') else None
-        from db import AuthController
         self.auth_ctrl = AuthController()
         self.usuario = self.auth_ctrl.obtener_usuario_actual()
         self._ruta_archivo = None
@@ -777,4 +809,4 @@ class ControladorActividad:
         _ImportarModal(self.vista)
 
 
-__all__ = ['ControladorActividad']
+__all__ = ['ControladorActividad', 'generar_plantilla_actividad']

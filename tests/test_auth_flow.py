@@ -7,7 +7,7 @@ from datetime import date, timedelta
 import mysql.connector
 import pytest
 
-from db import AuthController, PDFService, ActividadController, ExcelServiceVoceria, VoceriaController
+from db import AuthController, InformeWordService, ActividadController, ExcelServiceVoceria, VoceriaController
 from constants import TIPOS_ACTIVIDAD_PREDETERMINADOS
 import db as db_module
 
@@ -81,6 +81,7 @@ def test_actividad_dao_no_usa_fechas_anteriores_ni_descripcion_obsoleta(monkeypa
 
     class CursorFalso:
         lastrowid = 1
+        rowcount = 1
 
         def execute(self, sql, params=()):
             sentencias.append(sql.lower())
@@ -105,7 +106,14 @@ def test_actividad_dao_no_usa_fechas_anteriores_ni_descripcion_obsoleta(monkeypa
         def close(self):
             pass
 
+    from contextlib import contextmanager
+    @contextmanager
+    def _tx_falsa():
+        yield ConexionFalsa()
+
     monkeypatch.setattr(db_module, "get_connection", lambda: ConexionFalsa())
+    monkeypatch.setattr("db.daos.actividad_dao.transaccion", _tx_falsa)
+    monkeypatch.setattr("db.daos.actividad_dao.ejecutar_consulta", lambda sql, params=(), **kw: sentencias.append(sql.lower()) or [])
 
     dao = db_module.ActividadDAO()
     dao.obtener_todas()
@@ -925,7 +933,7 @@ def test_login_conserva_el_rol_del_usuario_en_la_sesion(monkeypatch):
     assert controller.obtener_usuario_actual()["rol"] == "administrador"
 
 
-def test_generar_word_crea_archivo_docx_con_contenido(tmp_path):
+def test_generar_docx_crea_archivo_docx_con_contenido(tmp_path):
     datos = {
         "titulo": "Informe de prueba",
         "fecha_inicio": "2026-09-01",
@@ -953,7 +961,7 @@ def test_generar_word_crea_archivo_docx_con_contenido(tmp_path):
     }
 
     ruta = tmp_path / "informe_prueba.docx"
-    resultado = PDFService().generar_word(datos, str(ruta))
+    resultado = InformeWordService().generar_docx(datos, str(ruta))
 
     assert resultado == str(ruta)
     assert ruta.exists()
@@ -967,7 +975,7 @@ def test_generar_word_crea_archivo_docx_con_contenido(tmp_path):
         assert "San Cristóbal" in contenido
 
 
-def test_generar_word_actualiza_fecha_de_cabecera_con_la_fecha_actual(tmp_path):
+def test_generar_docx_actualiza_fecha_de_cabecera_con_la_fecha_actual(tmp_path):
     datos = {
         "titulo": "Informe de prueba",
         "fecha_inicio": "2026-09-01",
@@ -980,7 +988,7 @@ def test_generar_word_actualiza_fecha_de_cabecera_con_la_fecha_actual(tmp_path):
     }
 
     ruta = tmp_path / "informe_fecha.docx"
-    PDFService().generar_word(datos, str(ruta))
+    InformeWordService().generar_docx(datos, str(ruta))
 
     with zipfile.ZipFile(ruta) as archivo:
         contenido = archivo.read("word/document.xml").decode("utf-8", errors="ignore")
@@ -997,7 +1005,7 @@ def test_generar_word_actualiza_fecha_de_cabecera_con_la_fecha_actual(tmp_path):
     assert "6 de Marzo de 2026" not in contenido
 
 
-def test_generar_word_inyecta_totales_reales_en_la_plantilla(tmp_path):
+def test_generar_docx_inyecta_totales_reales_en_la_plantilla(tmp_path):
     datos = {
         "titulo": "Informe de prueba",
         "fecha_inicio": "2026-09-01",
@@ -1010,7 +1018,7 @@ def test_generar_word_inyecta_totales_reales_en_la_plantilla(tmp_path):
     }
 
     ruta = tmp_path / "informe_totales.docx"
-    resultado = PDFService().generar_word(datos, str(ruta))
+    resultado = InformeWordService().generar_docx(datos, str(ruta))
 
     assert resultado == str(ruta)
     with zipfile.ZipFile(ruta) as archivo:
@@ -1044,7 +1052,7 @@ def test_generar_word_inyecta_totales_reales_en_la_plantilla(tmp_path):
         assert "0" in "".join(n.text or "" for n in celda_total.findall("./w:p[1]//w:t", ns))
 
 
-def test_generar_word_conecta_todos_los_tipos_de_actividad_en_la_plantilla(tmp_path):
+def test_generar_docx_conecta_todos_los_tipos_de_actividad_en_la_plantilla(tmp_path):
     datos = {
         "titulo": "Informe de prueba",
         "fecha_inicio": "2026-09-01",
@@ -1058,7 +1066,7 @@ def test_generar_word_conecta_todos_los_tipos_de_actividad_en_la_plantilla(tmp_p
     }
 
     ruta = tmp_path / "informe_todos_tipos.docx"
-    resultado = PDFService().generar_word(datos, str(ruta))
+    resultado = InformeWordService().generar_docx(datos, str(ruta))
 
     assert resultado == str(ruta)
     with zipfile.ZipFile(ruta) as archivo:

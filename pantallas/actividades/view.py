@@ -166,7 +166,6 @@ class VistaActividad:
         marco_tabla = ctk.CTkFrame(self.parent, fg_color="transparent", corner_radius=10)
         marco_tabla.pack(fill="both", expand=True, padx=30, pady=(5, 10))
 
-        # Configurar estilo ANTES de crear el Treeview
         style = ttk.Style()
         style.theme_use("clam")
         style.configure("Act.Treeview",
@@ -240,10 +239,7 @@ class VistaActividad:
             self.btn_editar.pack_forget()
             self.btn_eliminar.pack_forget()
 
-    # ── Helpers de placeholder y total (lógica puramente de UI) ──
-
     def _poner_placeholder_fecha(self, entry_widget):
-        """Compatibilidad para limpiar filtros con placeholder de fecha."""
         placeholder = "AAAA-MM-DD"
         if not entry_widget.get():
             entry_widget.insert(0, placeholder)
@@ -251,27 +247,23 @@ class VistaActividad:
         entry_widget._placeholder_text = placeholder
 
     def _poner_placeholder_entry(self, entry_widget, placeholder):
-        """Muestra un placeholder en un CTkEntry vacío."""
         if not entry_widget.get():
             entry_widget.insert(0, placeholder)
             entry_widget.configure(text_color=self.t["text_dim"])
         entry_widget._placeholder_text = placeholder
 
     def _limpiar_placeholder_entry(self, entry_widget, placeholder):
-        """Retira el placeholder cuando el campo recibe el foco."""
         if entry_widget.get() == placeholder:
             entry_widget.delete(0, tk.END)
         entry_widget.configure(text_color=self.t["text_primary"])
 
     def _valor_entry(self, entry_widget):
-        """Retorna vacío si el CTkEntry aún muestra su placeholder."""
         valor = entry_widget.get().strip()
         if valor == getattr(entry_widget, "_placeholder_text", None):
             return ""
         return valor
 
     def _actualizar_total_participantes(self):
-        """Suma los campos numéricos de participantes y actualiza el label del total."""
         total = 0
         for name in getattr(self, '_participantes_field_names', []):
             ent = getattr(self, name, None)
@@ -304,7 +296,6 @@ class VistaActividad:
         screen_w = ventana.winfo_screenwidth()
         screen_h = ventana.winfo_screenheight()
 
-        # Altura al 100% de la pantalla (restando un margen para evitar que se oculte bajo la barra de tareas)
         ancho = 900
         alto = screen_h - 80
 
@@ -332,18 +323,15 @@ class VistaActividad:
             anchor="w",
         )
 
-        # Scrollable frame for form
         scroll_frame = ctk.CTkScrollableFrame(ventana, fg_color="transparent")
         scroll_frame.pack(fill="both", expand=True, padx=25, pady=5)
 
         marco_form = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         marco_form.pack(fill="both", expand=True)
 
-        # Contenedor para campos de Ubicación
         frame_ubicacion = ctk.CTkFrame(marco_form, fg_color="transparent")
         frame_ubicacion.pack(fill="x", pady=(2, 6))
 
-        # --- Ubicación (campos de la plantilla) ---
         ctk.CTkLabel(frame_ubicacion, text="Ubicación", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(2, 2))
 
         marco_ubicacion = ctk.CTkFrame(frame_ubicacion, fg_color=t["bg_card"], corner_radius=8)
@@ -353,7 +341,6 @@ class VistaActividad:
         for column in range(3):
             inner_ubic.grid_columnconfigure(column, weight=1, uniform="ubicacion")
 
-        # Fila 1: Estado, Municipio, Parroquia
         col_estado = ctk.CTkFrame(inner_ubic, fg_color="transparent")
         col_estado.grid(row=0, column=0, sticky="ew", padx=5, pady=2)
         ctk.CTkLabel(col_estado, text="Estado *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
@@ -395,7 +382,6 @@ class VistaActividad:
             justify="left",
         )
 
-        # Fila 2: Establecimiento, Nombre Establecimiento, Comités de Salud
         col_estab = ctk.CTkFrame(inner_ubic, fg_color="transparent")
         col_estab.grid(row=1, column=0, sticky="ew", padx=5, pady=2)
         ctk.CTkLabel(col_estab, text="Establecimiento de Salud *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
@@ -424,7 +410,6 @@ class VistaActividad:
                         fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
         ent_comites.insert(0, "0")
 
-        # --- ASIC, Tipo de Actividad y Fecha (después de Ubicación) ---
         ctk.CTkLabel(marco_form, text="ASIC *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w", pady=(8, 2))
         nombres_asics = sorted(list(self.controlador.asic_map.keys()))
         combo_asic = ctk.CTkOptionMenu(
@@ -581,7 +566,6 @@ class VistaActividad:
         txt_desc.bind("<<Modified>>", _limitar_tema)
         txt_desc.edit_modified(False)
 
-        # --- Participantes por categoría ---
         frame_participantes = ctk.CTkFrame(marco_form, fg_color="transparent")
         frame_participantes.pack(fill="x", pady=(6, 6))
 
@@ -594,7 +578,6 @@ class VistaActividad:
         for column in range(3):
             inner_part.grid_columnconfigure(column, weight=1, uniform="participantes")
 
-        # Fila 1: Médicos, Promotores, Voceros Comité
         col_p1_1 = ctk.CTkFrame(inner_part, fg_color="transparent")
         col_p1_1.grid(row=0, column=0, sticky="ew", padx=5, pady=2)
         self.ent_medicos = entry_numeric(col_p1_1, "Médicos *", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
@@ -607,7 +590,6 @@ class VistaActividad:
         col_p1_3.grid(row=0, column=2, sticky="ew", padx=5, pady=2)
         self.ent_voceros_comite = entry_numeric(col_p1_3, "Voceros Comité Salud *", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
 
-        # Fila 2: Vocero Consejo, Coordinador Docencia, Autoridades
         col_p2_1 = ctk.CTkFrame(inner_part, fg_color="transparent")
         col_p2_1.grid(row=1, column=0, sticky="ew", padx=5, pady=2)
         self.ent_vocero_consejo = entry_numeric(col_p2_1, "Vocero Consejo Dir. ASIC *", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
@@ -620,7 +602,6 @@ class VistaActividad:
         col_p2_3.grid(row=1, column=2, sticky="ew", padx=5, pady=2)
         self.ent_autoridades = entry_numeric(col_p2_3, "Autoridades Presentes *", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
 
-        # Fila 3: Otros Actores, Personas Comunidad, Estudiantes Aspirantes
         col_p3_1 = ctk.CTkFrame(inner_part, fg_color="transparent")
         col_p3_1.grid(row=2, column=0, sticky="new", padx=5, pady=2)
         self.ent_otros_actores = entry_numeric(col_p3_1, "Otros Actores *", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
@@ -636,7 +617,6 @@ class VistaActividad:
         col_p3_3.grid(row=2, column=2, sticky="new", padx=5, pady=2)
         self.ent_estudiantes = entry_numeric(col_p3_3, "Estudiantes Aspirantes *", max_digits=5, on_change=self._actualizar_total_participantes, fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"])
 
-        # Total Participantes (mostrar contador calculado)
         self._participantes_field_names = [
             "ent_medicos", "ent_promotores", "ent_voceros_comite",
             "ent_vocero_consejo", "ent_coordinador", "ent_autoridades",
@@ -673,7 +653,6 @@ class VistaActividad:
                     ent_fecha_inicio.delete(0, tk.END)
                     ent_fecha_inicio.insert(0, str(f_ini_val or ""))
 
-            # Cargar campos de ubicación
             estado_valor = datos_edicion.get("estado", "") or "Táchira"
             try:
                 ent_estado.set(estado_valor)
@@ -720,7 +699,6 @@ class VistaActividad:
             else:
                 ent_comites.insert(0, "0")
 
-            # Cargar participantes por categoría según los nombres reales de la BD
             self.ent_medicos.delete(0, tk.END)
             self.ent_medicos.insert(0, str(datos_edicion.get("cant_medicos", 0) or 0))
             self.ent_promotores.delete(0, tk.END)

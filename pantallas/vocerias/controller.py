@@ -9,6 +9,7 @@ import customtkinter as ctk
 from tkinter import filedialog, messagebox
 from tkinter import ttk
 
+from constants import VOCERIA_TEMPLATE_PATH
 from db import build_voceria_template, ExcelServiceVoceria, validar_correo
 from .model import ModeloVoceria
 from .view import VistaVoceria
@@ -782,8 +783,7 @@ class ControladorVoceria:
             if not destino:
                 return
 
-            template_path = os.path.join(os.path.dirname(__file__), "..", "..", "assets", "templates", "plantilla_importacion_voceria.xlsx")
-            template_path = os.path.normpath(template_path)
+            template_path = VOCERIA_TEMPLATE_PATH
 
             if not os.path.exists(template_path):
                 messagebox.showerror("Error", f"No se encuentra la plantilla en:\n{template_path}")

@@ -1,5 +1,3 @@
-import re
-import unicodedata
 from datetime import date, datetime, timedelta
 
 import customtkinter as ctk
@@ -9,13 +7,7 @@ from tkinter import ttk
 from constants import THEME, VOCERIA_CENTRO_DISPENSADOR_OPCIONES
 from db import validar_correo
 from ui_helpers import (
-    btn_primary,
     date_picker,
-    frame,
-    frame_transparent,
-    label,
-    label_subtitle,
-    label_title,
     separator,
 )
 from utils import set_favicon
@@ -46,16 +38,6 @@ class VistaVoceria:
         self.puede_escribir = controlador.puede_escribir()
         self.t = THEME
         self._construir_ui()
-
-    @staticmethod
-    def _normalizar_texto(valor):
-        if valor is None:
-            return ""
-        valor = unicodedata.normalize("NFKD", str(valor))
-        valor = valor.encode("ascii", "ignore").decode("ascii")
-        valor = valor.lower().strip()
-        valor = re.sub(r"\s+", " ", valor)
-        return valor
 
     def _construir_ui(self):
         t = self.t

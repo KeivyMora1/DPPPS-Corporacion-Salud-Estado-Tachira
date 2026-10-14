@@ -82,12 +82,17 @@ def test_catalogo_geografico_no_depende_del_asic():
     assert dao.listar_por_asic(1) == dao.listar_por_asic(99)
 
 
-def test_schema_conserva_la_tabla_legada_sin_sembrar_ubicaciones_obsoletas():
+def test_schema_contiene_tablas_municipio_y_parroquia_con_seeds():
     with open("schema.sql", encoding="utf-8") as archivo:
         schema = archivo.read()
 
+    assert "CREATE TABLE IF NOT EXISTS municipio" in schema
     assert "CREATE TABLE IF NOT EXISTS parroquia" in schema
-    assert "INSERT IGNORE INTO parroquia" not in schema
+    # Las tablas relacionales deben tener sus seeds
+    assert "INSERT IGNORE INTO municipio" in schema
+    assert "INSERT IGNORE INTO parroquia" in schema
+    # La tabla parroquia ya no depende de id_asic
+    assert "REFERENCES municipio(id_municipio)" in schema
 
 
 def test_plantilla_de_actividades_usa_catalogo_geografico_oficial(tmp_path):
