@@ -1,23 +1,15 @@
-import re
-import unicodedata
 from datetime import date, datetime, timedelta
 
 import customtkinter as ctk
 import tkinter as tk
 from tkinter import ttk
 
-from themes import THEME
+from constants import THEME, VOCERIA_CENTRO_DISPENSADOR_OPCIONES
+from db import validar_correo
 from ui_helpers import (
-    btn_primary,
     date_picker,
-    frame,
-    frame_transparent,
-    label,
-    label_subtitle,
-    label_title,
     separator,
 )
-from db import MUNICIPIOS_TACHIRA, VOCERIA_CENTRO_DISPENSADOR_OPCIONES, validar_correo
 from utils import set_favicon
 
 
@@ -46,16 +38,6 @@ class VistaVoceria:
         self.puede_escribir = controlador.puede_escribir()
         self.t = THEME
         self._construir_ui()
-
-    @staticmethod
-    def _normalizar_texto(valor):
-        if valor is None:
-            return ""
-        valor = unicodedata.normalize("NFKD", str(valor))
-        valor = valor.encode("ascii", "ignore").decode("ascii")
-        valor = valor.lower().strip()
-        valor = re.sub(r"\s+", " ", valor)
-        return valor
 
     def _construir_ui(self):
         t = self.t
@@ -581,35 +563,31 @@ class VistaVoceria:
         col_municipio = ctk.CTkFrame(fila1, fg_color="transparent")
         col_municipio.grid(row=0, column=1, sticky="ew", padx=5)
         ctk.CTkLabel(col_municipio, text="Municipio *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        municipios = MUNICIPIOS_TACHIRA
-        self.ent_municipio = ctk.CTkOptionMenu(col_municipio, values=municipios, fg_color=t["bg_base"], button_color=t["bg_card"], button_hover_color=t["bg_hover"], text_color=t["text_primary"], dropdown_fg_color=t["bg_base"], dropdown_text_color=t["text_primary"])
-        if municipios:
-            self.ent_municipio.set(municipios[0])
+        todos_municipios = sorted(list(self.controlador.ubicaciones_por_municipio.keys())) or ["Seleccionar..."]
+        self.ent_municipio = ctk.CTkOptionMenu(
+            col_municipio, values=todos_municipios, fg_color=t["bg_base"],
+            button_color=t["bg_card"], button_hover_color=t["bg_hover"],
+            text_color=t["text_primary"], dropdown_fg_color=t["bg_base"],
+            dropdown_text_color=t["text_primary"],
+        )
+        if todos_municipios:
+            self.ent_municipio.set(todos_municipios[0])
         self.ent_municipio.pack(fill="x", pady=(2, 0))
 
         col_parroquia = ctk.CTkFrame(fila1, fg_color="transparent")
         col_parroquia.grid(row=0, column=2, sticky="ew", padx=(5, 0))
         ctk.CTkLabel(col_parroquia, text="Parroquia *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        self.ent_parroquia = ctk.CTkEntry(
-            col_parroquia, placeholder_text="Parroquia", font=("Arial", 11),
-            fg_color=t["bg_base"], text_color=t["text_primary"], border_color=t["border"],
-            corner_radius=6, validate="key",
-            validatecommand=(col_parroquia.register(lambda texto: len(texto) <= 100), "%P"),
+        self.ent_parroquia = ctk.CTkOptionMenu(
+            col_parroquia, values=["Seleccionar..."], fg_color=t["bg_base"],
+            button_color=t["bg_card"], button_hover_color=t["bg_hover"],
+            text_color=t["text_primary"], dropdown_fg_color=t["bg_base"],
+            dropdown_text_color=t["text_primary"],
         )
         self.ent_parroquia.pack(fill="x", pady=(2, 0))
-        self.ent_parroquia.bind("<KeyRelease>", lambda e: self.controlador._actualizar_estado_botones_formulario())
-        self.ent_parroquia.bind("<FocusOut>", lambda e: self.controlador._actualizar_estado_botones_formulario())
 
         fila2 = ctk.CTkFrame(inner_gen, fg_color="transparent")
         fila2.pack(fill="x", pady=5)
         fila2.grid_columnconfigure((0, 1), weight=1, uniform="datos_generales_fila2")
-
-        col_centro_gen = ctk.CTkFrame(fila2, fg_color="transparent")
-        col_centro_gen.grid(row=0, column=1, sticky="ew", padx=(5, 0))
-        ctk.CTkLabel(col_centro_gen, text="Centro dispensador *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
-        self.ent_centro_dispensador = ctk.CTkOptionMenu(col_centro_gen, values=self.establecimientos_opciones, fg_color=t["bg_base"], button_color=t["bg_card"], button_hover_color=t["bg_hover"], text_color=t["text_primary"], dropdown_fg_color=t["bg_base"], dropdown_text_color=t["text_primary"])
-        self.ent_centro_dispensador.set(self.establecimientos_opciones[0])
-        self.ent_centro_dispensador.pack(fill="x", pady=(2, 0))
 
         col_asic = ctk.CTkFrame(fila2, fg_color="transparent")
         col_asic.grid(row=0, column=0, sticky="ew", padx=(0, 5))
@@ -619,6 +597,89 @@ class VistaVoceria:
         if nombres_asics:
             self.ent_asic.set(nombres_asics[0])
         self.ent_asic.pack(fill="x", pady=(2, 0))
+
+        col_centro_gen = ctk.CTkFrame(fila2, fg_color="transparent")
+        col_centro_gen.grid(row=0, column=1, sticky="ew", padx=(5, 0))
+        ctk.CTkLabel(col_centro_gen, text="Centro dispensador *", font=("Arial", 10, "bold"), text_color=t["text_muted"]).pack(anchor="w")
+        self.ent_centro_dispensador = ctk.CTkOptionMenu(col_centro_gen, values=self.establecimientos_opciones, fg_color=t["bg_base"], button_color=t["bg_card"], button_hover_color=t["bg_hover"], text_color=t["text_primary"], dropdown_fg_color=t["bg_base"], dropdown_text_color=t["text_primary"])
+        self.ent_centro_dispensador.set(self.establecimientos_opciones[0])
+        self.ent_centro_dispensador.pack(fill="x", pady=(2, 0))
+
+        def actualizar_parroquias(
+            municipio, parroquia_deseada=None, conservar_sin_coincidencia=False
+        ):
+            ubicaciones = self.controlador.ubicaciones_por_municipio.get(
+                municipio, []
+            )
+            parroquias = sorted({
+                ubicacion["parroquia"]
+                for ubicacion in ubicaciones
+            })
+            opciones = parroquias or ["Seleccionar..."]
+            if conservar_sin_coincidencia and parroquia_deseada not in parroquias:
+                opciones = ["Seleccionar..."] + parroquias
+            self.ent_parroquia.configure(values=opciones)
+            self.ent_parroquia.set(
+                parroquia_deseada if parroquia_deseada in parroquias
+                else opciones[0]
+            )
+
+        def actualizar_asics_por_municipio(municipio, asic_deseado=None):
+            ubicaciones = self.controlador.ubicaciones_por_municipio.get(municipio, [])
+            asics_disponibles = sorted({ubicacion["asic_nombre"] for ubicacion in ubicaciones})
+            opciones = asics_disponibles or ["Seleccionar..."]
+            self.ent_asic.configure(values=opciones)
+            if asic_deseado and asic_deseado in opciones:
+                self.ent_asic.set(asic_deseado)
+            elif self.ent_asic.get() not in opciones:
+                self.ent_asic.set(opciones[0] if opciones else "")
+
+        def actualizar_municipios(
+            asic_seleccionado, municipio_deseado=None, parroquia_deseada=None,
+            conservar_sin_coincidencia=False,
+        ):
+            ubicaciones = self.controlador.ubicaciones_por_asic.get(
+                asic_seleccionado, []
+            )
+            municipios_disponibles = sorted({
+                ubicacion["municipio"] for ubicacion in ubicaciones
+            })
+            opciones = list(todos_municipios)
+            if municipio_deseado and municipio_deseado not in opciones:
+                opciones = [municipio_deseado] + opciones
+            self.ent_municipio.configure(values=opciones)
+            municipio = municipio_deseado if municipio_deseado else (municipios_disponibles[0] if municipios_disponibles else opciones[0])
+            self.ent_municipio.set(municipio)
+            actualizar_parroquias(
+                municipio, parroquia_deseada, conservar_sin_coincidencia
+            )
+
+        self.ent_municipio.configure(command=lambda municipio: (
+            actualizar_asics_por_municipio(municipio),
+            actualizar_parroquias(municipio),
+            self.controlador._actualizar_estado_botones_formulario(),
+        ))
+        self.ent_parroquia.configure(
+            command=lambda parroquia: self.controlador._actualizar_estado_botones_formulario()
+        )
+        self.ent_asic.configure(command=lambda asic: (
+            (None if self.ent_municipio.get() in {
+                u["municipio"] for u in self.controlador.ubicaciones_por_asic.get(asic, [])
+            } else actualizar_municipios(asic)),
+            self.controlador._actualizar_estado_botones_formulario(),
+        ))
+        if todos_municipios and todos_municipios[0] != "Seleccionar...":
+            actualizar_asics_por_municipio(self.ent_municipio.get())
+            actualizar_parroquias(self.ent_municipio.get())
+        lbl_ubicacion_legada = ctk.CTkLabel(
+            inner_gen,
+            text="La parroquia existente no corresponde al municipio del catálogo. "
+            "Selecciona municipio y parroquia válidos antes de guardar.",
+            font=("Arial", 9),
+            text_color=t["red"],
+            wraplength=800,
+            justify="left",
+        )
 
         fila3 = ctk.CTkFrame(inner_gen, fg_color="transparent")
         fila3.pack(fill="x", pady=5)
@@ -651,7 +712,6 @@ class VistaVoceria:
         self.ent_nombre_comite.bind("<FocusOut>", lambda e: self.controlador._actualizar_estado_botones_formulario())
 
         self.ent_estado.configure(command=lambda c: self.controlador._actualizar_estado_botones_formulario())
-        self.ent_municipio.configure(command=lambda c: self.controlador._actualizar_estado_botones_formulario())
         self.ent_centro_dispensador.configure(command=lambda c: self.controlador._actualizar_estado_botones_formulario())
 
         ctk.CTkLabel(marco_form, text="Vocerías", font=("Arial", 12, "bold"), text_color=t["text_primary"]).pack(anchor="w", pady=(10, 5))
@@ -677,19 +737,43 @@ class VistaVoceria:
         if datos_edicion:
             if datos_edicion.get("estado"):
                 self.ent_estado.set(datos_edicion["estado"])
-            if datos_edicion.get("municipio"):
-                self.ent_municipio.set(datos_edicion["municipio"])
-            if datos_edicion.get("parroquia"):
-                self.ent_parroquia.delete(0, tk.END)
-                self.ent_parroquia.insert(0, datos_edicion["parroquia"])
-                self.ent_parroquia.configure(text_color=t["text_primary"])
-            if datos_edicion.get("asic_nombre"):
-                self.ent_asic.set(datos_edicion["asic_nombre"])
-            elif datos_edicion.get("id_asic"):
+
+            asic_edicion = datos_edicion.get("asic_nombre", "")
+            if not asic_edicion and datos_edicion.get("id_asic"):
                 for nom, id_a in self.controlador.asic_map.items():
                     if id_a == datos_edicion["id_asic"]:
-                        self.ent_asic.set(nom)
+                        asic_edicion = nom
                         break
+
+            mun_edicion = datos_edicion.get("municipio", "") or ""
+            parroquia_edicion = datos_edicion.get("parroquia", "") or ""
+
+            if mun_edicion:
+                self.ent_municipio.set(mun_edicion)
+                actualizar_asics_por_municipio(mun_edicion, asic_deseado=asic_edicion)
+                actualizar_parroquias(mun_edicion, parroquia_deseada=parroquia_edicion, conservar_sin_coincidencia=True)
+            elif asic_edicion:
+                actualizar_municipios(
+                    asic_edicion,
+                    mun_edicion,
+                    parroquia_edicion,
+                    conservar_sin_coincidencia=True,
+                )
+
+            if asic_edicion and asic_edicion in self.ent_asic.cget("values"):
+                self.ent_asic.set(asic_edicion)
+
+            ubicacion_edicion_valida = any(
+                ubicacion["municipio"] == datos_edicion.get("municipio")
+                and ubicacion["parroquia"] == datos_edicion.get("parroquia")
+                for ubicacion in self.controlador.ubicaciones_por_asic.get(
+                    self.ent_asic.get(), []
+                )
+            )
+            if not ubicacion_edicion_valida:
+                lbl_ubicacion_legada.pack(
+                    fill="x", padx=5, pady=(0, 5), before=fila2
+                )
             if datos_edicion.get("centro_dispensador"):
                 self.ent_centro_dispensador.set(datos_edicion["centro_dispensador"])
             if datos_edicion.get("nombre_centro"):
@@ -779,7 +863,7 @@ class VistaVoceria:
                 mostrar_error("⚠ Debe seleccionar el Municipio")
                 return
             if not parroquia:
-                mostrar_error("⚠ Debe ingresar la Parroquia")
+                mostrar_error("⚠ Debe seleccionar la Parroquia")
                 self.ent_parroquia.focus_set()
                 return
             if not asic or asic not in self.controlador.asic_map:

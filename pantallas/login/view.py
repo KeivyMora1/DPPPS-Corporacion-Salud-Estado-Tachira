@@ -1,6 +1,6 @@
 import os
 import customtkinter as ctk
-from utils import centrar_ventana
+from utils import centrar_ventana, obtener_ruta_recurso
 
 
 class VistaLogin:
@@ -23,9 +23,7 @@ class VistaLogin:
         inner = ctk.CTkFrame(content, fg_color="transparent")
         inner.pack(fill="both", expand=True, padx=48, pady=50)
 
-        logo_path = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "..", "..", "assets", "images", "logo2.png")
-        )
+        logo_path = obtener_ruta_recurso("assets", "images", "logo2.png")
         if os.path.exists(logo_path):
             try:
                 from PIL import Image

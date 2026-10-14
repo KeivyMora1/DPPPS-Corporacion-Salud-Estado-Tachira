@@ -1,11 +1,16 @@
 import os
+import sys
 
-from db import get_connection
+
+def obtener_ruta_recurso(*partes_ruta: str) -> str:
+    """Devuelve la ruta absoluta a un recurso, compatible con PyInstaller (_MEIPASS) y entorno de desarrollo."""
+    base_dir = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    return os.path.normpath(os.path.join(base_dir, *partes_ruta))
 
 
 def set_favicon(ventana):
     """Establece el favicon común para cualquier ventana de la app."""
-    logo_path = os.path.join(os.path.dirname(__file__), "assets", "images", "logo2.ico")
+    logo_path = obtener_ruta_recurso("assets", "images", "logo2.ico")
     if not os.path.exists(logo_path):
         return
 

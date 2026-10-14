@@ -1,6 +1,5 @@
 import os
 import re
-import shutil
 import unicodedata
 import threading
 from copy import copy
@@ -10,7 +9,8 @@ import customtkinter as ctk
 from tkinter import filedialog, messagebox
 from tkinter import ttk
 
-from db import VOCERIA_TEMPLATE_PATH, build_voceria_template, ExcelServiceVoceria, validar_correo
+from constants import VOCERIA_TEMPLATE_PATH
+from db import build_voceria_template, ExcelServiceVoceria, validar_correo
 from .model import ModeloVoceria
 from .view import VistaVoceria
 from utils import set_favicon
@@ -473,6 +473,8 @@ class ControladorVoceria:
         self.modelo = ModeloVoceria()
 
         self.asic_map = {}
+        self.ubicaciones_por_asic = {}
+        self.ubicaciones_por_municipio = {}
         self.tipo_map = {}
         self.tipo_voceria_map = {}
         self.tipo_voceria_map_normalizada = {}
@@ -503,7 +505,18 @@ class ControladorVoceria:
     def _cargar_catalogos(self):
         try:
             asics = self.modelo.listar_asics()
-            self.asic_map = {a["nombre"]: a["id_asic"] for a in asics}
+            for ubicacion in self.modelo.listar_ubicaciones_asic():
+                self.ubicaciones_por_asic.setdefault(
+                    ubicacion["asic_nombre"], []
+                ).append(ubicacion)
+                self.ubicaciones_por_municipio.setdefault(
+                    ubicacion["municipio"], []
+                ).append(ubicacion)
+            self.asic_map = {
+                asic["nombre"]: asic["id_asic"]
+                for asic in asics
+                if asic["nombre"] in self.ubicaciones_por_asic
+            }
 
             tipos = self.modelo.listar_tipos_voceria()
             self.tipo_map = {t["nombre"]: t["id_tipo"] for t in tipos}
@@ -707,14 +720,6 @@ class ControladorVoceria:
             mostrar_error(msg)
 
     def descargar_plantilla(self):
-        if not os.path.exists(VOCERIA_TEMPLATE_PATH):
-            try:
-                build_voceria_template(VOCERIA_TEMPLATE_PATH)
-            except Exception as e:
-                messagebox.showerror("Plantilla no disponible",
-                                     f"No se pudo crear la plantilla de vocerías:\n{str(e)}")
-                return
-
         destino = filedialog.asksaveasfilename(
             title="Guardar plantilla de vocerías como...",
             defaultextension=".xlsx",
@@ -722,7 +727,16 @@ class ControladorVoceria:
             filetypes=[("Archivos Excel", "*.xlsx")],
         )
         if destino:
-            shutil.copy2(VOCERIA_TEMPLATE_PATH, destino)
+            try:
+                build_voceria_template(
+                    destino, self.modelo.listar_ubicaciones_asic()
+                )
+            except Exception as exc:
+                messagebox.showerror(
+                    "Error al generar la plantilla",
+                    f"No se pudo generar la plantilla de vocerías:\n{exc}",
+                )
+                return
             messagebox.showinfo("Plantilla guardada",
                                 f"Plantilla de vocerías guardada en:\n{destino}")
 
@@ -769,8 +783,7 @@ class ControladorVoceria:
             if not destino:
                 return
 
-            template_path = os.path.join(os.path.dirname(__file__), "..", "..", "assets", "templates", "plantilla_importacion_voceria.xlsx")
-            template_path = os.path.normpath(template_path)
+            template_path = VOCERIA_TEMPLATE_PATH
 
             if not os.path.exists(template_path):
                 messagebox.showerror("Error", f"No se encuentra la plantilla en:\n{template_path}")

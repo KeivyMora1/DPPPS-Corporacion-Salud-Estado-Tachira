@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Aplica schema.sql a la base de datos usando la config de db.py.
+"""Aplica schema.sql a la base de datos usando la configuración del paquete db.
 
 Uso:
   python scripts/update_db.py [--schema PATH] [--backup] [--use-cli]
@@ -37,6 +37,11 @@ def do_backup(params, out_path):
         "-u", params.get("user", "root"),
         params.get("database")
     ]
+    # Verify mysqldump is available; otherwise abort before creating empty file
+    import shutil
+    if shutil.which("mysqldump") is None:
+        print('[ERROR] mysqldump no está en el PATH. Instala MySQL/MariaDB client tools o elimina la opción --backup.')
+        sys.exit(2)
     env = os.environ.copy()
     pw = params.get("password")
     if pw:
@@ -44,7 +49,6 @@ def do_backup(params, out_path):
     with open(out_path, "wb") as f:
         print("[INFO] Ejecutando:", " ".join(cmd))
         subprocess.run(cmd, check=True, stdout=f, env=env)
-    print(f"[OK] Backup guardado en: {out_path}")
 
 def apply_with_cli(params, schema_path):
     cmd = [
@@ -78,9 +82,21 @@ def apply_with_connector(params, schema_path):
         database=params.get("database")
     )
     cursor = conn.cursor()
-    print("[INFO] Ejecutando statements del schema...")
     try:
-        statements = [s.strip() for s in sql.split(';') if s.strip()]
+        # Migración: si existe la tabla parroquia legada (con id_asic), recrearla con el nuevo esquema
+        cursor.execute("""
+            SELECT COUNT(*) FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'parroquia'
+              AND COLUMN_NAME = 'id_asic'
+        """)
+        if cursor.fetchone()[0] > 0:
+            cursor.execute("DROP TABLE IF EXISTS parroquia")
+
+        print("[INFO] Ejecutando statements del schema...")
+        clean_lines = [line for line in sql.splitlines() if not line.strip().startswith("--")]
+        clean_sql = "\n".join(clean_lines)
+        statements = [s.strip() for s in clean_sql.split(';') if s.strip()]
         for stmt in statements:
             cursor.execute(stmt)
         conn.commit()
@@ -93,6 +109,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--schema", default="schema.sql")
     p.add_argument("--backup", action="store_true")
+    p.add_argument("--py-backup", action="store_true", help="Genera backup usando mysql-connector-python (no requiere mysqldump)")
     p.add_argument("--use-cli", action="store_true")
     args = p.parse_args()
 

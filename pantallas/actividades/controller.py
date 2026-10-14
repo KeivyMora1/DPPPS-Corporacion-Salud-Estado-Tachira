@@ -6,12 +6,142 @@ from tkinter import filedialog, messagebox
 import customtkinter as ctk
 from tkinter import ttk
 
-from db import ALLOWED_EXTENSIONS, MAX_FILE_SIZE_MB, ExcelService, TEMPLATE_PATH, ASIC_PREDETERMINADOS, MUNICIPIOS_TACHIRA
-from themes import THEME
+from constants import (
+    ALLOWED_EXTENSIONS,
+    MAX_FILE_SIZE_MB,
+    TEMPLATE_PATH,
+    UBICACIONES_ASIC_PREDETERMINADAS,
+    THEME,
+)
+from db import ExcelService, AuthController
 from utils import set_favicon
 
 from .model import ModeloActividad
 from .view import VistaActividad
+
+
+def generar_plantilla_actividad(
+    ruta_entrada, ruta_salida, nombres_tipos, ubicaciones_asic=None
+):
+    import openpyxl
+    from openpyxl.worksheet.datavalidation import DataValidation
+    from openpyxl.workbook.defined_name import DefinedName
+    from openpyxl.utils import get_column_letter
+
+    if ruta_entrada == ruta_salida:
+        raise ValueError("La plantilla generada debe guardarse en un archivo distinto al original.")
+    if not nombres_tipos:
+        raise ValueError("No hay tipos de actividad disponibles para incluir en la plantilla.")
+    if ubicaciones_asic is None:
+        from db import ParroquiaDAO
+        ubicaciones_asic = ParroquiaDAO().obtener_todas()
+    if not ubicaciones_asic:
+        raise ValueError("No hay ubicaciones ASIC disponibles para incluir en la plantilla.")
+
+    workbook = openpyxl.load_workbook(ruta_entrada)
+    hoja_actividad = workbook.active
+
+    for nombre_hoja in ("_ubicaciones", "Catalogos"):
+        if nombre_hoja in workbook.sheetnames:
+            del workbook[nombre_hoja]
+            
+    hoja_ubicaciones = workbook.create_sheet("Catalogos")
+
+    nombres_asics = sorted({
+        ubicacion["asic_nombre"] for ubicacion in ubicaciones_asic
+    })
+
+    parroquias_por_municipio = {}
+    for ubicacion in ubicaciones_asic:
+        municipio = ubicacion["municipio"]
+        parroquias_por_municipio.setdefault(municipio, set()).add(
+            ubicacion["parroquia"]
+        )
+
+    municipios = sorted(parroquias_por_municipio)
+
+    def agregar_lista_dependiente(nombre, columna, opciones):
+        for fila, opcion in enumerate(opciones, start=2):
+            hoja_ubicaciones.cell(row=fila, column=columna, value=opcion)
+        letra = get_column_letter(columna)
+        hoja_ubicaciones.cell(row=1, column=columna, value=nombre)
+        
+        if nombre in workbook.defined_names:
+            del workbook.defined_names[nombre]
+            
+        workbook.defined_names.add(DefinedName(
+            nombre,
+            attr_text=(
+                f"'{hoja_ubicaciones.title}'!"
+                f"${letra}$2:${letra}${len(opciones) + 1}"
+            ),
+        ))
+
+    agregar_lista_dependiente("CatalogoASIC", 1, nombres_asics)
+    agregar_lista_dependiente("CatalogoMunicipios", 2, municipios)
+
+    columna_parroquias = 3
+    for indice, municipio in enumerate(municipios, start=1):
+        col_idx = columna_parroquias + indice - 1
+        agregar_lista_dependiente(
+            f"Parroquia{indice}", col_idx,
+            sorted(parroquias_por_municipio[municipio]),
+        )
+        hoja_ubicaciones.cell(row=1, column=col_idx, value=municipio)
+
+    max_parroquia_idx = len(municipios)
+    for nombre in list(workbook.defined_names):
+        if nombre.startswith("Parroquia"):
+            try:
+                idx = int(nombre.replace("Parroquia", ""))
+                if idx > max_parroquia_idx:
+                    del workbook.defined_names[nombre]
+            except ValueError:
+                pass
+
+    rangos_validacion = {
+        "E4:E1048576": "=CatalogoASIC",
+        "C4:C1048576": "=CatalogoMunicipios",
+        "D4:D1048576": '=INDIRECT("Parroquia"&MATCH(C4,CatalogoMunicipios,0))',
+    }
+    for validacion in list(hoja_actividad.data_validations.dataValidation):
+        if str(validacion.sqref) in {*rangos_validacion, "I4:I1048576"}:
+            hoja_actividad.data_validations.dataValidation.remove(validacion)
+
+    for rango, formula in rangos_validacion.items():
+        validacion = DataValidation(
+            type="list",
+            formula1=formula,
+            allow_blank=True,
+            showErrorMessage=True,
+            showDropDown=False,
+        )
+        validacion.add(rango)
+        hoja_actividad.add_data_validation(validacion)
+
+    opciones_directas = ",".join(nombres_tipos)
+    if len(opciones_directas) <= 253:
+        formula_tipos = f'"{opciones_directas}"'
+    else:
+        columna_opciones = hoja_actividad.max_column + 1
+        letra_opciones = get_column_letter(columna_opciones)
+        for fila, nombre_tipo in enumerate(nombres_tipos, start=1):
+            hoja_actividad.cell(row=fila, column=columna_opciones, value=nombre_tipo)
+        hoja_actividad.column_dimensions[letra_opciones].hidden = True
+        formula_tipos = f"=${letra_opciones}$1:${letra_opciones}${len(nombres_tipos)}"
+
+    validacion_tipos = DataValidation(
+        type="list",
+        formula1=formula_tipos,
+        allow_blank=True,
+        showErrorMessage=True,
+        showDropDown=False,
+    )
+    validacion_tipos.add("I4:I1048576")
+    hoja_actividad.add_data_validation(validacion_tipos)
+
+    workbook.save(ruta_salida)
+
 
 class _ImportarModal:
     def __init__(self, parent_view):
@@ -20,7 +150,6 @@ class _ImportarModal:
         self.t = parent_view.t
         self.controller = parent_view.controlador.modelo.controller
         self.auth = self.controller.actividad_dao.auth if hasattr(self.controller.actividad_dao, 'auth') else None
-        from db import AuthController
         self.auth_ctrl = AuthController()
         self.usuario = self.auth_ctrl.obtener_usuario_actual()
         self._ruta_archivo = None
@@ -394,6 +523,7 @@ class ControladorActividad:
         self.modelo = ModeloActividad()
 
         self.asic_map = {}
+        self.ubicaciones_por_asic = {}
         self.tipo_map = {}
         self.filtros_actuales = None
         self._cargar_catalogos()
@@ -411,9 +541,21 @@ class ControladorActividad:
         return False
 
     def _cargar_catalogos(self):
+        self.ubicaciones_por_municipio = {}
         try:
             asics = self.modelo.listar_asics()
-            self.asic_map = {a["nombre"]: a["id_asic"] for a in asics}
+            for ubicacion in self.modelo.listar_ubicaciones_asic():
+                self.ubicaciones_por_asic.setdefault(
+                    ubicacion["asic_nombre"], []
+                ).append(ubicacion)
+                self.ubicaciones_por_municipio.setdefault(
+                    ubicacion["municipio"], []
+                ).append(ubicacion)
+            self.asic_map = {
+                asic["nombre"]: asic["id_asic"]
+                for asic in asics
+                if asic["nombre"] in self.ubicaciones_por_asic
+            }
 
             tipos = self.modelo.listar_tipos_actividad()
             self.tipo_map = {t["nombre"]: t["id_tipo"] for t in tipos}
@@ -559,10 +701,27 @@ class ControladorActividad:
             initialfile="plantilla_importacion_actividad.xlsx",
             filetypes=[("Archivos Excel", "*.xlsx")],
         )
-        if destino:
-            import shutil
-            shutil.copy2(TEMPLATE_PATH, destino)
-            messagebox.showinfo("Plantilla guardada", f"Plantilla guardada en:\n{destino}")
+        if not destino:
+            return
+
+        try:
+            nombres_tipos = [
+                tipo["nombre"] for tipo in self.modelo.listar_tipos_actividad()
+            ]
+            generar_plantilla_actividad(
+                TEMPLATE_PATH,
+                destino,
+                nombres_tipos,
+                self.modelo.listar_ubicaciones_asic(),
+            )
+        except Exception as exc:
+            messagebox.showerror(
+                "Error al generar la plantilla",
+                f"No se pudo generar la plantilla de importación: {exc}",
+            )
+            return
+
+        messagebox.showinfo("Plantilla guardada", f"Plantilla guardada en:\n{destino}")
 
     def exportar_consolidado(self):
         import openpyxl
@@ -650,4 +809,4 @@ class ControladorActividad:
         _ImportarModal(self.vista)
 
 
-__all__ = ['ControladorActividad']
+__all__ = ['ControladorActividad', 'generar_plantilla_actividad']

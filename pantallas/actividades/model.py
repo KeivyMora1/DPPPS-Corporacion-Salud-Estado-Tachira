@@ -7,6 +7,15 @@ class ModeloActividad:
     def listar_asics(self):
         return self.controller.listar_asics()
 
+    def listar_municipios(self):
+        return self.controller.listar_municipios()
+
+    def listar_parroquias(self, id_o_nombre_municipio=None):
+        return self.controller.listar_parroquias(id_o_nombre_municipio)
+
+    def listar_ubicaciones_asic(self):
+        return self.controller.listar_ubicaciones_asic()
+
     def listar_tipos_actividad(self):
         return self.controller.listar_tipos_actividad()
 
