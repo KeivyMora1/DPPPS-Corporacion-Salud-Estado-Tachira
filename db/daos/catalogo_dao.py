@@ -142,27 +142,40 @@ class ParroquiaDAO(BaseDAO):
             """
             filas = ejecutar_consulta(sql, obtener_todos=True) or []
             if filas:
+                from constants import ASIC_POR_MUNICIPIO
                 from .asic_dao import AsicDAO
                 asics = AsicDAO().obtener_todos() or []
-                if not asics:
-                    from constants import ASIC_PREDETERMINADOS
-                    asics = [{"nombre": nom} for _, nom in ASIC_PREDETERMINADOS]
+                nombres_asics_bd = {a["nombre"] for a in asics} if asics else None
                 
                 resultado = []
-                for a in asics:
-                    for f in filas:
+                for f in filas:
+                    mun = f["municipio"]
+                    asics_del_mun = ASIC_POR_MUNICIPIO.get(mun, [])
+                    for asic_nom in asics_del_mun:
+                        if nombres_asics_bd is not None and asic_nom not in nombres_asics_bd:
+                            continue
                         resultado.append({
                             "id_parroquia": f["id_parroquia"],
                             "id_municipio": f["id_municipio"],
-                            "asic_nombre": a["nombre"],
-                            "municipio": f["municipio"],
+                            "asic_nombre": asic_nom,
+                            "municipio": mun,
                             "parroquia": f["parroquia"],
                         })
-                return resultado
+                if resultado:
+                    return resultado
         except Exception:
             pass
         
-        return [
+        from constants import ASIC_POR_MUNICIPIO
+        resultado_fallback = []
+        for asic, municipio, parroquia in UBICACIONES_ASIC_PREDETERMINADAS:
+            if asic in ASIC_POR_MUNICIPIO.get(municipio, []):
+                resultado_fallback.append({
+                    "asic_nombre": asic,
+                    "municipio": municipio,
+                    "parroquia": parroquia
+                })
+        return resultado_fallback or [
             {"asic_nombre": asic, "municipio": municipio, "parroquia": parroquia}
             for asic, municipio, parroquia in UBICACIONES_ASIC_PREDETERMINADAS
         ]

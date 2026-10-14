@@ -6,6 +6,7 @@ from .reportes import (
     ExcelService,
     ExcelServiceVoceria,
     InformeWordService,
+    ReporteSemanalService,
     build_voceria_template,
 )
 
@@ -17,5 +18,7 @@ __all__ = [
     "ExcelService",
     "ExcelServiceVoceria",
     "InformeWordService",
+    "ReporteSemanalService",
     "build_voceria_template",
 ]
+

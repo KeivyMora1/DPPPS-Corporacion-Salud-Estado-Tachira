@@ -85,5 +85,48 @@ class ControladorReporte:
 
         threading.Thread(target=_tarea, daemon=True).start()
 
+    def exportar_reporte_semanal(self, semana_info):
+        if self.modelo.get_usuario() is None:
+            messagebox.showwarning("Sesión no activa", "Debes iniciar sesión antes de generar reportes.")
+            return
+
+        if not semana_info:
+            messagebox.showwarning("Semana no seleccionada", "Por favor selecciona una semana para exportar.")
+            return
+
+        mes_nombre = semana_info["mes_nombre"]
+        num_semana = semana_info["numero"]
+        f_ini = semana_info["fecha_inicio"]
+        f_fin = semana_info["fecha_fin"]
+
+        nombre_sugerido = f"Reporte_Semanal_{mes_nombre}_Semana_{num_semana}_{date.today()}.docx"
+        ruta = filedialog.asksaveasfilename(
+            title="Guardar Reporte Semanal como…",
+            defaultextension=".docx",
+            initialfile=nombre_sugerido,
+            filetypes=[("Word", "*.docx")],
+        )
+        if not ruta:
+            return
+
+        self.vista.parent.configure(cursor="wait")
+
+        def _tarea():
+            try:
+                ranking = self.modelo.generar_ranking_semanal(f_ini, f_fin)
+                self.modelo.generar_docx_semanal(mes_nombre, num_semana, ranking, ruta)
+                self.vista.parent.after(0, lambda: (
+                    self.vista.parent.configure(cursor=""),
+                    messagebox.showinfo("Reporte Semanal generado", f"Documento guardado exitosamente en:\n{ruta}")
+                ))
+            except Exception as exc:
+                self.vista.parent.after(0, lambda e=exc: (
+                    self.vista.parent.configure(cursor=""),
+                    messagebox.showerror("Error al generar Reporte Semanal", str(e))
+                ))
+
+        threading.Thread(target=_tarea, daemon=True).start()
+
 
 __all__ = ["ControladorReporte"]
+

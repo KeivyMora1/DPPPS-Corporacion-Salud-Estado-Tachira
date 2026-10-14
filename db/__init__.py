@@ -52,6 +52,7 @@ from .services import (
     ExcelService,
     ExcelServiceVoceria,
     InformeWordService,
+    ReporteSemanalService,
     build_voceria_template,
 )
 from .services.auth_service import sesion_actual
@@ -122,6 +123,7 @@ __all__ = [
     "ExcelService",
     "ExcelServiceVoceria",
     "InformeWordService",
+    "ReporteSemanalService",
     "build_voceria_template",
     "sesion_actual",
     # Excel import metadata

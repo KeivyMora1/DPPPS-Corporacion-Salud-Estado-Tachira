@@ -1,8 +1,15 @@
 import tkinter as tk
-from datetime import datetime
+from datetime import date, datetime
 from tkinter import messagebox, ttk
 
 import customtkinter as ctk
+
+try:
+    from tkcalendar import Calendar
+    HAS_CALENDAR = True
+except ImportError:
+    HAS_CALENDAR = False
+
 
 from constants import THEME
 from ui_helpers import (
@@ -27,20 +34,26 @@ class VistaReporte:
 
     def _construir_ui(self):
         header = frame_transparent(self.parent)
-        header.pack(fill="x", padx=30, pady=(25, 4))
+        header.pack(fill="x", padx=30, pady=(20, 4))
 
         label_title(header, "📊  Reportes y Consolidación", 17).pack(side="left")
 
         label_subtitle(
             self.parent,
-            "Genera informes consolidados por período y exporta el documento en Word.",
+            "Genera informes consolidados por período y reportes semanales con exportación a Word.",
             wraplength=900,
             justify="left",
-        ).pack(anchor="w", padx=30, pady=(0, 14))
+        ).pack(anchor="w", padx=30, pady=(0, 10))
 
-        self._frame_generar = frame(self.parent, fg_color="gray15")
-        self._frame_generar.pack(fill="both", expand=True, padx=30, pady=(0, 20))
+        # Contenedor desplazable para albergar las dos cajas cómodamente
+        self._scroll_container = ctk.CTkScrollableFrame(self.parent, fg_color="gray15")
+        self._scroll_container.pack(fill="both", expand=True, padx=30, pady=(0, 20))
+
+        self._frame_generar = frame_transparent(self._scroll_container)
+        self._frame_generar.pack(fill="x", expand=True)
         self.mostrar_paso1()
+
+        self._construir_caja_semanal()
 
     def mostrar_paso1(self):
         self._limpiar(self._frame_generar)
@@ -51,7 +64,7 @@ class VistaReporte:
         inner = frame_transparent(card)
         inner.pack(fill="x", padx=25, pady=20)
 
-        label(inner, "Paso 1 de 3 — Configurar parámetros del informe", font_size=12, bold=True).grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 14))
+        label(inner, "Informe Consolidado por Período", font_size=13, bold=True).grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 14))
 
         label(inner, "Fecha inicio:", font_size=10).grid(row=1, column=0, sticky="w", pady=4)
         self._entry_f_ini = self._date_widget(inner)
@@ -99,6 +112,254 @@ class VistaReporte:
         self._entry_titulo.grid(row=3, column=1, columnspan=3, sticky="w", padx=8)
 
         btn_secondary(inner, "▶  Generar Vista Previa", self.controlador.iniciar_previo).grid(row=4, column=0, columnspan=4, sticky="w", pady=(14, 0))
+
+    def _construir_caja_semanal(self):
+        t = THEME
+        hoy = datetime.now()
+
+        card_semanal = frame_surface(self._scroll_container, fg_color="gray20", corner_radius=10)
+        card_semanal.pack(fill="x", padx=15, pady=(16, 15))
+
+        inner = frame_transparent(card_semanal)
+        inner.pack(fill="x", padx=25, pady=20)
+
+        label(inner, "Reporte Semanal de Actividades por ASIC", font_size=13, bold=True).grid(
+            row=0, column=0, columnspan=4, sticky="w", pady=(0, 6)
+        )
+        label_subtitle(
+            inner,
+            "Selecciona el año y la semana deseada mediante el calendario para generar el reporte ordenado por actividades.",
+            font_size=10,
+        ).grid(row=1, column=0, columnspan=4, sticky="w", pady=(0, 14))
+
+        # Selector de Año (desde 2020 hasta el año actual)
+        label(inner, "Año:", font_size=10).grid(row=2, column=0, sticky="w", pady=6)
+        anios = [str(y) for y in range(2020, hoy.year + 1)]
+        self._combo_anio = ctk.CTkComboBox(
+            inner,
+            values=anios,
+            width=110,
+            fg_color=t["bg_base"],
+            border_color=t["border"],
+            button_color=t["bg_card"],
+            command=self._al_cambiar_anio_semanal,
+        )
+        self._combo_anio.set(str(hoy.year))
+        self._combo_anio.grid(row=2, column=1, sticky="w", padx=(8, 20), pady=6)
+
+        # Selector interactivo de Semana (tipo input de fecha con calendario)
+        label(inner, "Semana:", font_size=10).grid(row=2, column=2, sticky="w", pady=6)
+
+        # Widget estilo input de fecha para la semana
+        self._frame_input_semana = ctk.CTkFrame(
+            inner,
+            fg_color="#20053D",
+            border_color="#345572",
+            border_width=2,
+            corner_radius=6,
+            height=28,
+            width=360,
+        )
+        self._frame_input_semana.grid(row=2, column=3, sticky="w", padx=(8, 10), pady=6)
+        self._frame_input_semana.grid_columnconfigure(0, weight=1)
+
+        self._entry_semana = ctk.CTkEntry(
+            self._frame_input_semana,
+            font=("Arial", 10),
+            fg_color="#20053D",
+            text_color="#CBE1DB",
+            border_width=0,
+            height=24,
+            width=300,
+        )
+        self._entry_semana.grid(row=0, column=0, sticky="ew", padx=(8, 2), pady=2)
+        self._entry_semana.configure(state="readonly")
+
+        self._btn_cal_semana = ctk.CTkButton(
+            self._frame_input_semana,
+            text="📅",
+            width=26,
+            height=22,
+            font=("Segoe UI Emoji", 11),
+            fg_color="transparent",
+            hover_color="#2f4d6a",
+            text_color="#CBE1DB",
+            corner_radius=4,
+            command=self._toggle_calendario_semana,
+        )
+        self._btn_cal_semana.grid(row=0, column=1, padx=(0, 4), pady=2)
+
+        self._crear_popup_calendario_semana()
+
+        # Inicializar con la semana actual
+        semana_inicial = self.controlador.modelo.obtener_semana_de_fecha(date.today())
+        if semana_inicial:
+            self._semana_seleccionada = semana_inicial
+            self._actualizar_texto_input_semana(semana_inicial)
+        else:
+            self._semana_seleccionada = None
+
+        # Botón de descarga
+        btn_success(
+            inner,
+            "📥  Descargar Reporte Semanal",
+            self._ejecutar_descarga_semanal,
+        ).grid(row=3, column=0, columnspan=4, sticky="w", pady=(16, 0))
+
+    def _crear_popup_calendario_semana(self):
+        if not HAS_CALENDAR:
+            self._top_cal_semana = None
+            self._cal_widget_semana = None
+            self._btn_cal_semana.configure(state="disabled")
+            return
+
+        self._top_cal_semana = tk.Toplevel(self._frame_input_semana)
+        self._top_cal_semana.withdraw()
+        self._top_cal_semana.overrideredirect(True)
+
+        # Destruir ventana emergente si se destruye el widget contenedor
+        self._frame_input_semana.bind(
+            "<Destroy>",
+            lambda e: self._top_cal_semana.destroy() if getattr(self, "_top_cal_semana", None) else None,
+            add="+",
+        )
+
+        hoy = date.today()
+        self._cal_widget_semana = Calendar(
+            self._top_cal_semana,
+            date_pattern="yyyy-mm-dd",
+            year=hoy.year,
+            month=hoy.month,
+            firstweekday="monday",
+            showweeknumbers=True,
+            background="#26405E",
+            foreground="#CBE1DB",
+            headersbackground="#20053D",
+            headersforeground="#CBE1DB",
+            selectbackground="#613BE3",
+            selectforeground="white",
+            normalbackground="#20053D",
+            normalforeground="#CBE1DB",
+            weekendbackground="#26405E",
+            weekendforeground="#CBE1DB",
+            othermonthforeground="#5a7a85",
+            othermonthbackground="#1a2f45",
+            font=("Arial", 9),
+        )
+        self._cal_widget_semana.pack()
+        self._cal_widget_semana.bind("<<CalendarSelected>>", self._al_seleccionar_fecha_calendario)
+
+    def _toggle_calendario_semana(self):
+        if not getattr(self, "_top_cal_semana", None) or not getattr(self, "_cal_widget_semana", None):
+            return
+
+        if self._top_cal_semana.winfo_ismapped():
+            self._top_cal_semana.withdraw()
+            return
+
+        # Sincronizar el año o fecha seleccionada
+        try:
+            if hasattr(self, "_semana_seleccionada") and self._semana_seleccionada:
+                d = self._semana_seleccionada["fecha_inicio"]
+                self._cal_widget_semana.selection_set(d)
+            else:
+                anio_sel = int(self._combo_anio.get())
+                self._cal_widget_semana.selection_set(date(anio_sel, 1, 1))
+        except Exception:
+            pass
+
+        self._frame_input_semana.update_idletasks()
+        x = self._frame_input_semana.winfo_rootx()
+        y = self._frame_input_semana.winfo_rooty() + self._frame_input_semana.winfo_height() + 2
+        self._top_cal_semana.geometry(f"+{x}+{y}")
+        self._top_cal_semana.deiconify()
+        self._top_cal_semana.lift()
+        self._top_cal_semana.attributes("-topmost", True)
+        self._bind_click_fuera_calendario_semana()
+
+    def _bind_click_fuera_calendario_semana(self):
+        top_win = self._frame_input_semana.winfo_toplevel()
+
+        def _check_click(e):
+            if not self._top_cal_semana or not self._top_cal_semana.winfo_ismapped():
+                try:
+                    top_win.unbind("<ButtonPress-1>", click_id)
+                except Exception:
+                    pass
+                return
+            try:
+                x, y = self._top_cal_semana.winfo_pointerxy()
+                xc = self._top_cal_semana.winfo_rootx()
+                yc = self._top_cal_semana.winfo_rooty()
+                w = self._top_cal_semana.winfo_width()
+                h = self._top_cal_semana.winfo_height()
+                if not (xc <= x <= xc + w and yc <= y <= yc + h):
+                    bx = self._btn_cal_semana.winfo_rootx()
+                    by = self._btn_cal_semana.winfo_rooty()
+                    bw = self._btn_cal_semana.winfo_width()
+                    bh = self._btn_cal_semana.winfo_height()
+                    if not (bx <= x <= bx + bw and by <= y <= by + bh):
+                        self._top_cal_semana.withdraw()
+                        top_win.unbind("<ButtonPress-1>", click_id)
+            except Exception:
+                pass
+
+        click_id = top_win.bind("<ButtonPress-1>", _check_click, add="+")
+
+    def _al_seleccionar_fecha_calendario(self, event=None):
+        if not self._cal_widget_semana:
+            return
+        sel = self._cal_widget_semana.selection_get()
+        if sel:
+            info = self.controlador.modelo.obtener_semana_de_fecha(sel)
+            if info:
+                self._semana_seleccionada = info
+                self._actualizar_texto_input_semana(info)
+                # Actualizar el combobox de año si el usuario seleccionó una fecha de otro año
+                str_year = str(info["year"])
+                if str_year in self._combo_anio.cget("values"):
+                    self._combo_anio.set(str_year)
+
+        if self._top_cal_semana:
+            self._top_cal_semana.withdraw()
+
+    def _al_cambiar_anio_semanal(self, nuevo_anio_str):
+        try:
+            nuevo_anio = int(nuevo_anio_str)
+            if hasattr(self, "_semana_seleccionada") and self._semana_seleccionada:
+                mes = self._semana_seleccionada["month"]
+                dia = min(self._semana_seleccionada["fecha_inicio"].day, 28)
+                nueva_fecha = date(nuevo_anio, mes, dia)
+            else:
+                nueva_fecha = date(nuevo_anio, 1, 1)
+
+            info = self.controlador.modelo.obtener_semana_de_fecha(nueva_fecha)
+            if info:
+                self._semana_seleccionada = info
+                self._actualizar_texto_input_semana(info)
+        except Exception:
+            pass
+
+    def _actualizar_texto_input_semana(self, info):
+        # Muestra en el input: Semana X (DD/MM al DD/MM) - MES AÑO
+        texto = f"{info['etiqueta']}  •  {info['mes_nombre']} {info['year']}"
+        self._entry_semana.configure(state="normal")
+        self._entry_semana.delete(0, tk.END)
+        self._entry_semana.insert(0, texto)
+        self._entry_semana.configure(state="readonly")
+
+    def _ejecutar_descarga_semanal(self):
+        semana_info = getattr(self, "_semana_seleccionada", None)
+        if not semana_info:
+            messagebox.showwarning(
+                "Semana no seleccionada",
+                "Por favor selecciona una semana en el calendario antes de exportar.",
+            )
+            return
+
+        self.controlador.exportar_reporte_semanal(semana_info)
+
+
 
     def leer_asics_seleccionados(self):
         seleccionados = self._combo_asic.get_selected()

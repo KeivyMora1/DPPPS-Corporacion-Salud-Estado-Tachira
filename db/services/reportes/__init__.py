@@ -8,14 +8,17 @@ from .excel_service import (
     build_voceria_template,
 )
 from .informe_word_service import InformeWordService
+from .reporte_semanal_service import ReporteSemanalService
 
 __all__ = [
     "ConsolidacionService",
     "ExcelService",
     "ExcelServiceVoceria",
     "InformeWordService",
+    "ReporteSemanalService",
     "build_voceria_template",
     "COLUMNAS_REQUERIDAS",
     "HEADER_ALIASES",
     "PARTICIPANTES_CATEGORIAS",
 ]
+
