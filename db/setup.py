@@ -47,6 +47,16 @@ def ejecutar_schema(ruta_schema: str | Path | None = None) -> None:
     try:
         cursor = connection.cursor()
         try:
+            # Migración: si existe la tabla parroquia legada (con id_asic), recrearla con el nuevo esquema
+            cursor.execute("""
+                SELECT COUNT(*) FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = 'parroquia'
+                  AND COLUMN_NAME = 'id_asic'
+            """)
+            if cursor.fetchone()[0] > 0:
+                cursor.execute("DROP TABLE IF EXISTS parroquia")
+
             clean_lines = [line for line in sql.splitlines() if not line.strip().startswith("--")]
             clean_sql = "\n".join(clean_lines)
             statements = [statement.strip() for statement in clean_sql.split(";") if statement.strip()]

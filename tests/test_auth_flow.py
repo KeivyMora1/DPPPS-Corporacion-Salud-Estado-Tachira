@@ -81,6 +81,7 @@ def test_actividad_dao_no_usa_fechas_anteriores_ni_descripcion_obsoleta(monkeypa
 
     class CursorFalso:
         lastrowid = 1
+        rowcount = 1
 
         def execute(self, sql, params=()):
             sentencias.append(sql.lower())
@@ -105,7 +106,14 @@ def test_actividad_dao_no_usa_fechas_anteriores_ni_descripcion_obsoleta(monkeypa
         def close(self):
             pass
 
+    from contextlib import contextmanager
+    @contextmanager
+    def _tx_falsa():
+        yield ConexionFalsa()
+
     monkeypatch.setattr(db_module, "get_connection", lambda: ConexionFalsa())
+    monkeypatch.setattr("db.daos.actividad_dao.transaccion", _tx_falsa)
+    monkeypatch.setattr("db.daos.actividad_dao.ejecutar_consulta", lambda sql, params=(), **kw: sentencias.append(sql.lower()) or [])
 
     dao = db_module.ActividadDAO()
     dao.obtener_todas()

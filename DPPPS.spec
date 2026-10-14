@@ -3,7 +3,7 @@ from PyInstaller.utils.hooks import collect_all
 
 datas = [('assets', 'assets'), ('pantallas', 'pantallas')]
 binaries = []
-hiddenimports = ['tkcalendar', 'customtkinter', 'PIL', 'db', 'utils', 'ui_helpers', 'themes', 'pantallas.actividades.view', 'pantallas.vocerias.view', 'pantallas.reportes.view', 'pantallas.login.view', 'pantallas.login.controller', 'pantallas.login.model', 'mysql.connector.locales.eng', 'mysql.connector.locales']
+hiddenimports = ['tkcalendar', 'customtkinter', 'PIL', 'db', 'constants', 'utils', 'ui_helpers', 'themes', 'pantallas.actividades.view', 'pantallas.vocerias.view', 'pantallas.reportes.view', 'pantallas.tipos_actividad.view', 'pantallas.login.view', 'pantallas.login.controller', 'pantallas.login.model', 'mysql.connector.locales.eng', 'mysql.connector.locales']
 tmp_ret = collect_all('mysql.connector')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 

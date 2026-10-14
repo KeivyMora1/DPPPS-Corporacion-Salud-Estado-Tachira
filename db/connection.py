@@ -11,6 +11,7 @@ _pool: Optional[MySQLConnectionPool] = None
 
 def _crear_pool() -> MySQLConnectionPool:
     config = DATABASE[MODO].copy()
+    config["use_pure"] = True
     return MySQLConnectionPool(
         pool_name="dppps_pool",
         pool_size=10,

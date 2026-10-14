@@ -24,8 +24,14 @@ DATABASE = {
     },
 }
 
-TEMPLATE_PATH = "assets/templates/plantilla_importacion_actividad.xlsx"
-VOCERIA_TEMPLATE_PATH = "assets/templates/plantilla_importacion_voceria.xlsx"
+def _obtener_ruta_base_recursos():
+    import sys
+    base_dir = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    return base_dir
+
+_BASE_RES = _obtener_ruta_base_recursos()
+TEMPLATE_PATH = os.path.normpath(os.path.join(_BASE_RES, "assets", "templates", "plantilla_importacion_actividad.xlsx"))
+VOCERIA_TEMPLATE_PATH = os.path.normpath(os.path.join(_BASE_RES, "assets", "templates", "plantilla_importacion_voceria.xlsx"))
 
 APP_TITLE = "DPPPS — Sistema de Consolidación de Informes"
 APP_VERSION = "1.0.0"
@@ -86,6 +92,8 @@ VOCERIA_CENTRO_DISPENSADOR_OPCIONES = [
 ]
 ACTIVIDAD_ESTABLECIMIENTO_OPCIONES = VOCERIA_CENTRO_DISPENSADOR_OPCIONES
 
+# Catálogo geográfico de respaldo/legado.
+# La fuente de verdad activa reside en las tablas 'municipio' y 'parroquia' de la base de datos.
 PARROQUIAS_POR_MUNICIPIO_TACHIRA = {
     "Andrés Bello": ["Cordero"],
     "Antonio Rómulo Costa": ["Virgen del Carmen"],

@@ -17,6 +17,7 @@ from constants import (
 from ...daos import (
     ActividadDAO,
     AsicDAO,
+    MunicipioDAO,
     ParroquiaDAO,
     TipoActividadDAO,
     TipoVoceriaDAO,
@@ -371,11 +372,13 @@ class ExcelService:
         self.id_usuario_registro = id_usuario_registro
         self._actividad_dao = ActividadDAO()
         self._asic_dao = AsicDAO()
+        self._municipio_dao = MunicipioDAO()
         self._parroquia_dao = ParroquiaDAO()
         self._tipo_dao = TipoActividadDAO()
         self._cache_asic: dict = {}
         self._cache_tipo: dict = {}
         self._cache_ubicaciones: dict = {}
+        self._cache_municipios: set = set()
 
     def _validar_campos_fila(
         self, fila, idx, fecha, tema, comites_salud, participantes, id_asic
@@ -407,7 +410,12 @@ class ExcelService:
         establecimiento = str(valores_obligatorios["ESTABLECIMIENTO DE SALUD"] or "").strip()
         if estado and estado != "Táchira":
             errores.append("'ESTADO' no es válido.")
-        if municipio and municipio not in MUNICIPIOS_TACHIRA:
+        if not getattr(self, "_cache_municipios", None):
+            try:
+                self._cache_municipios = {m["nombre"] for m in self._municipio_dao.obtener_todos()}
+            except Exception:
+                self._cache_municipios = set(MUNICIPIOS_TACHIRA)
+        if municipio and municipio not in self._cache_municipios:
             errores.append("'MUNICIPIO' no es válido.")
         if id_asic and not any(
             ubicacion["municipio"] == municipio
@@ -788,11 +796,13 @@ class ExcelServiceVoceria:
     def __init__(self, id_usuario_registro: int):
         self.id_usuario_registro = id_usuario_registro
         self._asic_dao = AsicDAO()
+        self._municipio_dao = MunicipioDAO()
         self._parroquia_dao = ParroquiaDAO()
         self._tipo_voceria_dao = TipoVoceriaDAO()
         self._cache_asic: dict = {}
         self._cache_tipo_voceria: dict = {}
         self._cache_ubicaciones: dict = {}
+        self._cache_municipios: set = set()
 
     def previsualizar(self, ruta_archivo: str) -> dict:
         import openpyxl
@@ -994,7 +1004,12 @@ class ExcelServiceVoceria:
         if estado and estado not in VOCERIA_ESTADO_OPCIONES:
             errores.append(f"Fila {numero_fila}: Estado no válido.")
         municipio = (datos.get("municipio") or "").strip()
-        if municipio and municipio not in MUNICIPIOS_TACHIRA:
+        if not getattr(self, "_cache_municipios", None):
+            try:
+                self._cache_municipios = {m["nombre"] for m in self._municipio_dao.obtener_todos()}
+            except Exception:
+                self._cache_municipios = set(MUNICIPIOS_TACHIRA)
+        if municipio and municipio not in self._cache_municipios:
             errores.append(f"Fila {numero_fila}: Municipio no válido.")
         asic_nombre = (datos.get("asic") or "").strip()
         id_asic = self._resolver_asic(asic_nombre) if asic_nombre else None

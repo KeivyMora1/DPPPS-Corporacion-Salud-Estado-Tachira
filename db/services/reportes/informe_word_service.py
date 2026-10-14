@@ -8,12 +8,13 @@ from xml.etree import ElementTree as ET
 from xml.sax.saxutils import escape
 
 from constants import TIPOS_ACTIVIDAD_PREDETERMINADOS
+from utils import obtener_ruta_recurso
 
 
 class InformeWordService:
-    PLANTILLA_INFORME_DOCX = os.path.abspath(os.path.join(
-        os.path.dirname(__file__), "..", "..", "..", "assets", "templates", "plantilla_reporte.docx"
-    ))
+    @property
+    def PLANTILLA_INFORME_DOCX(self):
+        return obtener_ruta_recurso("assets", "templates", "plantilla_reporte.docx")
 
     def generar_docx(self, datos: dict, ruta_salida: str) -> str:
         if not ruta_salida.lower().endswith(".docx"):

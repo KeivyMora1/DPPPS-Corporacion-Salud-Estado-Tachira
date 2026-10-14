@@ -33,11 +33,8 @@ def generar_plantilla_actividad(
     if not nombres_tipos:
         raise ValueError("No hay tipos de actividad disponibles para incluir en la plantilla.")
     if ubicaciones_asic is None:
-        from constants import UBICACIONES_ASIC_PREDETERMINADAS
-        ubicaciones_asic = [
-            {"asic_nombre": asic, "municipio": municipio, "parroquia": parroquia}
-            for asic, municipio, parroquia in UBICACIONES_ASIC_PREDETERMINADAS
-        ]
+        from db import ParroquiaDAO
+        ubicaciones_asic = ParroquiaDAO().obtener_todas()
     if not ubicaciones_asic:
         raise ValueError("No hay ubicaciones ASIC disponibles para incluir en la plantilla.")
 

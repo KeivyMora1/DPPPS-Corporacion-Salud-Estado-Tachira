@@ -5,7 +5,7 @@ from tkinter import messagebox
 from PIL import Image
 
 from db import AuthController
-from utils import centrar_ventana, set_favicon
+from utils import centrar_ventana, set_favicon, obtener_ruta_recurso
 from ui_helpers import (
     frame, frame_transparent, label, label_title, label_subtitle,
     btn_nav, btn_danger, separator, canvas_circle, scrollable_frame
@@ -105,7 +105,7 @@ class VistaPrincipal:
         self.logo_area = frame(self.sidebar_inner, fg_color="#2d2d2d", corner_radius=0)
         self.logo_area.pack(fill="x", padx=20, pady=(20, 28))
 
-        logo_path = os.path.join(os.path.dirname(__file__), "..", "assets", "images", "logo2.png")
+        logo_path = obtener_ruta_recurso("assets", "images", "logo2.png")
         if os.path.exists(logo_path):
             try:
                 img = Image.open(logo_path)

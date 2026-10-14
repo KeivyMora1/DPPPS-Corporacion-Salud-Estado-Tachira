@@ -56,11 +56,42 @@ python scripts/update_db.py
 
 El catálogo geográfico vigente de Táchira (municipios y parroquias) está definido en la aplicación y no requiere borrar ni modificar registros existentes en la tabla legada `parroquia`.
 
-### 4. Iniciar la aplicación
+### 5️⃣ Respaldar y restaurar la base de datos
 
-```bash
-python main.py
+**Crear un respaldo** (opcional pero recomendado antes de aplicar cambios de esquema):
+
+```powershell
+python scripts\update_db.py --backup
 ```
+
+- El comando genera un archivo `backup_<nombre_bd>.sql` en el directorio del proyecto.
+- Si `mysqldump` no está disponible en el PATH, el script mostrará un mensaje de error claro y abortará la operación. En ese caso, instala las *MySQL client tools* o elimina la opción `--backup`.
+
+**Restaurar un respaldo**
+
+```powershell
+# Ejemplo: restaurar el backup creado anteriormente
+mysql -u root -p dppps_informes < backup_dppps_informes.sql
+```
+
+> ⚠️ Asegúrate de que la base de datos `dppps_informes` exista antes de restaurar. Puedes crearla rápidamente con:
+>
+> ```powershell
+> python -m db.setup
+> ```
+>
+> Si la base ya contiene datos, el `mysqldump` restaurará los contenidos tal cual estaban al momento del backup.
+
+**Nota**: El script `scripts/update_db.py` también permite aplicar el nuevo esquema sin crear respaldo:
+
+```powershell
+python scripts\update_db.py          # Usa mysql‑connector‑python
+# o
+python scripts\update_db.py --use-cli  # Usa el cliente mysql
+```
+
+---
+
 
 **Credenciales por defecto:**
 
@@ -74,3 +105,11 @@ El setup crea esta cuenta con rol de **propietario** al inicializar una base de 
 En el menú lateral, la pantalla **Tipos de actividad** permite consultar el catálogo y, para usuarios con permisos de escritura, agregar tipos y cambiar sus nombres. Los tipos no se pueden eliminar. El catálogo completo se usa en los formularios, filtros, importación y reportes de actividades. Cada descarga de la plantilla de importación incluye en el desplegable de tipo de actividad las opciones vigentes en la base de datos.
 
 Las plantillas incluyen la hoja visible **Catalogos** con las opciones que alimentan los desplegables de ubicación. No la elimines ni la ocultes.
+
+## Actualizar el ejecutable
+
+Para actualizar el ejecutable de la aplicación, ejecuta desde la raíz del proyecto:
+
+```bash
+python -m PyInstaller --clean DPPPS.spec
+```

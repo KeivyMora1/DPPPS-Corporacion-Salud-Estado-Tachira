@@ -6,7 +6,7 @@ from constants import (
     MUNICIPIOS_TACHIRA,
     TIPOS_ACTIVIDAD_PREDETERMINADOS,
 )
-from ..daos import ActividadDAO, AsicDAO, ParroquiaDAO, TipoActividadDAO
+from ..daos import ActividadDAO, AsicDAO, MunicipioDAO, ParroquiaDAO, TipoActividadDAO
 from .auth_service import AuthController
 
 
@@ -18,6 +18,7 @@ class ActividadController:
     def __init__(self):
         self.actividad_dao = ActividadDAO()
         self.asic_dao = AsicDAO()
+        self.municipio_dao = MunicipioDAO()
         self.parroquia_dao = ParroquiaDAO()
         self.tipo_dao = TipoActividadDAO()
         self.auth = AuthController()
@@ -50,6 +51,16 @@ class ActividadController:
         asics = self.asic_dao.obtener_todos()
         nombres_permitidos = {normalizar(nombre) for _, nombre in asics_predeterminados}
         return [a for a in asics if normalizar(a["nombre"]) in nombres_permitidos]
+
+    def listar_municipios(self):
+        """Retorna todos los municipios desde la base de datos."""
+        return self.municipio_dao.obtener_todos()
+
+    def listar_parroquias(self, id_o_nombre_municipio=None):
+        """Retorna las parroquias desde la base de datos, opcionalmente filtradas por municipio."""
+        if id_o_nombre_municipio:
+            return self.parroquia_dao.listar_por_municipio(id_o_nombre_municipio)
+        return self.parroquia_dao.listar_por_asic()
 
     def listar_ubicaciones_asic(self):
         return self.parroquia_dao.obtener_todas()
@@ -149,7 +160,12 @@ class ActividadController:
                 return False, f"El campo {campo} no puede superar {maximo} caracteres ni contener controles."
         if estado != "Táchira":
             return False, "Debes seleccionar un estado válido."
-        if municipio not in MUNICIPIOS_TACHIRA:
+        _municipio_dao = getattr(self, "municipio_dao", None)
+        if _municipio_dao is not None:
+            municipios_validos = {m["nombre"] for m in _municipio_dao.obtener_todos()}
+        else:
+            municipios_validos = set(MUNICIPIOS_TACHIRA)
+        if municipio not in municipios_validos:
             return False, "Debes seleccionar un municipio válido."
         ubicaciones_asic = self.parroquia_dao.listar_por_asic(id_asic)
         if not any(
