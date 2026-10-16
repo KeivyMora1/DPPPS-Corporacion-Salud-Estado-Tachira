@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import messagebox
 import customtkinter as ctk
 
-from db import AuthController, validar_correo
+from db import validar_correo
 from .model import ModeloLogin
 from .view import VistaLogin
 from utils import centrar_ventana, set_favicon

@@ -1,7 +1,7 @@
 import os
 import zipfile
 from datetime import date, timedelta
-from typing import Dict, List, Optional
+from typing import Dict, List
 from xml.etree import ElementTree as ET
 
 from ...daos import ActividadDAO, AsicDAO

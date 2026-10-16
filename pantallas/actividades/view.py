@@ -1,24 +1,9 @@
 import customtkinter as ctk
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import ttk, messagebox
 from datetime import datetime, date
 
-from constants import (
-    ALLOWED_EXTENSIONS,
-    MAX_FILE_SIZE_MB,
-    TEMPLATE_PATH,
-    ACTIVIDAD_ESTABLECIMIENTO_OPCIONES,
-    THEME,
-)
-from db import ActividadController, ExcelService
-import os
-import threading
-
-try:
-    from tkcalendar import DateEntry
-    HAS_TKCALENDAR = True
-except ImportError:
-    HAS_TKCALENDAR = False
+from constants import ( ACTIVIDAD_ESTABLECIMIENTO_OPCIONES, THEME )
 
 from ui_helpers import (
     frame, frame_transparent, label, label_title, label_subtitle,

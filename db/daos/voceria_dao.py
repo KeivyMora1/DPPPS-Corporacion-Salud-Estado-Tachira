@@ -5,7 +5,6 @@ Migración a BaseDAO manteniendo API idéntica al legacy.
 
 from typing import Optional, Dict, Any, List
 
-from ..base_dao import BaseDAO
 from ..connection import transaccion, ejecutar_consulta
 
 from .comite_dao import ComiteDAO

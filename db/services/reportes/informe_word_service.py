@@ -3,7 +3,7 @@ import re
 import unicodedata
 import zipfile
 from copy import deepcopy
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from xml.etree import ElementTree as ET
 from xml.sax.saxutils import escape
 

@@ -5,7 +5,7 @@ from tkinter import ttk
 from datetime import datetime, date
 
 try:
-    from tkcalendar import Calendar, DateEntry
+    from tkcalendar import Calendar
     HAS_CALENDAR = True
 except ImportError:
     HAS_CALENDAR = False

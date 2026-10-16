@@ -1,6 +1,5 @@
 from contextlib import contextmanager
 from typing import Generator, Optional
-import mysql.connector
 from mysql.connector.pooling import MySQLConnectionPool
 from mysql.connector import MySQLConnection
 

@@ -6,13 +6,7 @@ from tkinter import filedialog, messagebox
 import customtkinter as ctk
 from tkinter import ttk
 
-from constants import (
-    ALLOWED_EXTENSIONS,
-    MAX_FILE_SIZE_MB,
-    TEMPLATE_PATH,
-    UBICACIONES_ASIC_PREDETERMINADAS,
-    THEME,
-)
+from constants import ( TEMPLATE_PATH )
 from db import ExcelService, AuthController
 from utils import set_favicon
 

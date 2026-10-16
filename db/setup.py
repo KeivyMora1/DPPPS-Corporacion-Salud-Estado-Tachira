@@ -14,7 +14,6 @@ from constants import (
     USUARIO_PROPIETARIO_PREDETERMINADO,
 )
 
-
 def crear_base_de_datos() -> None:
     """Create the configured database if it does not already exist."""
     config = DATABASE[MODO].copy()

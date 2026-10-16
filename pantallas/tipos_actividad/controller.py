@@ -1,4 +1,3 @@
-from datetime import datetime
 from tkinter import messagebox
 
 from .model import ModeloTipoActividad

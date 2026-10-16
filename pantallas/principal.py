@@ -5,10 +5,10 @@ from tkinter import messagebox
 from PIL import Image
 
 from db import AuthController
-from utils import centrar_ventana, set_favicon, obtener_ruta_recurso
+from utils import set_favicon, obtener_ruta_recurso
 from ui_helpers import (
     frame, frame_transparent, label, label_title, label_subtitle,
-    btn_nav, btn_danger, separator, canvas_circle, scrollable_frame
+    btn_nav, btn_danger, separator, canvas_circle
 )
 
 from pantallas.actividades.controller import ControladorActividad
