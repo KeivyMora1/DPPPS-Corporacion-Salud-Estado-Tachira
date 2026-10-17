@@ -1,6 +1,5 @@
 from ...daos import ActividadDAO, AsicDAO, VoceriaDAO
 
-
 class ConsolidacionService:
     def __init__(self, id_usuario: int):
         self.id_usuario = id_usuario

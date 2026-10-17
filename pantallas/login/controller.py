@@ -7,7 +7,6 @@ from .model import ModeloLogin
 from .view import VistaLogin
 from utils import centrar_ventana, set_favicon
 
-
 class ControladorLogin:
     def __init__(self, root, al_iniciar_sesion):
         self.al_iniciar_sesion = al_iniciar_sesion
@@ -444,6 +443,5 @@ class ControladorLogin:
         btn_restablecer = ctk.CTkButton(frame, text="Restablecer contraseña", command=recuperar)
         btn_restablecer.pack(fill="x")
         btn_restablecer.pack_forget()
-
 
 __all__ = ["ControladorLogin"]

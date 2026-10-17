@@ -1,6 +1,5 @@
 from db import AuthController
 
-
 class ModeloLogin:
     def __init__(self):
         self.auth = AuthController()
@@ -30,6 +29,5 @@ class ModeloLogin:
 
     def cambiar_password_con_codigo(self, email, codigo, nueva_password):
         return self.auth.cambiar_password_con_codigo(email, codigo, nueva_password)
-
 
 __all__ = ["ModeloLogin"]

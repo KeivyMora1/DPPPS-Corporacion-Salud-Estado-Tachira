@@ -2,7 +2,6 @@ import os
 
 from constants import ALLOWED_EXTENSIONS, EMAIL_REGEX, MAX_FILE_SIZE_MB
 
-
 def validar_correo(correo):
     correo = (correo or "").strip()
     if len(correo) > 120:
@@ -15,7 +14,6 @@ def validar_correo(correo):
         and not parte_local.endswith(".")
         and ".." not in parte_local
     )
-
 
 def validar_archivo_excel(ruta_archivo):
     if not ruta_archivo or not os.path.isfile(ruta_archivo):

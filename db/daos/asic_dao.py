@@ -7,7 +7,6 @@ from typing import Optional, Dict, Any, List
 
 from ..base_dao import BaseDAO
 
-
 class AsicDAO(BaseDAO):
     TABLA = "asic"
     CAMPOS = ["nombre"]

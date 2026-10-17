@@ -10,7 +10,6 @@ from xml.sax.saxutils import escape
 from constants import TIPOS_ACTIVIDAD_PREDETERMINADOS
 from utils import obtener_ruta_recurso
 
-
 class InformeWordService:
     @property
     def PLANTILLA_INFORME_DOCX(self):

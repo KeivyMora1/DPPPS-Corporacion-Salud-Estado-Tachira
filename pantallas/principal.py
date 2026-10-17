@@ -24,7 +24,6 @@ CONTROLADORES = {
     "tipos_actividad": ControladorTipoActividad,
 }
 
-
 class ModeloPrincipal:
     def __init__(self):
         self.auth = AuthController()
@@ -61,7 +60,6 @@ class ModeloPrincipal:
 
     def es_propietario(self):
         return bool(self.usuario and self.usuario.get("rol") == "propietario")
-
 
 class VistaPrincipal:
 
@@ -334,11 +332,9 @@ class ControladorPrincipal:
             import main
             main.iniciar_app()
 
-
 class MainView:
     def __init__(self, root):
         self._controlador = ControladorPrincipal(root)
-
 
 __all__ = [
     "ModeloPrincipal",

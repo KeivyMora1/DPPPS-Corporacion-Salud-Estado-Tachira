@@ -16,7 +16,6 @@ from ui_helpers import (
     btn_success,
     btn_secondary,
     date_picker,
-    frame,
     frame_surface,
     frame_transparent,
     label,
@@ -24,7 +23,6 @@ from ui_helpers import (
     label_title,
     multiselect_option_menu,
 )
-
 
 class VistaReporte:
     def __init__(self, parent, controlador):

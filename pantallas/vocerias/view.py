@@ -12,7 +12,6 @@ from ui_helpers import (
 )
 from utils import set_favicon
 
-
 def _restar_anios(fecha, anios):
     try:
         return fecha.replace(year=fecha.year - anios)
@@ -27,7 +26,6 @@ def _calcular_edad(fecha_nacimiento, hoy=None):
     return hoy.year - fecha_nacimiento.year - (
         (hoy.month, hoy.day) < (fecha_nacimiento.month, fecha_nacimiento.day)
     )
-
 
 class VistaVoceria:
     """Capa de vista del módulo de vocerías."""

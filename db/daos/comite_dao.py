@@ -8,7 +8,6 @@ from typing import Optional, Dict, Any, List
 from ..base_dao import BaseDAO
 from ..connection import transaccion, ejecutar_consulta
 
-
 class ComiteDAO(BaseDAO):
     """Data Access Object para comités de salud."""
     

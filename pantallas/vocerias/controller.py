@@ -15,7 +15,6 @@ from .model import ModeloVoceria
 from .view import VistaVoceria
 from utils import set_favicon
 
-
 class _ImportarVoceriaModal:
     def __init__(self, parent_view):
         self.parent_view = parent_view
@@ -982,6 +981,5 @@ class ControladorVoceria:
             self._actualizar_dropdowns_voceria(items_voceria, vocerias_disponibles)
             self._actualizar_estado_botones_formulario()
             self._renumerar_items(items_voceria)
-
 
 __all__ = ["ControladorVoceria"]

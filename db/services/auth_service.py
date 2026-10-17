@@ -10,7 +10,6 @@ from ..validators import validar_correo
 
 sesion_actual = None
 
-
 class AuthController:
     def __init__(self):
         self.usuario_dao = UsuarioDAO()

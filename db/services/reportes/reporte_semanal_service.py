@@ -13,7 +13,6 @@ MESES_ESPANOL = [
     "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"
 ]
 
-
 class ReporteSemanalService:
     """Servicio para la consolidación y generación del reporte semanal en Word."""
 

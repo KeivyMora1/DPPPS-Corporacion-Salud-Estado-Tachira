@@ -1,6 +1,5 @@
 from db import ActividadController
 
-
 class ModeloTipoActividad:
     def __init__(self):
         self.controller = ActividadController()
@@ -16,6 +15,5 @@ class ModeloTipoActividad:
 
     def actualizar_tipo(self, id_tipo, nombre):
         return self.controller.actualizar_tipo_actividad(id_tipo, nombre)
-
 
 __all__ = ["ModeloTipoActividad"]

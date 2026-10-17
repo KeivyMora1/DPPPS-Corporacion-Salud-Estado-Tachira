@@ -9,7 +9,6 @@ from constants import (
 from ..daos import ActividadDAO, AsicDAO, MunicipioDAO, ParroquiaDAO, TipoActividadDAO
 from .auth_service import AuthController
 
-
 class ActividadController:
     """
     Controlador que maneja las actividades de salud.

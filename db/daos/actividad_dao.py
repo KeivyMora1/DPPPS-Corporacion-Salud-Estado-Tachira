@@ -2,13 +2,11 @@
 DAO para la tabla actividad.
 Migración a BaseDAO manteniendo API idéntica al legacy.
 """
-
 from datetime import date, datetime
 from typing import Optional, Dict, Any, List
 
 from ..base_dao import BaseDAO
 from ..connection import transaccion, ejecutar_consulta
-
 
 class ActividadDAO(BaseDAO):
     """Data Access Object para actividades de salud."""

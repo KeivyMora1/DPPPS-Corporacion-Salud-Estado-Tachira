@@ -3,7 +3,6 @@ from tkinter import messagebox
 from .model import ModeloTipoActividad
 from .view import VistaTipoActividad
 
-
 class ControladorTipoActividad:
     def __init__(self, parent):
         self.modelo = ModeloTipoActividad()
@@ -42,6 +41,5 @@ class ControladorTipoActividad:
 
         self.vista.cerrar_editor()
         self.cargar_tipos()
-
 
 __all__ = ["ControladorTipoActividad"]

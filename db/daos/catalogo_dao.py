@@ -13,7 +13,6 @@ from constants import (
     UBICACIONES_ASIC_PREDETERMINADAS,
 )
 
-
 class TipoActividadDAO(BaseDAO):
     """Data Access Object para tipos de actividad."""
     

@@ -9,7 +9,6 @@ from ..connection import transaccion, ejecutar_consulta
 
 from .comite_dao import ComiteDAO
 
-
 class VoceriaDAO:
     def __init__(self):
         self.comite_dao = ComiteDAO()

@@ -8,7 +8,6 @@ from typing import Optional, Dict, Any, List
 
 from ..base_dao import BaseDAO
 
-
 class UsuarioDAO(BaseDAO):
     TABLA = "usuario"
     CAMPOS = [

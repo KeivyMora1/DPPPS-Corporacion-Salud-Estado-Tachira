@@ -31,5 +31,4 @@ class ModeloActividad:
     def obtener_actividad_por_id(self, id_actividad):
         return self.controller.actividad_dao.obtener_por_id(id_actividad)
 
-
 __all__ = ['ModeloActividad']

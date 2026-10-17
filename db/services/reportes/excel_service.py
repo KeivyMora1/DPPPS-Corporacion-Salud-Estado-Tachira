@@ -24,7 +24,6 @@ from ...daos import (
 )
 from ...validators import validar_archivo_excel, validar_correo
 
-
 COLUMNAS_REQUERIDAS = [
     "asic", "tipo_actividad", "fecha", "tema",
     "participantes",

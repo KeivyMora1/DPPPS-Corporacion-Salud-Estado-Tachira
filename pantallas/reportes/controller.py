@@ -5,7 +5,6 @@ from tkinter import filedialog, messagebox
 from .model import ModeloReporte
 from .view import VistaReporte
 
-
 class ControladorReporte:
     def __init__(self, parent):
         self.modelo = ModeloReporte()
@@ -127,6 +126,4 @@ class ControladorReporte:
 
         threading.Thread(target=_tarea, daemon=True).start()
 
-
 __all__ = ["ControladorReporte"]
-

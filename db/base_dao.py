@@ -8,7 +8,6 @@ from contextlib import contextmanager
 
 from .connection import conexion, transaccion, ejecutar_consulta, MySQLConnection
 
-
 class BaseDAO:
     """
     Clase base para DAOs con operaciones CRUD comunes.

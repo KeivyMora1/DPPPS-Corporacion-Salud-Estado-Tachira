@@ -13,7 +13,6 @@ from utils import set_favicon
 from .model import ModeloActividad
 from .view import VistaActividad
 
-
 def generar_plantilla_actividad(
     ruta_entrada, ruta_salida, nombres_tipos, ubicaciones_asic=None
 ):
@@ -267,7 +266,6 @@ class _ImportarModal:
 
         def _tarea():
             try:
-                from db import ExcelService
                 svc = ExcelService(id_usuario_registro=self.usuario["id_usuario"])
                 resultado = svc.previsualizar(self._ruta_archivo)
                 self.ventana.after(0, lambda: self._mostrar_paso2(resultado))
@@ -454,7 +452,6 @@ class _ImportarModal:
 
         def _tarea():
             try:
-                from db import ExcelService
                 svc = ExcelService(id_usuario_registro=self.usuario["id_usuario"])
                 resultado = svc.importar(filas_validas)
                 self.ventana.after(0, lambda r=resultado: self._mostrar_paso3(r))
@@ -510,7 +507,6 @@ class _ImportarModal:
                       hover_color=t["accent_dim"], text_color=t["text_primary"],
                       corner_radius=8, command=lambda: (self.ventana.destroy(), self.parent_view.controlador.cargar_datos_tabla())
                       ).pack(anchor="w", pady=(8, 0))
-
 
 class ControladorActividad:
     def __init__(self, parent):

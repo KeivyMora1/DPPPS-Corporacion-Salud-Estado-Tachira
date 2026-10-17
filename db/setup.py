@@ -33,7 +33,6 @@ def crear_base_de_datos() -> None:
         connection.close()
     print(f"[OK] Base de datos '{database_name}' lista.")
 
-
 def ejecutar_schema(ruta_schema: str | Path | None = None) -> None:
     """Apply schema.sql, ignoring only already-existing schema objects."""
     schema_path = (
@@ -71,7 +70,6 @@ def ejecutar_schema(ruta_schema: str | Path | None = None) -> None:
     finally:
         connection.close()
     print("[OK] Tablas creadas correctamente.")
-
 
 def crear_usuario_propietario() -> None:
     """Create the default owner account when the user table is empty."""
@@ -120,7 +118,6 @@ def crear_usuario_propietario() -> None:
         f"{USUARIO_PROPIETARIO_PREDETERMINADO}."
     )
 
-
 def main() -> None:
     parser = argparse.ArgumentParser(description="Initialize the DPPPS database.")
     parser.add_argument(
@@ -136,7 +133,6 @@ def main() -> None:
     crear_usuario_propietario()
     print("\n[LISTO] Setup completado exitosamente.")
     print("   Ya puedes ejecutar la aplicación con: python main.py")
-
 
 if __name__ == "__main__":
     main()

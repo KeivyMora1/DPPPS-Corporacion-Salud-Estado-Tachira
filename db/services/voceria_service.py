@@ -10,7 +10,6 @@ from ..daos import AsicDAO, MunicipioDAO, ParroquiaDAO, TipoVoceriaDAO, VoceriaD
 from ..validators import validar_correo
 from .auth_service import AuthController
 
-
 class VoceriaController:
     """Maneja la lógica de negocio para vocerías CS."""
     def __init__(self):

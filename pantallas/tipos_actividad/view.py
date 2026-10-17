@@ -5,7 +5,6 @@ from tkinter import ttk
 from constants import THEME
 from utils import centrar_ventana, set_favicon
 
-
 class VistaTipoActividad:
     def __init__(self, parent, controlador):
         self.parent = parent

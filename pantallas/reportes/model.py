@@ -1,6 +1,5 @@
 from db import AuthController, AsicDAO, ConsolidacionService, InformeWordService, ReporteSemanalService
 
-
 class ModeloReporte:
     """Capa de acceso a datos y servicios de consolidación/exportación."""
 
@@ -42,7 +41,4 @@ class ModeloReporte:
     def generar_docx_semanal(self, mes_nombre: str, numero_semana: int, ranking: list, ruta_salida: str):
         return self.servicio_semanal.generar_docx(mes_nombre, numero_semana, ranking, ruta_salida)
 
-
 __all__ = ["ModeloReporte"]
-
-

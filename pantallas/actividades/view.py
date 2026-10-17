@@ -5,14 +5,8 @@ from datetime import datetime, date
 
 from constants import ( ACTIVIDAD_ESTABLECIMIENTO_OPCIONES, THEME )
 
-from ui_helpers import (
-    frame, frame_transparent, label, label_title, label_subtitle,
-    btn_primary, btn_secondary, btn_danger, btn_success,
-    separator, treeview_style, scrollable_frame, entry_with_placeholder,
-    spinbox_numeric, combobox, entry_numeric, date_picker
-)
+from ui_helpers import ( entry_numeric, date_picker )
 from utils import set_favicon
-
 
 class VistaActividad:
     def __init__(self, parent, controlador):

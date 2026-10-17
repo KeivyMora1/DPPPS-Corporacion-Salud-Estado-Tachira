@@ -1,6 +1,5 @@
 from db import VoceriaController
 
-
 class ModeloVoceria:
     """Capa de acceso a datos de vocerías."""
 
@@ -33,6 +32,5 @@ class ModeloVoceria:
 
     def obtener_voceria_completa(self, id_voceria):
         return self.controller.obtener_voceria_completa(id_voceria)
-
 
 __all__ = ["ModeloVoceria"]

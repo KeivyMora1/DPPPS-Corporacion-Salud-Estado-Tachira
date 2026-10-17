@@ -2,7 +2,6 @@ import os
 import customtkinter as ctk
 from utils import centrar_ventana, obtener_ruta_recurso
 
-
 class VistaLogin:
     def __init__(self, root, controlador):
         self.root = root
@@ -158,6 +157,5 @@ class VistaLogin:
                 self.root.geometry(f"+{x0}+{y0}")
 
         paso()
-
 
 __all__ = ["VistaLogin"]
