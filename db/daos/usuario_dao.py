@@ -7,6 +7,7 @@ import bcrypt
 from typing import Optional, Dict, Any, List
 
 from ..base_dao import BaseDAO
+from ..connection import ejecutar_consulta
 
 class UsuarioDAO(BaseDAO):
     TABLA = "usuario"
@@ -28,7 +29,7 @@ class UsuarioDAO(BaseDAO):
 
     def obtener_propietario(self) -> Optional[Dict[str, Any]]:
         return self.obtener_uno(
-            "rol = %s AND activo = TRUE ORDER BY id_usuario LIMIT 1",
+            "rol = %s AND activo = TRUE ORDER BY id_usuario",
             ("propietario",)
         )
 
@@ -41,6 +42,18 @@ class UsuarioDAO(BaseDAO):
 
     def obtener_todos(self) -> List[Dict[str, Any]]:
         return super().obtener_todos(orden_por="nombre_completo")
+
+    def obtener_cuentas(self) -> List[Dict[str, Any]]:
+        return ejecutar_consulta(
+            """
+            SELECT id_usuario, username, nombre_completo, email, rol,
+                   email_verificado, created_at
+            FROM usuario
+            WHERE activo = TRUE
+            ORDER BY nombre_completo
+            """,
+            obtener_todos=True,
+        )
 
     def crear(
         self,

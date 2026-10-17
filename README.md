@@ -104,6 +104,10 @@ El setup crea esta cuenta con rol de **propietario** al inicializar una base de 
 
 En el menú lateral, la pantalla **Tipos de actividad** permite consultar el catálogo y, para usuarios con permisos de escritura, agregar tipos y cambiar sus nombres. Los tipos no se pueden eliminar. El catálogo completo se usa en los formularios, filtros, importación y reportes de actividades. Cada descarga de la plantilla de importación incluye en el desplegable de tipo de actividad las opciones vigentes en la base de datos.
 
+## Cuentas
+
+La opción **Cuentas**, debajo de **Tipos de actividad** en el menú, solo está disponible para el usuario propietario. Desde allí puede crear cuentas de usuario asignando nombre, apellido, nombre de usuario, correo, contraseña inicial y, opcionalmente, el rol de administrador. Las cuentas nuevas quedan pendientes de verificación: al iniciar sesión por primera vez con sus credenciales, el usuario recibirá un código en su correo y deberá verificarlo antes de acceder.
+
 Las plantillas incluyen la hoja visible **Catalogos** con las opciones que alimentan los desplegables de ubicación. No la elimines ni la ocultes.
 
 ## Actualizar el ejecutable

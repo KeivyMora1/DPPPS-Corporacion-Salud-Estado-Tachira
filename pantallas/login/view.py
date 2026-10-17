@@ -100,19 +100,6 @@ class VistaLogin:
         )
         self.btn_login.pack(fill="x")
 
-        self.btn_registro = ctk.CTkButton(
-            inner,
-            text="Crear cuenta",
-            font=("Segoe UI", 11, "bold"),
-            fg_color="#1C8C5C",
-            hover_color="#166C49",
-            corner_radius=8,
-            height=38,
-            cursor="hand2",
-            command=self.controlador.abrir_registro,
-        )
-        self.btn_registro.pack(fill="x", pady=(12, 6))
-
         self.btn_recuperar = ctk.CTkButton(
             inner,
             text="Olvidé mi contraseña",
@@ -124,7 +111,7 @@ class VistaLogin:
             cursor="hand2",
             command=self.controlador.abrir_recuperacion,
         )
-        self.btn_recuperar.pack(fill="x")
+        self.btn_recuperar.pack(fill="x", pady=(12, 0))
 
         self.lbl_error = ctk.CTkLabel(inner, text="", font=("Segoe UI", 9), wraplength=320)
         self.lbl_error.pack(pady=(14, 0))

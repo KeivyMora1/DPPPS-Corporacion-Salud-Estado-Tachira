@@ -15,6 +15,7 @@ from pantallas.actividades.controller import ControladorActividad
 from pantallas.vocerias.controller import ControladorVoceria
 from pantallas.reportes.controller import ControladorReporte
 from pantallas.tipos_actividad.controller import ControladorTipoActividad
+from pantallas.cuentas.controller import ControladorCuentas
 
 SECCION_INICIAL = "actividades"
 CONTROLADORES = {
@@ -22,6 +23,7 @@ CONTROLADORES = {
     "vocerias": ControladorVoceria,
     "reportes": ControladorReporte,
     "tipos_actividad": ControladorTipoActividad,
+    "cuentas": ControladorCuentas,
 }
 
 class ModeloPrincipal:
@@ -68,6 +70,7 @@ class VistaPrincipal:
         ("vocerias",    "Vocerias CS"),
         ("reportes",    "Reportes"),
         ("tipos_actividad", "Tipos de actividad"),
+        ("cuentas", "Cuentas"),
     ]
 
     def __init__(self, root, controlador):
@@ -134,7 +137,7 @@ class VistaPrincipal:
             items_menu = [
                 (clave, texto)
                 for clave, texto in items_menu
-                if clave != "tipos_actividad"
+                if clave not in ("tipos_actividad", "cuentas")
             ]
 
         for clave, label_text in items_menu:
@@ -299,6 +302,12 @@ class ControladorPrincipal:
             messagebox.showwarning(
                 "Acceso restringido",
                 "Solo el usuario propietario puede acceder a Tipos de actividad.",
+            )
+            return
+        if seccion == "cuentas" and not self.modelo.es_propietario():
+            messagebox.showwarning(
+                "Acceso restringido",
+                "Solo el usuario propietario puede acceder a Cuentas.",
             )
             return
 

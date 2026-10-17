@@ -49,7 +49,8 @@ class AuthController:
             return False
 
     def registrar_usuario(self, nombre, apellido, email, password, username=None,
-                          cuenta_administrador=False, password_propietario=None):
+                          cuenta_administrador=False, password_propietario=None,
+                          enviar_codigo=True):
         email = (email or "").strip().lower()
         nombre = (nombre or "").strip()
         apellido = (apellido or "").strip()
@@ -76,7 +77,9 @@ class AuthController:
         if len(password.encode("utf-8")) > 72:
             return {"success": False, "message": "La contraseña no puede superar 72 bytes."}
         propietario = self.usuario_dao.obtener_propietario()
-        if cuenta_administrador and propietario:
+        sesion = self.obtener_usuario_actual()
+        es_propietario_actual = bool(sesion and sesion.get("rol") == "propietario")
+        if cuenta_administrador and propietario and not es_propietario_actual:
             if not password_propietario or not self.usuario_dao.verificar_password(
                 password_propietario, propietario["password_hash"]
             ):
@@ -101,6 +104,15 @@ class AuthController:
                 rol="administrador" if cuenta_administrador and propietario else "lector",
                 administrador_autorizado=bool(cuenta_administrador and propietario),
             )
+            if not enviar_codigo:
+                return {
+                    "success": True,
+                    "message": (
+                        "Cuenta creada. El usuario recibirá un código de verificación "
+                        "al iniciar sesión por primera vez."
+                    ),
+                }
+
             enviado = self._enviar_codigo_por_email(email, codigo, "verificacion")
             respuesta = {
                 "success": True,
@@ -115,6 +127,30 @@ class AuthController:
         except Exception as exc:
             print(f"[ERROR] Error al registrar usuario: {exc}")
             return {"success": False, "message": "No se pudo crear la cuenta."}
+
+    def crear_cuenta(self, nombre, apellido, email, password, username=None,
+                     cuenta_administrador=False):
+        usuario_actual = self.obtener_usuario_actual()
+        if not usuario_actual or usuario_actual.get("rol") != "propietario":
+            return {
+                "success": False,
+                "message": "Solo el usuario propietario puede crear cuentas.",
+            }
+        return self.registrar_usuario(
+            nombre,
+            apellido,
+            email,
+            password,
+            username=username,
+            cuenta_administrador=cuenta_administrador,
+            enviar_codigo=False,
+        )
+
+    def listar_cuentas(self):
+        usuario_actual = self.obtener_usuario_actual()
+        if not usuario_actual or usuario_actual.get("rol") != "propietario":
+            raise PermissionError("Solo el usuario propietario puede consultar las cuentas.")
+        return self.usuario_dao.obtener_cuentas()
 
     def verificar_email(self, email, codigo):
         email = (email or "").strip().lower()
@@ -159,10 +195,13 @@ class AuthController:
         enviado = self._enviar_codigo_por_email(email, codigo, "verificacion")
         respuesta = {"success": True, "message": "Se envió un nuevo código a tu correo."}
         if not enviado:
-            respuesta["message"] = (
-                "Se generó un nuevo código, pero no se pudo enviar el correo en este momento. "
-                "Intenta nuevamente más tarde."
-            )
+            respuesta = {
+                "success": False,
+                "message": (
+                    "No se pudo enviar el código a tu correo en este momento. "
+                    "Intenta nuevamente más tarde."
+                ),
+            }
         return respuesta
 
     def login(self, credential, password):
@@ -191,6 +230,25 @@ class AuthController:
             "rol": usuario.get("rol") or "lector",
         }
         return True
+
+    def autenticar_pendiente_verificacion(self, credential, password):
+        if not isinstance(credential, str) or not isinstance(password, str):
+            return None
+        if len(credential.strip()) > 60 or len(password) > 60 or len(password.encode("utf-8")) > 72:
+            return None
+        credencial = credential.strip()
+        usuario = (
+            self.usuario_dao.obtener_por_email(credencial.lower())
+            if "@" in credencial
+            else self.usuario_dao.obtener_por_username(credencial)
+        )
+        if (
+            usuario is None
+            or usuario.get("email_verificado") not in (False, 0, None)
+            or not self.usuario_dao.verificar_password(password, usuario["password_hash"])
+        ):
+            return None
+        return usuario
 
     def solicitar_recuperacion(self, email):
         email = (email or "").strip().lower()

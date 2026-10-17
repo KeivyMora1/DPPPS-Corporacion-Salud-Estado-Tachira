@@ -752,6 +752,116 @@ def test_registrar_administrador_guarda_rol_solo_con_password_valida(monkeypatch
     assert capturado["administrador_autorizado"] is True
 
 
+def test_crear_cuenta_solo_permite_al_propietario_y_no_envia_codigo_al_crear(monkeypatch):
+    from db.services import auth_service
+
+    controller = AuthController()
+    creado = {}
+    monkeypatch.setattr(
+        auth_service,
+        "sesion_actual",
+        {"id_usuario": 1, "rol": "propietario"},
+    )
+    monkeypatch.setattr(
+        controller.usuario_dao,
+        "obtener_propietario",
+        lambda: {"password_hash": "hash-propietario"},
+    )
+    monkeypatch.setattr(controller.usuario_dao, "obtener_por_email", lambda email: None)
+    monkeypatch.setattr(controller.usuario_dao, "obtener_por_username", lambda username: None)
+    monkeypatch.setattr(
+        controller.usuario_dao,
+        "crear",
+        lambda **kwargs: creado.update(kwargs) or 12,
+    )
+    monkeypatch.setattr(
+        controller,
+        "_enviar_codigo_por_email",
+        lambda *args: pytest.fail("El correo debe enviarse en el primer inicio de sesión."),
+    )
+
+    resultado = controller.crear_cuenta(
+        "Ana", "García", "ana@test.com", "Pass123!",
+        username="ana", cuenta_administrador=True,
+    )
+
+    assert resultado["success"] is True
+    assert "Cuenta creada." in resultado["message"]
+    assert "primera vez" in resultado["message"]
+    assert creado["username"] == "ana"
+    assert creado["rol"] == "administrador"
+
+
+def test_crear_cuenta_rechaza_sesion_no_propietaria(monkeypatch):
+    from db.services import auth_service
+
+    controller = AuthController()
+    monkeypatch.setattr(
+        auth_service,
+        "sesion_actual",
+        {"id_usuario": 2, "rol": "administrador"},
+    )
+    monkeypatch.setattr(
+        controller.usuario_dao,
+        "crear",
+        lambda **kwargs: pytest.fail("No debe crear cuentas desde otra sesión."),
+    )
+
+    resultado = controller.crear_cuenta(
+        "Ana", "García", "ana@test.com", "Pass123!", username="ana",
+    )
+
+    assert resultado["success"] is False
+    assert "Solo el usuario propietario" in resultado["message"]
+
+
+def test_listar_cuentas_requiere_sesion_de_propietario(monkeypatch):
+    from db.services import auth_service
+
+    controller = AuthController()
+    monkeypatch.setattr(
+        auth_service,
+        "sesion_actual",
+        {"id_usuario": 2, "rol": "administrador"},
+    )
+    monkeypatch.setattr(
+        controller.usuario_dao,
+        "obtener_cuentas",
+        lambda: pytest.fail("Una sesión no propietaria no debe listar cuentas."),
+    )
+
+    with pytest.raises(PermissionError):
+        controller.listar_cuentas()
+
+
+def test_opcion_cuentas_esta_despues_de_tipos_de_actividad():
+    from pantallas.principal import VistaPrincipal
+
+    claves_menu = [clave for clave, _texto in VistaPrincipal.MENU_ITEMS]
+
+    assert claves_menu.index("cuentas") == claves_menu.index("tipos_actividad") + 1
+
+
+def test_login_no_verificado_solo_envia_codigo_con_password_correcta(monkeypatch):
+    controller = AuthController()
+    usuario = {
+        "id_usuario": 1,
+        "username": "ana",
+        "email": "ana@test.com",
+        "password_hash": "hash",
+        "email_verificado": False,
+    }
+    monkeypatch.setattr(controller.usuario_dao, "obtener_por_username", lambda username: usuario)
+    monkeypatch.setattr(
+        controller.usuario_dao,
+        "verificar_password",
+        lambda password, password_hash: password == "Pass123!",
+    )
+
+    assert controller.autenticar_pendiente_verificacion("ana", "incorrecta") is None
+    assert controller.autenticar_pendiente_verificacion("ana", "Pass123!") == usuario
+
+
 def test_usuario_dao_asigna_propietario_al_primer_registro(monkeypatch):
     consultas = []
 
@@ -799,6 +909,27 @@ def test_usuario_dao_asigna_propietario_al_primer_registro(monkeypatch):
     assert usuario_id == 12
     assert insercion[-1] == "propietario"
     assert any("release_lock" in sql for sql, _ in consultas)
+
+
+def test_obtener_propietario_no_duplica_limit_en_consulta(monkeypatch):
+    import db.base_dao as base_dao
+
+    consulta = {}
+
+    def capturar_consulta(sql, parametros=(), **kwargs):
+        consulta["sql"] = sql
+        consulta["parametros"] = parametros
+        return None
+
+    monkeypatch.setattr(base_dao, "ejecutar_consulta", capturar_consulta)
+
+    db_module.UsuarioDAO().obtener_propietario()
+
+    assert consulta["sql"] == (
+        "SELECT * FROM usuario WHERE rol = %s AND activo = TRUE "
+        "ORDER BY id_usuario LIMIT 1"
+    )
+    assert consulta["parametros"] == ("propietario",)
 
 
 def test_lector_no_puede_eliminar_actividad(monkeypatch):

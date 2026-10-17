@@ -7,6 +7,9 @@ class ModeloLogin:
     def login(self, email, password):
         return self.auth.login(email, password)
 
+    def autenticar_pendiente_verificacion(self, credencial, password):
+        return self.auth.autenticar_pendiente_verificacion(credencial, password)
+
     def registrar_usuario(self, nombre, apellido, email, password, username=None,
                           cuenta_administrador=False, password_propietario=None):
         return self.auth.registrar_usuario(
